@@ -7,6 +7,10 @@ x-api: &api
       required: false
   environment:
     APP_ENV: dev
+    OWNER_EMAIL: ${OWNER_EMAIL:-owner@localhost.test}
+    SMTP_HOST: mailpit
+    SMTP_PORT: 1025
+    EMAIL_PROVIDER: smtp
     APP_BASE_URL: http://localhost:5173
     DATABASE_URL: postgresql+asyncpg://kairos:kairos@db:5432/kairos
     REDIS_URL: redis://redis:6379/0
@@ -43,7 +47,12 @@ services:
 
   api:
     <<: *api
-    command: uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload
+    command: sh -c "alembic upgrade head && uvicorn app.main:create_app --factory --host 0.0.0.0 --port 8000 --reload --no-access-log"
+    healthcheck:
+      test: [CMD, python, -c, "import urllib.request; urllib.request.urlopen('http://localhost:8000/readyz')"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
     ports:
       - 127.0.0.1:8000:8000
 

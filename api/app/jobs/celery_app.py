@@ -7,6 +7,7 @@ from app.config import get_settings
 settings = get_settings()
 celery_app = Celery("kairos", broker=settings.redis_url, backend=settings.redis_url)
 celery_app.conf.update(
+    imports=["app.auth.tasks"],
     task_serializer="json",
     result_serializer="json",
     accept_content=["json"],
@@ -14,3 +15,7 @@ celery_app.conf.update(
     enable_utc=True,
     broker_connection_retry_on_startup=True,
 )
+
+from app.integrations.jobs import configure_jobs
+
+configure_jobs(celery_app)

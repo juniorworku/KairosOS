@@ -17,6 +17,9 @@ dependencies = [
   "alembic==1.15.2",
   "redis==5.2.1",
   "celery[redis]==5.5.2",
+  "httpx==0.28.1",
+  "PyJWT[crypto]==2.15.1",
+  "cryptography==50.0.2",
 ]
 
 [project.optional-dependencies]

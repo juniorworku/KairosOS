@@ -44,7 +44,16 @@ def test_failed_readiness_is_sanitized() -> None:
 
 
 def test_production_hsts() -> None:
-    with TestClient(create_app(Settings(app_env="production"))) as client:
+    with TestClient(
+        create_app(
+            Settings(
+                app_env="production",
+                app_base_url="https://kairos.example",
+                secret_key="x" * 32,
+                smtp_starttls=True,
+            )
+        )
+    ) as client:
         assert "max-age" in client.get("/healthz").headers["strict-transport-security"]
 
 
