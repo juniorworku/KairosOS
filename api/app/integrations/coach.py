@@ -502,7 +502,8 @@ async def suggest(
                     detail={
                         "code": "ai_unavailable",
                         "message": (
-                            "Coaching is unavailable. This attempt still counts toward your allowance."
+                            "Coaching is unavailable. "
+                            "This attempt still counts toward your allowance."
                         ),
                     },
                 ) from exc

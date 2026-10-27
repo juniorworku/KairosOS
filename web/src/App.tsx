@@ -100,7 +100,9 @@ export default function App() {
       </a>
       <div className="mobile-bar">
         <Link to="/today" className="brand">
-          <span className="brand-mark">k</span>
+          <span className="brand-mark" aria-hidden="true">
+            k
+          </span>
           {c.brand}
         </Link>
         <Button
@@ -113,7 +115,9 @@ export default function App() {
       </div>
       <aside className={`sidebar ${open ? "open" : ""}`}>
         <Link to="/today" className="brand">
-          <span className="brand-mark">k</span>
+          <span className="brand-mark" aria-hidden="true">
+            k
+          </span>
           {c.brand}
         </Link>
         <nav aria-label={c.brand}>

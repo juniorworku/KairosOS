@@ -697,7 +697,22 @@ function Editor({ existing }: { existing?: Goal }) {
                           }
                         />
                       </Field>
-                      {a.kind==='project'&&<label className="checkbox project-estimate-toggle"><input type="checkbox" checked={a.total_minutes_estimate!==null} onChange={e=>action(i,{total_minutes_estimate:e.target.checked?120:null})}/>{c.goals.form.finite}</label>}
+                      {a.kind === "project" && (
+                        <label className="checkbox project-estimate-toggle">
+                          <input
+                            type="checkbox"
+                            checked={a.total_minutes_estimate !== null}
+                            onChange={(e) =>
+                              action(i, {
+                                total_minutes_estimate: e.target.checked
+                                  ? 120
+                                  : null,
+                              })
+                            }
+                          />
+                          {c.goals.form.finite}
+                        </label>
+                      )}
                     </div>
                   </div>
                 ))}

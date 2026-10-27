@@ -45,6 +45,7 @@ export function useReplay() {
   const client = useQueryClient();
   const [error, setError] = useState<unknown>();
   useEffect(() => {
+    setError(undefined);
     if (online)
       void replayQueue()
         .then(() => client.invalidateQueries())

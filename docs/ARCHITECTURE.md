@@ -45,3 +45,7 @@ The PWA shell uses prompt-based service-worker updates. Private cached reads and
 OpenAPI is exported without connecting to infrastructure. The generated TypeScript schema is committed, regenerated after endpoint changes, and checked for drift. Python and npm dependency locks are committed. Tests cover pure calculations, real isolated PostgreSQL ownership/security cases, fake provider contracts, web behavior, browser workflows, and extension rule generation.
 
 No deployment or publishing is configured. Personal Mode, companion/helper processes, activity collection, OS automation, and interventions remain deferred.
+
+Coaching requests reserve their maximum output allowance before network work. If cancellation or an interrupted provider response leaves usage unknown, the reservation remains; it is an allowance reservation, not a claim about billed tokens. Completed requests use confirmed counts. Daily and monthly quota errors include their actual reset time.
+
+Compose keeps web dependencies and generated `dist` output in named volumes, so container builds do not change host build-file ownership. Optional ignored wheels in `api/wheelhouse` can speed local dependency installation; a clean checkout falls back to the normal pinned registry install.

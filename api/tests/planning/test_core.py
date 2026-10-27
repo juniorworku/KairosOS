@@ -364,3 +364,53 @@ def test_blocklists_default_snapshot_and_ownership(planning_client: TestClient) 
         ).status_code
         == 404
     )
+
+
+@pytest.mark.parametrize("linked_status", ["published", "completed", "skipped"])
+def test_goal_delete_preserves_published_calendar_links_until_reconciled(
+    planning_client: TestClient,
+    linked_status: str,
+) -> None:
+    client = planning_client
+    sign_in(client)
+    goal = add_goal(client)
+    checked = client.post(
+        f"/api/v1/goals/{goal['id']}/checkins", json={"metric_value": 5}, headers=csrf(client)
+    )
+    assert checked.status_code == 201
+    week = next_week().isoformat()
+    draft = client.post("/api/v1/plan/draft", json={"week_start": week}, headers=csrf(client))
+    block_id = draft.json()["blocks"][0]["id"]
+
+    async def change_status(status: str) -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            block = await db.get(PlanningRecord, block_id)
+            assert block is not None
+            block.payload = {
+                **block.payload,
+                "status": status,
+                "google_event_id": "live-google-event",
+            }
+            await db.commit()
+
+    assert client.portal is not None
+    client.portal.call(change_status, linked_status)
+    refused = client.delete(f"/api/v1/goals/{goal['id']}", headers=csrf(client))
+    assert refused.status_code == 409
+    assert "Google Calendar" in refused.text
+    remaining_goal = client.get(f"/api/v1/goals/{goal['id']}")
+    assert remaining_goal.status_code == 200
+    assert [item["id"] for item in remaining_goal.json()["checkins"]] == [checked.json()["id"]]
+
+    async def verify_link_preserved() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            block = await db.get(PlanningRecord, block_id)
+            assert block is not None
+            assert block.payload["status"] == linked_status
+            assert block.payload["google_event_id"] == "live-google-event"
+
+    client.portal.call(verify_link_preserved)
+    client.portal.call(change_status, "cancelled")
+    assert client.delete(f"/api/v1/goals/{goal['id']}", headers=csrf(client)).status_code == 204
+    assert client.get(f"/api/v1/goals/{goal['id']}").status_code == 404
+    assert client.get(f"/api/v1/plan/week?start={week}").json() == []

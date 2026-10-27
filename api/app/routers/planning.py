@@ -179,6 +179,20 @@ async def edit_goal(identifier: str, body: GoalInput, db: DB, user: Owner) -> Go
 async def delete_goal(identifier: str, db: DB, user: Owner) -> Response:
     await lock_owner(db, user)
     row = await owned(db, user, "goal", identifier)
+    blocks = await records(db, user, "block")
+    if any(
+        block.payload.get("goal_id") == identifier
+        and (
+            block.payload["status"] == "published"
+            or (block.payload.get("google_event_id") and block.payload["status"] != "cancelled")
+        )
+        for block in blocks
+    ):
+        raise fail(
+            "published_blocks",
+            "Delete this goal's blocks in Google Calendar, then sync before deleting the goal.",
+            409,
+        )
     for kind in ("checkin", "block", "focus"):
         for child in await records(db, user, kind):
             if child.payload.get("goal_id") == identifier:

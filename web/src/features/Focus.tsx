@@ -278,7 +278,7 @@ export function FocusPage() {
                       setRating(0);
                     }}
                   >
-                    {c.cancel}
+                    {c.focus.skipRating}
                   </Button>
                   <Button className="primary" disabled={busy}>
                     {c.focus.save}

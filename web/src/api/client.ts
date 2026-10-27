@@ -1,4 +1,5 @@
 import { openDB } from "idb";
+import { copy as c } from "../copy/en";
 import type { User, FocusSession } from "./types";
 export class ApiError extends Error {
   constructor(
@@ -79,10 +80,22 @@ export async function api<T>(
   }
   if (!response.ok) {
     const data = (await response.json().catch(() => ({}))) as {
-      error?: { code?: string; message?: string };
+      error?: { code?: string; message?: string; resets_at?: string };
       detail?: string | { msg: string }[];
     };
     let message = data.error?.message;
+    if (data.error?.code === "quota_exceeded" && data.error.resets_at) {
+      const reset = new Date(data.error.resets_at);
+      if (!Number.isNaN(reset.getTime()))
+        message = c.coach.quotaReset(
+          reset.toLocaleString(undefined, {
+            month: "short",
+            day: "numeric",
+            hour: "numeric",
+            minute: "2-digit",
+          }),
+        );
+    }
     if (!message)
       message =
         typeof data.detail === "string"
@@ -123,15 +136,13 @@ export async function queueWrite(path: string, body: Record<string, unknown>) {
     ) + 1,
   );
   await transaction.objectStore("reads").put(sequence, "queue-sequence");
-  await transaction
-    .objectStore("queue")
-    .put({
-      id,
-      account: accountId,
-      path,
-      body: { ...body, client_event_id: id },
-      queued_at: sequence,
-    } satisfies Queued);
+  await transaction.objectStore("queue").put({
+    id,
+    account: accountId,
+    path,
+    body: { ...body, client_event_id: id },
+    queued_at: sequence,
+  } satisfies Queued);
   if (/^\/focus\/[^/]+\/end$/.test(path)) {
     const store = transaction.objectStore("reads");
     const active = (await store.get(`${accountId}:/focus/active`)) as

@@ -1815,7 +1815,21 @@ td .button {
   }
 }
 
-.project-estimate-toggle { grid-column: 1 / -1; margin-bottom: 0; }
-.suggestion-preview { border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin: 18px 0; font-size: 12px; line-height: 1.8; }
-.suggestion-preview ul { padding-left: 18px; }
-.suggestion-preview p { color: var(--muted); }
+.project-estimate-toggle {
+  grid-column: 1 / -1;
+  margin-bottom: 0;
+}
+.suggestion-preview {
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 18px;
+  margin: 18px 0;
+  font-size: 12px;
+  line-height: 1.8;
+}
+.suggestion-preview ul {
+  padding-left: 18px;
+}
+.suggestion-preview p {
+  color: var(--muted);
+}

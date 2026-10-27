@@ -192,6 +192,15 @@ async def calendar_callback(
 
 async def sync_user(db: AsyncSession, user_id: str) -> None:
     config = require_calendar()
+    # Match planning/publication lock order: owner, calendar connection, then blocks.
+    user = await db.scalar(
+        select(User)
+        .where(User.id == user_id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if user is None or user.disabled_at is not None:
+        return
     connection = await connection_for(db, user_id, lock=True)
     async with httpx.AsyncClient(timeout=20) as client:
         google = GoogleCalendar(config, client)
@@ -300,7 +309,10 @@ class PublishInput(BaseModel):
 
 @calendar_router.post("/publish")
 async def calendar_publish(body: PublishInput, db: DB, user: Owner) -> dict[str, list[str]]:
+    from app.routers.planning import lock_owner
+
     config = require_calendar()
+    await lock_owner(db, user)
     connection = await connection_for(db, user.id, lock=True)
     if not connection.app_calendar_id or WRITE_SCOPE not in connection.scopes:
         raise HTTPException(

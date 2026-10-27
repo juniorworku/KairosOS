@@ -168,6 +168,9 @@ def test_quota_reservation_exact_boundary_and_global_cap(integration_client: Tes
                     return True
                 except HTTPException as error:
                     assert error.status_code == 429
+                    assert error.detail["message"] == "Your daily coaching allowance has been used."
+                    reset = datetime.fromisoformat(error.detail["resets_at"])
+                    assert reset.hour == 0 and reset.date() > datetime.now(UTC).date()
                     return False
 
         results = await asyncio.gather(reserve_once(), reserve_once())
@@ -522,6 +525,123 @@ def test_interrupted_stream_keeps_reservation_and_monthly_concurrency_is_bounded
             rows = list((await db.scalars(select(AICall))).all())
             assert len(rows) == 2
             assert sum(row.output_tokens for row in rows) == 3000
+
+    assert client.portal
+    client.portal.call(run)
+
+
+@pytest.mark.parametrize("winner", ["publish", "delete"])
+def test_calendar_publication_and_goal_deletion_serialize_on_owner(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    winner: str,
+) -> None:
+    import json
+
+    import httpx
+
+    import app.integrations.router as calendar_module
+    from app.integrations.calendar import FREEBUSY_SCOPE, WRITE_SCOPE, encrypt_token
+    from app.integrations.models import CalendarConnection
+    from app.integrations.router import PublishInput, calendar_publish
+    from app.routers.planning import delete_goal
+
+    client = integration_client
+    key = configure_calendar(monkeypatch)
+    user = login(client)
+    original_client = httpx.AsyncClient
+
+    async def run() -> None:
+        factory = client.app.state.session_factory  # type: ignore[union-attr]
+        request_started = asyncio.Event()
+        release_request = asyncio.Event()
+        deletion_started = asyncio.Event()
+        published_ids: list[str] = []
+
+        async def transport(request: httpx.Request) -> httpx.Response:
+            if request.url.host == "oauth2.googleapis.com":
+                return httpx.Response(200, json={"access_token": "test-access"})
+            assert request.method == "POST" and request.url.path.endswith("/events")
+            payload = json.loads(request.content)
+            published_ids.append(payload["id"])
+            request_started.set()
+            await release_request.wait()
+            return httpx.Response(200, json={"id": payload["id"]})
+
+        def fake_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+            return original_client(*args, transport=httpx.MockTransport(transport), **kwargs)
+
+        monkeypatch.setattr(calendar_module.httpx, "AsyncClient", fake_client)
+        async with factory() as db:
+            db.add(
+                CalendarConnection(
+                    user_id=user["id"],
+                    token_enc=encrypt_token({"refresh_token": "test-refresh"}, key),
+                    scopes=[FREEBUSY_SCOPE, WRITE_SCOPE],
+                    app_calendar_id="kairos-test-calendar",
+                )
+            )
+            goal = PlanningRecord(
+                user_id=user["id"],
+                kind="goal",
+                payload={"title": "Write", "actions": [{"id": "action-1", "title": "Draft"}]},
+            )
+            db.add(goal)
+            await db.flush()
+            block = PlanningRecord(
+                user_id=user["id"],
+                kind="block",
+                payload={
+                    "goal_id": goal.id,
+                    "status": "accepted",
+                    "title": "Draft",
+                    "start_at": "2026-10-28T09:00:00+00:00",
+                    "end_at": "2026-10-28T10:00:00+00:00",
+                },
+            )
+            db.add(block)
+            await db.commit()
+            goal_id, block_id = goal.id, block.id
+
+        async def publish() -> dict[str, list[str]]:
+            async with factory() as db:
+                owner = await db.get(User, user["id"])
+                assert owner
+                return await calendar_publish(PublishInput(block_ids=[block_id]), db, owner)
+
+        async def delete() -> int:
+            async with factory() as db:
+                owner = await db.get(User, user["id"])
+                assert owner
+                deletion_started.set()
+                try:
+                    result = await delete_goal(goal_id, db, owner)
+                    return result.status_code
+                except HTTPException as error:
+                    return error.status_code
+
+        if winner == "publish":
+            publishing = asyncio.create_task(publish())
+            await asyncio.wait_for(request_started.wait(), timeout=3)
+            deleting = asyncio.create_task(delete())
+            await asyncio.wait_for(deletion_started.wait(), timeout=3)
+            await asyncio.sleep(0.1)
+            assert not deleting.done(), "Deletion must wait while publication owns the user lock"
+            release_request.set()
+            assert (await publishing)["published"] == [block_id]
+            assert await deleting == 409
+            async with factory() as db:
+                assert await db.get(PlanningRecord, goal_id) is not None
+                stored = await db.get(PlanningRecord, block_id)
+                assert stored is not None
+                assert stored.payload["status"] == "published"
+                assert stored.payload["google_event_id"] == published_ids[0]
+        else:
+            assert await delete() == 204
+            with pytest.raises(HTTPException) as error:
+                await publish()
+            assert error.value.status_code == 404
+            assert published_ids == [], "A deleted goal must never reach the provider write path"
 
     assert client.portal
     client.portal.call(run)

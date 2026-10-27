@@ -219,6 +219,7 @@ export const copy = {
     complete: "Session finished",
     rate: "How focused were you?",
     rating: "Focus rating",
+    skipRating: "Skip rating",
     save: "Save session",
     history: "Recent sessions",
     none: "No sessions recorded.",
@@ -245,6 +246,7 @@ export const copy = {
   },
   coach: {
     title: "Coach",
+    quotaReset: (date: string) => `Coaching allowance used. Resets ${date}.`,
     suggestGoal: "Suggest a measure",
     suggestActions: "Suggest actions",
     suggestObstacles: "Suggest if-then plans",

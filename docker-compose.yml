@@ -74,6 +74,7 @@ services:
     volumes:
       - ./web:/app
       - web-node-modules:/app/node_modules
+      - web-dist:/app/dist
     ports:
       - 127.0.0.1:5173:5173
     depends_on:
@@ -87,3 +88,4 @@ services:
 volumes:
   postgres-data:
   web-node-modules:
+  web-dist:
