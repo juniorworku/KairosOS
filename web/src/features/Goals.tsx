@@ -671,7 +671,7 @@ function Editor({ existing }: { existing?: Goal }) {
                         <input
                           type="number"
                           min={1}
-                          max={10080}
+                          max={a.total_minutes_estimate === null ? 10080 : undefined}
                           step={1}
                           required
                           value={

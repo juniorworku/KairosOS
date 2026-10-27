@@ -264,6 +264,7 @@ export function Settings({
                 ? c.settings.calendarHint
                 : c.settings.unconfigured}
             </p>
+            {calendar.data?.connected && <p className="form-hint">{c.settings.disconnectHint}</p>}
             {calendar.data?.connected && (
               <div className="button-row">
                 <Button

@@ -271,6 +271,9 @@ async def reconcile(
                     parse_timestamp(string_value(left["dateTime"])),
                     parse_timestamp(string_value(right["dateTime"])),
                 )
+                # Calendar refresh updates the link, not locally recorded completion/skip evidence.
+                if payload.get("status") not in {"completed", "skipped"}:
+                    payload["status"] = "published"
                 if start.isoformat() != payload.get("start_at") or end.isoformat() != payload.get(
                     "end_at"
                 ):
@@ -372,6 +375,9 @@ async def calendar_publish(body: PublishInput, db: DB, user: Owner) -> dict[str,
 
 @calendar_router.post("/disconnect")
 async def calendar_disconnect(db: DB, user: Owner) -> dict[str, str]:
+    from app.routers.planning import lock_owner
+
+    await lock_owner(db, user)
     connection = await db.scalar(
         select(CalendarConnection).where(CalendarConnection.user_id == user.id).with_for_update()
     )
@@ -391,6 +397,21 @@ async def calendar_disconnect(db: DB, user: Owner) -> dict[str, str]:
                     "Google could not revoke access. Try again.", "calendar_unavailable"
                 ) from exc
         await db.delete(connection)
+    # Disconnect intentionally stops management; existing Google events remain untouched.
+    blocks = (
+        await db.scalars(
+            select(PlanningRecord)
+            .where(PlanningRecord.user_id == user.id, PlanningRecord.kind == "block")
+            .with_for_update()
+        )
+    ).all()
+    for block in blocks:
+        payload = dict(block.payload)
+        payload.pop("google_event_id", None)
+        payload.pop("google_etag", None)
+        if payload.get("status") == "published":
+            payload["status"] = "accepted"
+        block.payload = payload
     await db.execute(delete(CalendarBusy).where(CalendarBusy.user_id == user.id))
     await db.commit()
     return {"status": "disconnected"}

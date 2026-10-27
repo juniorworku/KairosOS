@@ -293,6 +293,7 @@ export const copy = {
     calendar: "Google Calendar",
     connect: "Connect availability",
     disconnect: "Disconnect",
+    disconnectHint: "Existing events will stay in Google Calendar.",
     notConnected: "Not connected",
     connected: "Connected",
     reauth: "Reconnect required",
@@ -315,7 +316,7 @@ export const copy = {
     export: "Export data",
     delete: "Delete account",
     deleteWarning:
-      "Delete this account and all its data? This cannot be undone.",
+      "Delete your Kairos account and saved data? This cannot be undone. Events already sent to Google Calendar will remain there.",
     deleteConfirm: "Type DELETE to confirm",
     enable: "Enabled",
     disable: "Disabled",

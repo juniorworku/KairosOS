@@ -171,6 +171,7 @@ class BlockResponse(PlanningModel):
     reason: str
     week_start: date
     moved_count: int = 0
+    google_event_id: str | None = None
 
 
 class DraftResponse(PlanningModel):

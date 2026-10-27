@@ -3373,6 +3373,17 @@
             "type": "integer",
             "title": "Moved Count",
             "default": 0
+          },
+          "google_event_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Google Event Id"
           }
         },
         "type": "object",

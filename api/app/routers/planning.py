@@ -520,6 +520,13 @@ async def accept(body: AcceptInput, db: DB, user: Owner) -> list[dict[str, Any]]
 async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> dict[str, Any]:
     await lock_owner(db, user)
     row = await owned(db, user, "block", identifier)
+    linked_live = row.payload["status"] == "published" or (
+        bool(row.payload.get("google_event_id")) and row.payload["status"] != "cancelled"
+    )
+    if linked_live and (body.start_at is not None or body.end_at is not None):
+        raise fail("published_move", "Move this block in Google Calendar, then sync.", 409)
+    if linked_live and body.status == "cancelled":
+        raise fail("published_cancel", "Delete this block in Google Calendar, then sync.", 409)
     if row.payload["status"] == "published" and body.status == "accepted":
         raise fail("invalid_state", "This block is already published", 409)
     payload = {**row.payload, **body.model_dump(mode="json", exclude_none=True)}
@@ -542,12 +549,6 @@ async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> 
                 and end > instant(other.payload["start_at"])
             ):
                 raise fail("conflict", "This move overlaps an accepted block", 409)
-        if row.payload["status"] == "published":
-            raise fail(
-                "published_move",
-                "Move this published block in Google Calendar",
-                409,
-            )
     elif body.status == "accepted":
         await validate_placements(db, user, [(row.id, payload)])
     row.payload = payload
@@ -559,8 +560,10 @@ async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> 
 async def delete_block(identifier: str, db: DB, user: Owner) -> Response:
     await lock_owner(db, user)
     row = await owned(db, user, "block", identifier)
-    if row.payload["status"] == "published":
-        raise fail("published_delete", "Delete this block in Google Calendar", 409)
+    if row.payload["status"] == "published" or (
+        row.payload.get("google_event_id") and row.payload["status"] != "cancelled"
+    ):
+        raise fail("published_delete", "Delete this block in Google Calendar, then sync.", 409)
     for focus in await records(db, user, "focus"):
         if focus.payload.get("time_block_id") == identifier:
             focus.payload = {**focus.payload, "time_block_id": None}

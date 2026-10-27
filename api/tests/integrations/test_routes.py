@@ -645,3 +645,219 @@ def test_calendar_publication_and_goal_deletion_serialize_on_owner(
 
     assert client.portal
     client.portal.call(run)
+
+
+@pytest.mark.parametrize("status", ["published", "completed", "skipped"])
+def test_live_link_blocks_local_move_delete_and_cancel(
+    integration_client: TestClient,
+    status: str,
+) -> None:
+    from app.routers.planning import delete_block, edit_block
+    from app.schemas.planning import BlockPatch
+
+    client = integration_client
+    user = login(client)
+
+    async def run() -> None:
+        factory = client.app.state.session_factory  # type: ignore[union-attr]
+        async with factory() as db:
+            block = PlanningRecord(
+                user_id=user["id"],
+                kind="block",
+                payload={
+                    "status": status,
+                    "google_event_id": "live-event",
+                    "start_at": "2026-10-28T09:00:00+00:00",
+                    "end_at": "2026-10-28T10:00:00+00:00",
+                },
+            )
+            db.add(block)
+            await db.commit()
+            identifier = block.id
+        for operation in ["delete", "cancel", "move"]:
+            async with factory() as db:
+                owner = await db.get(User, user["id"])
+                assert owner
+                with pytest.raises(HTTPException) as error:
+                    if operation == "delete":
+                        await delete_block(identifier, db, owner)
+                    else:
+                        body = (
+                            BlockPatch(status="cancelled")
+                            if operation == "cancel"
+                            else BlockPatch(start_at=datetime(2026, 10, 28, 9, 30, tzinfo=UTC))
+                        )
+                        await edit_block(identifier, body, db, owner)
+                assert error.value.status_code == 409
+                assert "Google Calendar" in str(error.value.detail)
+        async with factory() as db:
+            stored = await db.get(PlanningRecord, identifier)
+            assert stored and stored.payload["status"] == status
+            assert stored.payload["google_event_id"] == "live-event"
+
+    assert client.portal
+    client.portal.call(run)
+
+
+@pytest.mark.parametrize("local_status", ["completed", "skipped"])
+def test_calendar_refresh_preserves_local_outcome_and_external_delete_cancels(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    local_status: str,
+) -> None:
+    import httpx
+
+    import app.integrations.router as calendar_module
+    from app.integrations.calendar import FREEBUSY_SCOPE, WRITE_SCOPE, encrypt_token
+    from app.integrations.models import CalendarConnection
+    from app.integrations.router import sync_user
+
+    client = integration_client
+    key = configure_calendar(monkeypatch)
+    user = login(client)
+    original_client = httpx.AsyncClient
+    external_deleted = False
+
+    async def transport(request: httpx.Request) -> httpx.Response:
+        if request.url.host == "oauth2.googleapis.com":
+            return httpx.Response(200, json={"access_token": "test-access"})
+        if request.url.path.endswith("/freeBusy"):
+            return httpx.Response(200, json={"calendars": {"primary": {"busy": []}}})
+        assert request.method == "GET" and request.url.path.endswith("/events")
+        item = (
+            {"id": "live-event", "status": "cancelled"}
+            if external_deleted
+            else {
+                "id": "live-event",
+                "status": "confirmed",
+                "start": {"dateTime": "2026-10-28T09:00:00+00:00"},
+                "end": {"dateTime": "2026-10-28T10:00:00+00:00"},
+            }
+        )
+        return httpx.Response(200, json={"items": [item], "nextSyncToken": "next-token"})
+
+    def fake_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        return original_client(*args, transport=httpx.MockTransport(transport), **kwargs)
+
+    monkeypatch.setattr(calendar_module.httpx, "AsyncClient", fake_client)
+
+    async def run() -> None:
+        nonlocal external_deleted
+        factory = client.app.state.session_factory  # type: ignore[union-attr]
+        async with factory() as db:
+            db.add(
+                CalendarConnection(
+                    user_id=user["id"],
+                    token_enc=encrypt_token({"refresh_token": "test-refresh"}, key),
+                    scopes=[FREEBUSY_SCOPE, WRITE_SCOPE],
+                    app_calendar_id="kairos-test-calendar",
+                )
+            )
+            block = PlanningRecord(
+                user_id=user["id"],
+                kind="block",
+                payload={
+                    "status": local_status,
+                    "google_event_id": "live-event",
+                    "moved_count": 0,
+                    "start_at": "2026-10-28T09:00:00+00:00",
+                    "end_at": "2026-10-28T10:00:00+00:00",
+                },
+            )
+            db.add(block)
+            await db.commit()
+            identifier = block.id
+        async with factory() as db:
+            await sync_user(db, user["id"])
+        async with factory() as db:
+            stored = await db.get(PlanningRecord, identifier)
+            assert stored and stored.payload["status"] == local_status
+            assert stored.payload["google_event_id"] == "live-event"
+            assert stored.payload["moved_count"] == 0
+        external_deleted = True
+        async with factory() as db:
+            await sync_user(db, user["id"])
+        async with factory() as db:
+            stored = await db.get(PlanningRecord, identifier)
+            assert stored and stored.payload["status"] == "cancelled"
+
+    assert client.portal
+    client.portal.call(run)
+
+
+def test_calendar_disconnect_detaches_blocks_without_deleting_google_events(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import httpx
+
+    import app.integrations.router as calendar_module
+    from app.integrations.calendar import FREEBUSY_SCOPE, WRITE_SCOPE, encrypt_token
+    from app.integrations.models import CalendarConnection
+    from app.integrations.router import calendar_disconnect
+
+    client = integration_client
+    key = configure_calendar(monkeypatch)
+    user = login(client)
+    original_client = httpx.AsyncClient
+    requests: list[httpx.Request] = []
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        requests.append(request)
+        assert request.method == "POST" and request.url.host == "oauth2.googleapis.com"
+        assert request.url.path == "/revoke"
+        return httpx.Response(200)
+
+    def fake_client(*args: Any, **kwargs: Any) -> httpx.AsyncClient:
+        return original_client(*args, transport=httpx.MockTransport(transport), **kwargs)
+
+    monkeypatch.setattr(calendar_module.httpx, "AsyncClient", fake_client)
+
+    async def run() -> None:
+        factory = client.app.state.session_factory  # type: ignore[union-attr]
+        async with factory() as db:
+            db.add(
+                CalendarConnection(
+                    user_id=user["id"],
+                    token_enc=encrypt_token({"refresh_token": "test-refresh"}, key),
+                    scopes=[FREEBUSY_SCOPE, WRITE_SCOPE],
+                    app_calendar_id="kairos-test-calendar",
+                )
+            )
+            for status in ["published", "completed", "skipped", "cancelled"]:
+                db.add(
+                    PlanningRecord(
+                        user_id=user["id"],
+                        kind="block",
+                        payload={
+                            "status": status,
+                            "original_status": status,
+                            "google_event_id": "event-" + status,
+                            "google_etag": "test-etag",
+                        },
+                    )
+                )
+            await db.commit()
+        async with factory() as db:
+            owner = await db.get(User, user["id"])
+            assert owner
+            assert await calendar_disconnect(db, owner) == {"status": "disconnected"}
+        async with factory() as db:
+            assert await db.scalar(select(CalendarConnection)) is None
+            rows = (
+                await db.scalars(select(PlanningRecord).where(PlanningRecord.kind == "block"))
+            ).all()
+            assert len(rows) == 4
+            for row in rows:
+                assert "google_event_id" not in row.payload
+                assert "google_etag" not in row.payload
+                expected = (
+                    "accepted"
+                    if row.payload["original_status"] == "published"
+                    else row.payload["original_status"]
+                )
+                assert row.payload["status"] == expected
+
+    assert client.portal
+    client.portal.call(run)
+    assert len(requests) == 1

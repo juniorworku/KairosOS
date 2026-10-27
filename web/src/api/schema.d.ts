@@ -1301,6 +1301,8 @@ export interface components {
              * @default 0
              */
             moved_count: number;
+            /** Google Event Id */
+            google_event_id?: string | null;
         };
         /** BlocklistInput */
         BlocklistInput: {
