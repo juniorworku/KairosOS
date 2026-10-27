@@ -2,7 +2,13 @@
 
 Current scope is a personal productivity app. The Users, invites, and administration screens have been removed. Sign-in, personal settings, session controls, export, and account deletion remain. Existing account data has not been deleted.
 
-## Next priorities
+## Backend first
+
+The current pass is assigned in [Backend reliability](BACKEND_RELIABILITY.md), including a direct review of all ten reference screenshots. The first reliability pass is complete: manual planning, calendar recovery, focus completion/statistics, and grounded coaching context are covered by 151 passing backend tests. API contracts and web/extension types are current; see [Verification](VERIFICATION.md). This does not complete the remaining calendar/task feature model below.
+
+The next calendar UI pass must expose direct block creation and editing, keep goals/tasks visible beside the week, and distinguish proposals from accepted work. Named external/all-day events, recurrence, independent tasks/support areas, historical trend data, and typed apply-able schedule recommendations still require backend work; they are not merely styling changes.
+
+## External setup and later work
 
 1. **Google Calendar:** configure OAuth credentials and the encryption key; verify real availability, publication, rescheduling, deletion, and reconnect behavior.
 2. **Coaching:** configure an Anthropic or Gemini key/model; verify live suggestions, streaming replies, consent, and quota messages.

@@ -4,13 +4,15 @@ import asyncio
 import base64
 import hashlib
 import json
-from datetime import UTC, datetime
+from dataclasses import dataclass
+from datetime import UTC, date, datetime, time
 from typing import cast
 from urllib.parse import quote
+from zoneinfo import ZoneInfo, ZoneInfoNotFoundError
 
 import httpx
 from cryptography.fernet import Fernet, InvalidToken
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.config import IntegrationSettings
@@ -28,6 +30,41 @@ class CalendarUnavailable(Exception):
 
 class CalendarReauth(CalendarUnavailable):
     pass
+
+
+class CalendarHTTPError(CalendarUnavailable):
+    def __init__(self, status_code: int) -> None:
+        self.status_code = status_code
+        super().__init__("Google Calendar request failed")
+
+
+@dataclass(frozen=True)
+class PublishedEvent:
+    event_id: str
+    data: dict[str, Json]
+
+
+def stable_event_id(block_id: str) -> str:
+    return "k" + hashlib.sha256(block_id.encode()).hexdigest()[:40]
+
+
+def event_bounds(event: dict[str, Json], timezone: str) -> tuple[datetime, datetime, bool]:
+    left, right = object_value(event.get("start")), object_value(event.get("end"))
+    if isinstance(left.get("dateTime"), str) and isinstance(right.get("dateTime"), str):
+        start = parse_timestamp(string_value(left["dateTime"]))
+        end = parse_timestamp(string_value(right["dateTime"]))
+        all_day = False
+    else:
+        try:
+            zone = ZoneInfo(string_value(left.get("timeZone", timezone)))
+        except ZoneInfoNotFoundError as exc:
+            raise CalendarUnavailable("Calendar timezone is invalid") from exc
+        start = datetime.combine(date.fromisoformat(string_value(left.get("date"))), time.min, zone)
+        end = datetime.combine(date.fromisoformat(string_value(right.get("date"))), time.min, zone)
+        start, end, all_day = start.astimezone(UTC), end.astimezone(UTC), True
+    if end <= start:
+        raise CalendarUnavailable("Calendar event duration is invalid")
+    return start, end, all_day
 
 
 def encrypt_token(token: dict[str, Json], key: str) -> bytes:
@@ -109,22 +146,31 @@ class GoogleCalendar:
         access: str,
         body: dict[str, Json] | None = None,
         params: dict[str, str] | None = None,
+        *,
+        retry_safe: bool = True,
     ) -> dict[str, Json]:
-        for attempt in range(3):
-            response = await self.client.request(
-                method,
-                API_URL + path,
-                headers={"Authorization": f"Bearer {access}"},
-                json=body,
-                params=params,
-            )
-            if response.status_code == 410:
-                raise CalendarUnavailable("sync_token_expired")
-            if response.status_code in {429, 500, 502, 503, 504} and attempt < 2:
+        attempts = 3 if retry_safe else 1
+        for attempt in range(attempts):
+            try:
+                response = await self.client.request(
+                    method,
+                    API_URL + path,
+                    headers={"Authorization": f"Bearer {access}"},
+                    json=body,
+                    params=params,
+                )
+            except (httpx.TimeoutException, httpx.NetworkError):
+                if attempt + 1 == attempts:
+                    raise
+                await asyncio.sleep(0.25 * 2**attempt)
+                continue
+            if response.status_code == 401:
+                raise CalendarReauth("Reconnect Google Calendar")
+            if response.status_code in {429, 500, 502, 503, 504} and attempt + 1 < attempts:
                 await asyncio.sleep(0.25 * 2**attempt)
                 continue
             if response.status_code >= 400:
-                raise CalendarUnavailable("Google Calendar request failed")
+                raise CalendarHTTPError(response.status_code)
             if response.status_code == 204:
                 return {}
             return object_value(cast(Json, response.json()))
@@ -154,15 +200,21 @@ class GoogleCalendar:
             for item in list_value(primary.get("busy", []))
         ]
 
-    async def create_calendar(self, access: str) -> str:
-        data = await self.request("POST", "/calendars", access, {"summary": "Kairos"})
+    async def create_calendar(self, access: str, timezone: str = "UTC") -> str:
+        # Google assigns calendar IDs: an ambiguous failure cannot safely be retried automatically.
+        data = await self.request(
+            "POST",
+            "/calendars",
+            access,
+            {"summary": "Kairos", "timeZone": timezone},
+            retry_safe=False,
+        )
         return string_value(data.get("id"))
 
     async def publish(
         self, access: str, calendar_id: str, block_id: str, title: str, start: str, end: str
-    ) -> str:
-        # A stable Google-compatible event ID makes retries idempotent, including after a crash.
-        event_id = "k" + hashlib.sha256(block_id.encode()).hexdigest()[:40]
+    ) -> PublishedEvent:
+        event_id = stable_event_id(block_id)
         path = f"/calendars/{quote(calendar_id, safe='')}/events"
         body: dict[str, Json] = {
             "id": event_id,
@@ -171,15 +223,19 @@ class GoogleCalendar:
             "end": {"dateTime": end},
             "extendedProperties": {"private": {"kairos_block_id": block_id}},
         }
-        response = await self.client.post(
-            API_URL + path, headers={"Authorization": f"Bearer {access}"}, json=body
-        )
-        if response.status_code == 409:
-            body.pop("id")
-            await self.request("PUT", path + "/" + event_id, access, body)
-        elif response.status_code >= 400:
-            raise CalendarUnavailable("Calendar block could not be published")
-        return event_id
+        try:
+            # Stable event IDs make network/429/5xx retry safe.
+            data = await self.request("POST", path, access, body)
+            return PublishedEvent(event_id, {**body, **data})
+        except CalendarHTTPError as exc:
+            if exc.status_code != 409:
+                raise
+        data = await self.request("GET", path + "/" + event_id, access)
+        private = object_value(object_value(data.get("extendedProperties", {})).get("private", {}))
+        if private.get("kairos_block_id") != block_id or data.get("status") == "cancelled":
+            raise CalendarUnavailable("The existing event cannot be claimed. Sync Google Calendar.")
+        # Never PUT on conflict: the user may have moved or edited the successful first write.
+        return PublishedEvent(event_id, data)
 
 
 async def read_calendar_busy(
@@ -207,10 +263,13 @@ async def replace_busy(
     await db.execute(
         delete(CalendarBusy).where(
             CalendarBusy.user_id == user_id,
-            CalendarBusy.start_at < end,
-            CalendarBusy.end_at > start,
+            or_(
+                CalendarBusy.end_at <= start,
+                (CalendarBusy.start_at < end) & (CalendarBusy.end_at > start),
+            ),
         )
     )
     for left, right in intervals:
-        if left < right:
-            db.add(CalendarBusy(user_id=user_id, start_at=left, end_at=right))
+        clipped_start, clipped_end = max(start, left), min(end, right)
+        if clipped_start < clipped_end:
+            db.add(CalendarBusy(user_id=user_id, start_at=clipped_start, end_at=clipped_end))

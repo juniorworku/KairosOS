@@ -1,5 +1,6 @@
 """Deterministic, I/O-free weekly planning in a user's local timezone."""
 
+from collections.abc import Iterator
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, time, timedelta
 from math import ceil
@@ -10,6 +11,15 @@ from zoneinfo import ZoneInfo
 class Interval:
     start: datetime
     end: datetime
+
+    def __post_init__(self) -> None:
+        if self.start.tzinfo is None or self.end.tzinfo is None:
+            raise ValueError("Intervals require timezone-aware, increasing timestamps")
+        start, end = self.start.astimezone(UTC), self.end.astimezone(UTC)
+        if end <= start:
+            raise ValueError("Intervals require timezone-aware, increasing timestamps")
+        object.__setattr__(self, "start", start)
+        object.__setattr__(self, "end", end)
 
 
 @dataclass(frozen=True)
@@ -27,6 +37,10 @@ class Action:
     habit: bool = True
     starts_on: date | None = None
     ends_on: date | None = None
+
+    def __post_init__(self) -> None:
+        if not 0 < self.minimum <= self.preferred <= self.maximum or self.weekly_minutes < 0:
+            raise ValueError("Action duration bounds and weekly quota must be valid")
 
 
 @dataclass(frozen=True)
@@ -87,6 +101,20 @@ def free_slots(
     return result
 
 
+def aligned_starts(slot: Interval, zone: ZoneInfo) -> Iterator[datetime]:
+    """Walk real instants, preserving both occurrences of a repeated DST hour."""
+    start = slot.start.astimezone(UTC)
+    local = start.astimezone(zone)
+    delta = (-local.minute) % 30
+    if not delta and (local.second or local.microsecond):
+        delta = 30
+    candidate = start.replace(second=0, microsecond=0) + timedelta(minutes=delta)
+    while candidate < slot.end:
+        if candidate >= slot.start and candidate.astimezone(zone).minute in (0, 30):
+            yield candidate
+        candidate += timedelta(minutes=30)
+
+
 def make_plan(
     week: date,
     timezone: str,
@@ -102,6 +130,7 @@ def make_plan(
     multiplier: float = 1.3,
     earliest: datetime | None = None,
     completion_history: dict[tuple[int, int], tuple[int, int]] | None = None,
+    existing_action_days: dict[str, set[date]] | None = None,
 ) -> Draft:
     zone = ZoneInfo(timezone)
     slots = free_slots(week, timezone, work_days, work_start, work_end, busy + (blackouts or []))
@@ -131,54 +160,50 @@ def make_plan(
         actions, key=lambda a: (-a.priority, -a.weekly_minutes, -int(a.deep), a.id)
     ):
         need = int(ceil(action.weekly_minutes * multiplier))
-        spread: set[date] = set()
+        spread = set((existing_action_days or {}).get(action.id, set()))
         while need >= action.minimum:
             candidates: list[tuple[float, datetime, int, int, date]] = []
             for index, slot in enumerate(slots):
-                local = slot.start.astimezone(zone)
-                minute = (
-                    (local.minute + 29 + int(bool(local.second or local.microsecond))) // 30 * 30
-                )
-                aligned = local.replace(minute=0, second=0, microsecond=0) + timedelta(
-                    minutes=minute
-                )
-                aligned = aligned.replace(fold=local.fold)
-                start = aligned.astimezone(UTC)
-                if start < slot.start:
+                first_start = next(aligned_starts(slot, zone), None)
+                if first_start is None:
                     continue
-                day = aligned.date()
-                if (action.starts_on and day < action.starts_on) or (
-                    action.ends_on and day > action.ends_on
-                ):
-                    continue
-                available = int((slot.end - start).total_seconds() // 60)
-                length = min(
-                    action.preferred,
-                    action.maximum,
-                    available,
-                    need,
-                    max(0, daily_cap - used.get(day, 0)),
-                )
-                if length < action.minimum:
-                    continue
-                period = (
-                    "morning"
-                    if aligned.hour < 12
-                    else "afternoon"
-                    if aligned.hour < 17
-                    else "evening"
-                )
-                preference = energy_peak if action.preference == "any" else action.preference
-                score = float((4 if period == preference else 0) * (2 if action.deep else 1))
-                completed, samples = (completion_history or {}).get(
-                    (aligned.weekday(), aligned.hour), (0, 0)
-                )
-                if samples >= 10:
-                    score += 4 * (completed / samples - 0.5)
-                score += 3 if action.habit and day not in spread else 0
-                if 0 < available - length < action.minimum:
-                    score -= 2
-                candidates.append((score, start, index, length, day))
+                for start in aligned_starts(slot, zone):
+                    aligned = start.astimezone(zone)
+                    day = aligned.date()
+                    if (action.starts_on and day < action.starts_on) or (
+                        action.ends_on and day > action.ends_on
+                    ):
+                        continue
+                    available = int((slot.end - start).total_seconds() // 60)
+                    length = min(
+                        action.preferred,
+                        action.maximum,
+                        available,
+                        need,
+                        max(0, daily_cap - used.get(day, 0)),
+                    )
+                    if length < action.minimum:
+                        continue
+                    period = (
+                        "morning"
+                        if aligned.hour < 12
+                        else "afternoon"
+                        if aligned.hour < 17
+                        else "evening"
+                    )
+                    preference = energy_peak if action.preference == "any" else action.preference
+                    score = float((4 if period == preference else 0) * (2 if action.deep else 1))
+                    completed, samples = (completion_history or {}).get(
+                        (aligned.weekday(), aligned.hour), (0, 0)
+                    )
+                    if samples >= 10:
+                        score += 4 * (completed / samples - 0.5)
+                    score += 3 if action.habit and day not in spread else 0
+                    prefix = int((start - first_start).total_seconds() // 60)
+                    for remainder in (prefix, available - length):
+                        if 0 < remainder < action.minimum:
+                            score -= 2
+                    candidates.append((score, start, index, length, day))
             if not candidates:
                 break
             _, start, index, length, day = min(candidates, key=lambda x: (-x[0], x[1], x[2]))
@@ -192,6 +217,16 @@ def make_plan(
             used[day] = used.get(day, 0) + length
             spread.add(day)
             need -= length
+            local = start.astimezone(zone)
+            period = "Morning" if local.hour < 12 else "Afternoon" if local.hour < 17 else "Evening"
+            reason = f"{period} slot within work hours and daily capacity."
+            completed, samples = (completion_history or {}).get(
+                (local.weekday(), local.hour), (0, 0)
+            )
+            if samples >= 10:
+                reason += (
+                    f" Past completion here: {completed / samples:.0%} across {samples} blocks."
+                )
             blocks.append(
                 Block(
                     action.id,
@@ -199,7 +234,7 @@ def make_plan(
                     action.title,
                     start,
                     end,
-                    "Fits work hours and daily capacity, with priority and focus time considered.",
+                    reason,
                 )
             )
         dropped += need

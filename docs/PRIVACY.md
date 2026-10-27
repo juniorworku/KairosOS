@@ -31,3 +31,5 @@ Reference screenshots and the implementation plan are repository source material
 Personal Mode is deferred. No native activity logger, window-title upload, privileged helper, OS-wide blocker, Slack/Teams integration, smart-home control, or intervention overlay is implemented.
 
 A public launch still requires a final policy matching the deployed configuration, provider/domain verification, retention/backup decisions, and the Chrome Web Store permission/privacy disclosures. Nothing is published by this repository's CI.
+
+Consented coaching context includes bounded goal titles/outcomes, action titles and weekly targets or finite-project remaining estimates, goal metric values, computed trajectory, and aggregate completed focus effort for the local week. Calendar events/times, busy intervals, check-in notes, reflection text, raw record IDs, and other owners’ data are excluded. This context is sent only when `include_context` is true; otherwise only the submitted conversation is sent.

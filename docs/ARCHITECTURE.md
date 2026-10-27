@@ -32,7 +32,7 @@ The scheduler and trajectory modules contain no database, HTTP, or AI calls. Sch
 
 Calendar tokens are encrypted with a configured Fernet key. Availability uses the minimum free/busy scope; writing asks separately for the app-created calendar scope. Only the dedicated Kairos calendar receives approved blocks. Sync reconciles moved/deleted events and avoids duplicate publication. Calendar jobs run periodically under database row locks; provider errors are sanitized. Live Google consent, sensitive-scope verification, and real remote reconciliation still require credentialed acceptance checks.
 
-Anthropic and Gemini adapters validate structured output, retry invalid responses once, and support streamed coaching. User text is treated as data. The provider receives the user's submitted text and, when requested, a compact redacted goal/trajectory context. It never receives auth credentials or raw calendar event details. Per-user AI-off and unconfigured-provider states keep the manual app usable.
+Anthropic and Gemini adapters validate structured output, retry invalid responses once, and support streamed coaching. User text is treated as data. The provider receives the user's submitted text and, when requested, a compact redacted goal/trajectory context with weekly action targets or finite-project remaining estimates, latest metric values, and completed focus effort in the owner’s local week. It never receives auth credentials or raw calendar event details. Per-user AI-off and unconfigured-provider states keep the manual app usable.
 
 AI quota reservations use PostgreSQL transactions/advisory locks and the audit table as the source of truth. This differs from the planned Redis hot counters plus nightly reconciliation. The local implementation favors a single authoritative reservation path; Redis counter reconciliation is not claimed implemented. Provider credentials, available model names, output limits, and the global cap remain configuration.
 
@@ -51,3 +51,9 @@ Coaching requests reserve their maximum output allowance before network work. If
 Compose keeps web dependencies and generated `dist` output in named volumes, so container builds do not change host build-file ownership. Optional ignored wheels in `api/wheelhouse` can speed local dependency installation; a clean checkout falls back to the normal pinned registry install.
 
 Calendar writes and planning deletion serialize per owner before calendar/block row locks. Live external event links prevent local move, cancellation, or deletion even after a block is completed or skipped; normal sync preserves execution status. Google deletion plus sync cancels the link. Explicit disconnect leaves external events intact and detaches local references.
+
+## Planning and session reliability
+
+`POST /api/v1/blocks` creates a local goal/action block with ownership, working-hour, goal-date, duration, availability, and capacity checks. It does not publish to Google. Manual busy changes and plan mutations share the owner lock. See [Manual planning API](PLANNING_API.md) for the contract and current UI limitations.
+
+Focus completion accumulates recorded session duration against the block budget; a short session does not finish a longer block. Focus-induced completion can be reversed by an earlier offline end correction, while manual completion/skip/cancellation remains an explicit user choice. Session end and check-in replay IDs reject changed payloads. Repeated session endings converge on the earliest end rather than adding time. Statistics clip minutes to inclusive user-local date windows, including sessions crossing midnight; one session can contribute to two separate daily queries, but counts once in their combined range. Reflection keys are Mondays.

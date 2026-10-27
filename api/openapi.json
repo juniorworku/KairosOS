@@ -1483,6 +1483,48 @@
         }
       }
     },
+    "/api/v1/blocks": {
+      "post": {
+        "tags": [
+          "planning"
+        ],
+        "summary": "Add Block",
+        "description": "Explicit local scheduling never publishes an external calendar event.",
+        "operationId": "add_block_api_v1_blocks_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/BlockCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BlockResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/api/v1/plan/accept": {
       "post": {
         "tags": [
@@ -2873,6 +2915,7 @@
             "anyOf": [
               {
                 "type": "integer",
+                "maximum": 1000000.0,
                 "minimum": 1.0
               },
               {
@@ -2957,6 +3000,7 @@
             "anyOf": [
               {
                 "type": "integer",
+                "maximum": 1000000.0,
                 "minimum": 1.0
               },
               {
@@ -3267,6 +3311,49 @@
           "email_enabled"
         ],
         "title": "AuthConfig"
+      },
+      "BlockCreate": {
+        "properties": {
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End At"
+          },
+          "goal_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Goal Id"
+          },
+          "action_id": {
+            "type": "string",
+            "maxLength": 36,
+            "minLength": 1,
+            "title": "Action Id"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "proposed",
+              "accepted"
+            ],
+            "title": "Status",
+            "default": "accepted"
+          }
+        },
+        "type": "object",
+        "required": [
+          "start_at",
+          "end_at",
+          "goal_id",
+          "action_id"
+        ],
+        "title": "BlockCreate"
       },
       "BlockPatch": {
         "properties": {
@@ -3764,7 +3851,8 @@
             "anyOf": [
               {
                 "type": "string",
-                "maxLength": 36
+                "maxLength": 36,
+                "minLength": 1
               },
               {
                 "type": "null"
@@ -4111,16 +4199,19 @@
           },
           "why_facts": {
             "type": "string",
+            "maxLength": 10000,
             "title": "Why Facts",
             "default": ""
           },
           "why_feelings": {
             "type": "string",
+            "maxLength": 10000,
             "title": "Why Feelings",
             "default": ""
           },
           "why_function": {
             "type": "string",
+            "maxLength": 10000,
             "title": "Why Function",
             "default": ""
           },
@@ -4250,16 +4341,19 @@
           },
           "why_facts": {
             "type": "string",
+            "maxLength": 10000,
             "title": "Why Facts",
             "default": ""
           },
           "why_feelings": {
             "type": "string",
+            "maxLength": 10000,
             "title": "Why Feelings",
             "default": ""
           },
           "why_function": {
             "type": "string",
+            "maxLength": 10000,
             "title": "Why Function",
             "default": ""
           },

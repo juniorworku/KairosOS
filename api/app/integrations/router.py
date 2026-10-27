@@ -5,6 +5,7 @@ import secrets
 from datetime import UTC, datetime, timedelta
 from typing import Annotated, cast
 from urllib.parse import urlencode
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request
@@ -18,14 +19,17 @@ from app.deps import current_user, get_db
 from app.integrations.calendar import (
     FREEBUSY_SCOPE,
     WRITE_SCOPE,
+    CalendarHTTPError,
     CalendarReauth,
     CalendarUnavailable,
     GoogleCalendar,
     challenge,
     decrypt_token,
     encrypt_token,
+    event_bounds,
     parse_timestamp,
     replace_busy,
+    stable_event_id,
 )
 from app.integrations.config import IntegrationSettings
 from app.integrations.jsonutil import Json, list_value, string_value
@@ -85,7 +89,13 @@ async def calendar_status(db: DB, user: Owner) -> dict[str, Json]:
         "status": connection.status
         if connection
         else ("disconnected" if configured else "not_configured"),
-        "can_publish": bool(connection and WRITE_SCOPE in connection.scopes),
+        "can_publish": bool(
+            configured
+            and connection
+            and connection.status == "active"
+            and connection.app_calendar_id
+            and WRITE_SCOPE in connection.scopes
+        ),
         "last_synced_at": connection.last_synced_at.isoformat()
         if connection and connection.last_synced_at
         else None,
@@ -126,7 +136,10 @@ async def calendar_connect(db: DB, user: Owner, write: bool = False) -> Redirect
 async def calendar_callback(
     request: Request, db: DB, user: Owner, state: str = "", code: str = "", error: str = ""
 ) -> RedirectResponse:
+    from app.routers.planning import lock_owner
+
     config = require_calendar()
+    await lock_owner(db, user)
     record = await db.scalar(
         delete(CalendarState)
         .where(
@@ -177,7 +190,7 @@ async def calendar_callback(
                 )
             if record.write_access and not connection.app_calendar_id:
                 connection.app_calendar_id = await google.create_calendar(
-                    string_value(token.get("access_token"))
+                    string_value(token.get("access_token")), user.timezone
                 )
             await db.commit()
     except (CalendarUnavailable, httpx.HTTPError, ValueError) as exc:
@@ -190,7 +203,7 @@ async def calendar_callback(
     )
 
 
-async def sync_user(db: AsyncSession, user_id: str) -> None:
+async def _sync_user(db: AsyncSession, user_id: str) -> None:
     config = require_calendar()
     # Match planning/publication lock order: owner, calendar connection, then blocks.
     user = await db.scalar(
@@ -209,10 +222,73 @@ async def sync_user(db: AsyncSession, user_id: str) -> None:
         end = start + timedelta(days=21)
         intervals = await google.busy(access, start, end)
         await replace_busy(db, user_id, start, end, intervals)
-        if connection.app_calendar_id:
-            await reconcile(db, user_id, connection, google, access)
+        if connection.app_calendar_id and WRITE_SCOPE in connection.scopes:
+            await reconcile(db, user_id, connection, google, access, user.timezone)
         connection.last_synced_at = datetime.now(UTC)
         await db.commit()
+
+
+async def mark_calendar_reauth(db: AsyncSession, user_id: str) -> None:
+    await db.rollback()
+    await db.scalar(select(User).where(User.id == user_id).with_for_update())
+    connection = await db.scalar(
+        select(CalendarConnection).where(CalendarConnection.user_id == user_id).with_for_update()
+    )
+    if connection is not None:
+        connection.status = "needs_reauth"
+    await db.commit()
+
+
+async def sync_user(db: AsyncSession, user_id: str) -> None:
+    try:
+        await _sync_user(db, user_id)
+    except CalendarReauth:
+        await mark_calendar_reauth(db, user_id)
+        raise
+    except CalendarHTTPError as exc:
+        await db.rollback()
+        if exc.status_code == 404:
+            await mark_calendar_reauth(db, user_id)
+            raise CalendarReauth(
+                "The Kairos calendar is unavailable. Disconnect Calendar, then connect again."
+            ) from exc
+        raise
+    except Exception:
+        await db.rollback()
+        raise
+
+
+def apply_calendar_event(
+    block: PlanningRecord,
+    event: dict[str, Json],
+    timezone: str,
+    calendar_timezone: str | None = None,
+) -> None:
+    payload = dict(block.payload)
+    identifier = string_value(event.get("id"))
+    payload["google_event_id"] = identifier
+    etag = event.get("etag")
+    if isinstance(etag, str):
+        payload["google_etag"] = etag
+    if event.get("status") == "cancelled":
+        payload["status"] = "cancelled"
+    else:
+        start, end, all_day = event_bounds(event, calendar_timezone or timezone)
+        prior_start = parse_timestamp(str(payload["start_at"]))
+        prior_end = parse_timestamp(str(payload["end_at"]))
+        if (start, end) != (prior_start, prior_end):
+            local_day = start.astimezone(ZoneInfo(timezone)).date()
+            payload.update(
+                start_at=start.isoformat(),
+                end_at=end.isoformat(),
+                planned_minutes=int((end - start).total_seconds() / 60),
+                week_start=(local_day - timedelta(days=local_day.weekday())).isoformat(),
+                moved_count=int(str(payload.get("moved_count", 0))) + 1,
+            )
+        payload["calendar_all_day"] = all_day
+        if payload.get("status") not in {"completed", "skipped"}:
+            payload["status"] = "published"
+    block.payload = payload
 
 
 async def reconcile(
@@ -221,76 +297,90 @@ async def reconcile(
     connection: CalendarConnection,
     google: GoogleCalendar,
     access: str,
+    timezone: str = "UTC",
 ) -> None:
     from urllib.parse import quote
 
     path = f"/calendars/{quote(connection.app_calendar_id or '', safe='')}/events"
     params = {"showDeleted": "true", "maxResults": "2500"}
+    full_sync = not connection.sync_token
     if connection.sync_token:
         params["syncToken"] = connection.sync_token
+    events: list[dict[str, Json]] = []
+    pages: set[str] = set()
+    next_sync_token: str | None = None
+    collection_timezone = timezone
     while True:
         try:
             data = await google.request("GET", path, access, params=params)
-        except CalendarUnavailable as exc:
-            if str(exc) == "sync_token_expired" and "syncToken" in params:
-                connection.sync_token = None
-                params.pop("syncToken")
+        except CalendarHTTPError as exc:
+            if exc.status_code == 410 and not full_sync:
+                # A new full sync cannot reuse a page token or partial incremental results.
+                full_sync = True
+                events.clear()
+                pages.clear()
+                collection_timezone = timezone
+                params = {"showDeleted": "true", "maxResults": "2500"}
                 continue
             raise
-        blocks = (
-            await db.scalars(
-                select(PlanningRecord).where(
-                    PlanningRecord.user_id == user_id, PlanningRecord.kind == "block"
-                )
-            )
-        ).all()
-        by_event = {
-            str(row.payload.get("google_event_id")): row
-            for row in blocks
-            if row.payload.get("google_event_id")
-        }
+        value = data.get("timeZone")
+        if isinstance(value, str):
+            collection_timezone = value
         for value in list_value(data.get("items", [])):
-            if not isinstance(value, dict):
-                continue
-            event_id = value.get("id")
-            if not isinstance(event_id, str) or event_id not in by_event:
-                continue
-            block = by_event[event_id]
-            payload = dict(block.payload)
-            if value.get("status") == "cancelled":
-                payload["status"] = "cancelled"
-            else:
-                left, right = value.get("start"), value.get("end")
-                if not isinstance(left, dict) or not isinstance(right, dict):
-                    continue
-                if not isinstance(left.get("dateTime"), str) or not isinstance(
-                    right.get("dateTime"), str
-                ):
-                    continue
-                start, end = (
-                    parse_timestamp(string_value(left["dateTime"])),
-                    parse_timestamp(string_value(right["dateTime"])),
-                )
-                # Calendar refresh updates the link, not locally recorded completion/skip evidence.
-                if payload.get("status") not in {"completed", "skipped"}:
-                    payload["status"] = "published"
-                if start.isoformat() != payload.get("start_at") or end.isoformat() != payload.get(
-                    "end_at"
-                ):
-                    payload.update(
-                        start_at=start.isoformat(),
-                        end_at=end.isoformat(),
-                        moved_count=int(str(payload.get("moved_count", 0))) + 1,
-                    )
-            block.payload = payload
+            if not isinstance(value, dict) or not isinstance(value.get("id"), str):
+                raise CalendarUnavailable("Calendar returned an invalid event")
+            events.append(value)
         page = data.get("nextPageToken")
-        if isinstance(page, str):
+        if isinstance(page, str) and page:
+            if page in pages or len(pages) >= 100:
+                raise CalendarUnavailable("Calendar pagination did not complete")
+            pages.add(page)
             params["pageToken"] = page
             continue
-        token = data.get("nextSyncToken")
-        if isinstance(token, str):
-            connection.sync_token = token
+        value = data.get("nextSyncToken")
+        if not isinstance(value, str) or not value:
+            raise CalendarUnavailable("Calendar sync did not complete")
+        next_sync_token = value
         break
+
+    # Apply a complete remote result only; failed later pages never leave partial state.
+    blocks = (
+        await db.scalars(
+            select(PlanningRecord)
+            .where(PlanningRecord.user_id == user_id, PlanningRecord.kind == "block")
+            .with_for_update()
+        )
+    ).all()
+    by_event = {
+        str(row.payload["google_event_id"]): row
+        for row in blocks
+        if row.payload.get("google_event_id")
+    }
+    by_id = {row.id: row for row in blocks}
+    seen: set[str] = set()
+    for event in events:
+        identifier = string_value(event.get("id"))
+        seen.add(identifier)
+        block = by_event.get(identifier)
+        if block is None:
+            properties = event.get("extendedProperties")
+            private = properties.get("private") if isinstance(properties, dict) else None
+            block_id = private.get("kairos_block_id") if isinstance(private, dict) else None
+            candidate = by_id.get(block_id) if isinstance(block_id, str) else None
+            if (
+                candidate is not None
+                and identifier == stable_event_id(candidate.id)
+                and candidate.payload.get("status")
+                in {"accepted", "published", "completed", "skipped"}
+            ):
+                block = candidate
+        if block is not None:
+            apply_calendar_event(block, event, timezone, collection_timezone)
+    if full_sync:
+        for identifier, block in by_event.items():
+            if identifier not in seen:
+                block.payload = {**block.payload, "status": "cancelled"}
+    connection.sync_token = next_sync_token
 
 
 @calendar_router.post("/sync")
@@ -298,9 +388,7 @@ async def calendar_sync(db: DB, user: Owner) -> dict[str, str]:
     try:
         await sync_user(db, user.id)
     except CalendarReauth as exc:
-        raise HTTPException(
-            409, detail={"code": "needs_reauth", "message": "Reconnect Google Calendar."}
-        ) from exc
+        raise HTTPException(409, detail={"code": "needs_reauth", "message": str(exc)}) from exc
     except (CalendarUnavailable, httpx.HTTPError, ValueError) as exc:
         raise unavailable("Calendar sync failed. Try again.", "calendar_unavailable") from exc
     return {"status": "synced"}
@@ -349,11 +437,19 @@ async def calendar_publish(body: PublishInput, db: DB, user: Owner) -> dict[str,
         google = GoogleCalendar(config, client)
         try:
             access = await google.access_token(connection, db)
-        except (CalendarUnavailable, httpx.HTTPError) as exc:
-            raise unavailable("Reconnect Google Calendar.", "calendar_unavailable") from exc
-        for block in blocks:
+        except CalendarReauth as exc:
+            connection.status = "needs_reauth"
+            await db.commit()
+            raise HTTPException(
+                409, detail={"code": "needs_reauth", "message": "Reconnect Google Calendar."}
+            ) from exc
+        except (CalendarUnavailable, httpx.HTTPError, ValueError) as exc:
+            raise unavailable(
+                "Calendar could not be reached. Try again.", "calendar_unavailable"
+            ) from exc
+        for index, block in enumerate(blocks):
             try:
-                event_id = await google.publish(
+                event = await google.publish(
                     access,
                     connection.app_calendar_id,
                     block.id,
@@ -361,13 +457,17 @@ async def calendar_publish(body: PublishInput, db: DB, user: Owner) -> dict[str,
                     str(block.payload["start_at"]),
                     str(block.payload["end_at"]),
                 )
-                block.payload = {
-                    **block.payload,
-                    "google_event_id": event_id,
-                    "status": "published",
-                }
+                apply_calendar_event(block, event.data, user.timezone)
                 published.append(block.id)
-            except (CalendarUnavailable, httpx.HTTPError):
+            except CalendarReauth:
+                connection.status = "needs_reauth"
+                failed.extend(row.id for row in blocks[index:])
+                break
+            except CalendarHTTPError as exc:
+                if exc.status_code == 404:
+                    connection.status = "needs_reauth"
+                failed.append(block.id)
+            except (CalendarUnavailable, httpx.HTTPError, ValueError):
                 failed.append(block.id)
         await db.commit()
     return {"published": published, "failed": failed}
@@ -413,6 +513,7 @@ async def calendar_disconnect(db: DB, user: Owner) -> dict[str, str]:
             payload["status"] = "accepted"
         block.payload = payload
     await db.execute(delete(CalendarBusy).where(CalendarBusy.user_id == user.id))
+    await db.execute(delete(CalendarState).where(CalendarState.user_id == user.id))
     await db.commit()
     return {"status": "disconnected"}
 
@@ -595,17 +696,33 @@ async def ext_event(body: ExtEvent, db: DB, user: ExtUser) -> dict[str, str]:
 
 
 class ExtensionEnd(BaseModel):
-    session_id: str | None = Field(default=None, max_length=36)
+    session_id: str | None = Field(default=None, min_length=1, max_length=36)
     ended_at: datetime | None = None
 
 
 @ext_router.post("/end")
 async def ext_end(db: DB, user: ExtUser, body: ExtensionEnd | None = None) -> dict[str, str]:
-    from app.routers.planning import end_focus
+    from app.routers.planning import end_focus, lock_owner
     from app.schemas.planning import FocusEnd
 
-    focus = await active_focus(db, user.id)
-    if focus and (body is None or body.session_id is None or body.session_id == focus.id):
+    if body and body.ended_at is not None and body.ended_at.utcoffset() is None:
+        raise HTTPException(422, detail="Session end time requires a timezone offset")
+    await lock_owner(db, user)
+    if body is not None and body.session_id is not None:
+        # Offline stop requests identify the session that actually stopped. It may
+        # already have expired, and a different session may now be running.
+        focus = await db.scalar(
+            select(PlanningRecord)
+            .where(
+                PlanningRecord.user_id == user.id,
+                PlanningRecord.kind == "focus",
+                PlanningRecord.id == body.session_id,
+            )
+            .with_for_update()
+        )
+    else:
+        focus = await active_focus(db, user.id)
+    if focus:
         await end_focus(focus.id, FocusEnd(ended_at=body.ended_at if body else None), db, user)
     else:
         await db.commit()

@@ -414,3 +414,264 @@ def test_goal_delete_preserves_published_calendar_links_until_reconciled(
     assert client.delete(f"/api/v1/goals/{goal['id']}", headers=csrf(client)).status_code == 204
     assert client.get(f"/api/v1/goals/{goal['id']}").status_code == 404
     assert client.get(f"/api/v1/plan/week?start={week}").json() == []
+
+
+def test_manual_blocks_validate_action_availability_and_acceptance(
+    planning_client: TestClient,
+) -> None:
+    client = planning_client
+    sign_in(client)
+    goal = add_goal(client)
+    monday = next_week().isoformat()
+    body = {
+        "goal_id": goal["id"],
+        "action_id": goal["actions"][0]["id"],
+        "start_at": f"{monday}T09:00:00Z",
+        "end_at": f"{monday}T10:00:00Z",
+    }
+    created = client.post("/api/v1/blocks", json=body, headers=csrf(client))
+    assert created.status_code == 201, created.text
+    block = created.json()
+    assert block["status"] == "accepted"
+    assert block["title"] == goal["actions"][0]["title"]
+    assert block["planned_minutes"] == 60
+    assert block["week_start"] == monday
+    assert block["google_event_id"] is None
+    assert client.post("/api/v1/blocks", json=body, headers=csrf(client)).status_code == 409
+    assert (
+        client.post(
+            "/api/v1/blocks", json={**body, "action_id": str(uuid4())}, headers=csrf(client)
+        ).status_code
+        == 404
+    )
+    assert (
+        client.post(
+            "/api/v1/blocks",
+            json={**body, "start_at": f"{monday}T12:00:00Z", "end_at": f"{monday}T12:10:00Z"},
+            headers=csrf(client),
+        ).status_code
+        == 409
+    )
+    assert (
+        client.post(
+            "/api/v1/blocks",
+            json={**body, "start_at": f"{monday}T12:00:00", "end_at": f"{monday}T13:00:00"},
+            headers=csrf(client),
+        ).status_code
+        == 422
+    )
+    assert (
+        client.post(
+            "/api/v1/blocks",
+            json={
+                **body,
+                "start_at": f"{monday}T12:00:00Z",
+                "end_at": f"{monday}T13:00:00Z",
+                "status": "published",
+            },
+            headers=csrf(client),
+        ).status_code
+        == 422
+    )
+    # Accepting a block twice is an idempotent no-op even after availability changes.
+    assert (
+        client.post(
+            "/api/v1/busy",
+            json={"start_at": body["start_at"], "end_at": body["end_at"]},
+            headers=csrf(client),
+        ).status_code
+        == 201
+    )
+    repeated = client.post(
+        "/api/v1/plan/accept", json={"block_ids": [block["id"]]}, headers=csrf(client)
+    )
+    assert repeated.status_code == 200, repeated.text
+    assert repeated.json()[0]["id"] == block["id"]
+
+
+def test_manual_block_ownership_and_goal_dates(planning_client: TestClient) -> None:
+    client = planning_client
+    sign_in(client)
+    goal = add_goal(client)
+    monday = next_week().isoformat()
+    body = {
+        "goal_id": goal["id"],
+        "action_id": goal["actions"][0]["id"],
+        "start_at": f"{monday}T09:00:00Z",
+        "end_at": f"{monday}T10:00:00Z",
+    }
+    beyond = next_week() + timedelta(weeks=40)
+    assert (
+        client.post(
+            "/api/v1/blocks",
+            json={
+                **body,
+                "start_at": f"{beyond.isoformat()}T09:00:00Z",
+                "end_at": f"{beyond.isoformat()}T10:00:00Z",
+            },
+            headers=csrf(client),
+        ).status_code
+        == 409
+    )
+    client.app.state.settings.signup_mode = "open"  # type: ignore[union-attr]
+    client.cookies.clear()
+    sign_in(client, "manual-other@example.test")
+    assert client.post("/api/v1/blocks", json=body, headers=csrf(client)).status_code == 404
+    assert client.get(f"/api/v1/plan/week?start={monday}").json() == []
+
+
+def test_goal_edit_cancels_proposals_for_removed_actions(planning_client: TestClient) -> None:
+    client = planning_client
+    sign_in(client)
+    goal = add_goal(client)
+    monday = next_week().isoformat()
+    draft = client.post(
+        "/api/v1/plan/draft", json={"week_start": monday}, headers=csrf(client)
+    ).json()
+    assert draft["blocks"]
+    replacement = {**goal, "actions": [{"title": "A new major move", "weekly_minutes_target": 60}]}
+    assert (
+        client.patch(
+            f"/api/v1/goals/{goal['id']}", json=replacement, headers=csrf(client)
+        ).status_code
+        == 200
+    )
+    blocks = client.get(f"/api/v1/plan/week?start={monday}").json()
+    assert all(block["status"] == "cancelled" for block in blocks)
+    assert (
+        client.post(
+            "/api/v1/plan/accept",
+            json={"block_ids": [draft["blocks"][0]["id"]]},
+            headers=csrf(client),
+        ).status_code
+        == 409
+    )
+
+
+def test_active_focus_protects_linked_block_and_goal(planning_client: TestClient) -> None:
+    client = planning_client
+    sign_in(client)
+    goal = add_goal(client)
+    monday = next_week().isoformat()
+    body = {
+        "goal_id": goal["id"],
+        "action_id": goal["actions"][0]["id"],
+        "start_at": f"{monday}T09:00:00Z",
+        "end_at": f"{monday}T10:00:00Z",
+    }
+    block = client.post("/api/v1/blocks", json=body, headers=csrf(client)).json()
+    focus = client.post(
+        "/api/v1/focus/start", json={"time_block_id": block["id"]}, headers=csrf(client)
+    )
+    assert focus.status_code == 201
+    assert client.delete(f"/api/v1/blocks/{block['id']}", headers=csrf(client)).status_code == 409
+    assert client.delete(f"/api/v1/goals/{goal['id']}", headers=csrf(client)).status_code == 409
+    assert (
+        client.patch(
+            f"/api/v1/blocks/{block['id']}",
+            json={"start_at": f"{monday}T12:00:00Z", "end_at": f"{monday}T13:00:00Z"},
+            headers=csrf(client),
+        ).status_code
+        == 409
+    )
+    assert (
+        client.post(
+            f"/api/v1/focus/{focus.json()['id']}/end", json={}, headers=csrf(client)
+        ).status_code
+        == 200
+    )
+    assert client.delete(f"/api/v1/blocks/{block['id']}", headers=csrf(client)).status_code == 204
+
+
+def test_draft_calibrates_completed_blocks_per_action_not_abandoned_sessions(
+    planning_client: TestClient,
+) -> None:
+    client = planning_client
+    user_id = sign_in(client)["id"]
+    body = goal_body()
+    body["actions"] = [
+        {"title": "Experienced action", "weekly_minutes_target": 120},
+        {"title": "New action", "weekly_minutes_target": 120},
+    ]
+    response = client.post("/api/v1/goals", json=body, headers=csrf(client))
+    assert response.status_code == 201
+    goal = response.json()
+    experienced, new = goal["actions"]
+
+    async def seed_history() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            for index in range(5):
+                start = datetime.now(UTC).replace(
+                    hour=9, minute=0, second=0, microsecond=0
+                ) - timedelta(days=7 - index)
+                block_id = str(uuid4())
+                db.add(
+                    PlanningRecord(
+                        id=block_id,
+                        user_id=user_id,
+                        kind="block",
+                        payload={
+                            "goal_id": goal["id"],
+                            "action_id": experienced["id"],
+                            "title": experienced["title"],
+                            "start_at": start.isoformat(),
+                            "end_at": (start + timedelta(minutes=60)).isoformat(),
+                            "planned_minutes": 60,
+                            "status": "completed",
+                            "reason": "Historical work",
+                            "week_start": (
+                                start.date() - timedelta(days=start.weekday())
+                            ).isoformat(),
+                        },
+                    )
+                )
+                db.add(
+                    PlanningRecord(
+                        user_id=user_id,
+                        kind="focus",
+                        payload={
+                            "goal_id": goal["id"],
+                            "action_id": experienced["id"],
+                            "time_block_id": block_id,
+                            "started_at": start.isoformat(),
+                            "ends_at": (start + timedelta(minutes=90)).isoformat(),
+                            "ended_at": (start + timedelta(minutes=90)).isoformat(),
+                            "planned_minutes": 90,
+                            "actual_minutes": 90,
+                            "self_rating": 4,
+                        },
+                    )
+                )
+                db.add(
+                    PlanningRecord(
+                        user_id=user_id,
+                        kind="focus",
+                        payload={
+                            "goal_id": None,
+                            "action_id": None,
+                            "time_block_id": None,
+                            "started_at": start.isoformat(),
+                            "ends_at": (start + timedelta(minutes=60)).isoformat(),
+                            "ended_at": (start + timedelta(minutes=1)).isoformat(),
+                            "planned_minutes": 60,
+                            "actual_minutes": 1,
+                            "self_rating": 2,
+                        },
+                    )
+                )
+            await db.commit()
+
+    assert client.portal is not None
+    client.portal.call(seed_history)
+    draft = client.post(
+        "/api/v1/plan/draft", json={"week_start": next_week().isoformat()}, headers=csrf(client)
+    )
+    assert draft.status_code == 200, draft.text
+    blocks = draft.json()["blocks"]
+    assert (
+        sum(block["planned_minutes"] for block in blocks if block["action_id"] == experienced["id"])
+        == 180
+    )
+    assert (
+        sum(block["planned_minutes"] for block in blocks if block["action_id"] == new["id"]) == 156
+    )

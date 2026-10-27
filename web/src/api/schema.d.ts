@@ -524,6 +524,26 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/blocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add Block
+         * @description Explicit local scheduling never publishes an external calendar event.
+         */
+        post: operations["add_block_api_v1_blocks_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/plan/accept": {
         parameters: {
             query?: never;
@@ -1252,6 +1272,29 @@ export interface components {
             email_enabled: boolean;
             /** Development Owner Email */
             development_owner_email?: string | null;
+        };
+        /** BlockCreate */
+        BlockCreate: {
+            /**
+             * Start At
+             * Format: date-time
+             */
+            start_at: string;
+            /**
+             * End At
+             * Format: date-time
+             */
+            end_at: string;
+            /** Goal Id */
+            goal_id: string;
+            /** Action Id */
+            action_id: string;
+            /**
+             * Status
+             * @default accepted
+             * @enum {string}
+             */
+            status: "proposed" | "accepted";
         };
         /** BlockPatch */
         BlockPatch: {
@@ -3177,6 +3220,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DraftResponse"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    add_block_api_v1_blocks_post: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["BlockCreate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BlockResponse"];
                 };
             };
             /** @description Validation Error */

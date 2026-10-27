@@ -2,7 +2,8 @@
 
 import re
 from collections.abc import Sequence
-from datetime import date, datetime
+from datetime import UTC, date, datetime
+from math import isfinite
 from typing import Literal
 from uuid import UUID
 
@@ -18,7 +19,7 @@ class ActionInput(PlanningModel):
     title: str = Field(min_length=1, max_length=200)
     kind: Literal["habit", "project"] = "habit"
     weekly_minutes_target: int = Field(default=120, ge=0, le=10080)
-    total_minutes_estimate: int | None = Field(default=None, ge=1)
+    total_minutes_estimate: int | None = Field(default=None, ge=1, le=1000000)
     preferred_block_minutes: int = Field(default=60, ge=15, le=240)
     min_block_minutes: int = Field(default=30, ge=15, le=240)
     max_block_minutes: int = Field(default=120, ge=15, le=240)
@@ -48,9 +49,9 @@ class GoalInput(PlanningModel):
     metric_target: float = 100
     start_date: date
     target_date: date
-    why_facts: str = ""
-    why_feelings: str = ""
-    why_function: str = ""
+    why_facts: str = Field(default="", max_length=10000)
+    why_feelings: str = Field(default="", max_length=10000)
+    why_function: str = Field(default="", max_length=10000)
     anti_goals: list[str] = Field(default_factory=list, max_length=20)
     confidence_pct: int = Field(default=80, ge=0, le=100)
     follow_through_pct: int = Field(default=80, ge=0, le=100)
@@ -63,6 +64,8 @@ class GoalInput(PlanningModel):
     def dates(self) -> "GoalInput":
         if self.target_date <= self.start_date:
             raise ValueError("Target date must follow start date")
+        if not isfinite(self.metric_target - self.metric_start):
+            raise ValueError("Metric range must be finite")
         if self.metric_target == self.metric_start:
             raise ValueError("Metric target must differ from starting value")
         return self
@@ -113,6 +116,22 @@ class BlockPatch(PlanningModel):
     end_at: datetime | None = None
     status: Literal["accepted", "skipped", "completed", "cancelled"] | None = None
 
+    @model_validator(mode="after")
+    def aware_timestamps(self) -> "BlockPatch":
+        if any(
+            value is not None and value.tzinfo is None for value in (self.start_at, self.end_at)
+        ):
+            raise ValueError("Times require timezone offsets")
+        if self.start_at is not None and self.end_at is not None and self.end_at <= self.start_at:
+            raise ValueError("End must follow start")
+        return self
+
+
+class BlockCreate(BusyInput):
+    goal_id: str = Field(min_length=1, max_length=36)
+    action_id: str = Field(min_length=1, max_length=36)
+    status: Literal["proposed", "accepted"] = "accepted"
+
 
 class FocusInput(PlanningModel):
     blocklist_id: str | None = None
@@ -125,6 +144,15 @@ class FocusEnd(PlanningModel):
     ended_at: datetime | None = None
     client_event_id: UUID | None = None
     self_rating: int | None = Field(default=None, ge=1, le=5)
+
+    @field_validator("ended_at")
+    @classmethod
+    def aware_end(cls, value: datetime | None) -> datetime | None:
+        if value is not None:
+            if value.tzinfo is None or value.utcoffset() is None:
+                raise ValueError("Session end time requires a timezone offset")
+            return value.astimezone(UTC)
+        return value
 
 
 class ReflectionInput(PlanningModel):

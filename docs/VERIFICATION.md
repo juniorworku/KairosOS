@@ -27,3 +27,18 @@ The test suite emits two upstream Starlette/AnyIO deprecation warnings; all asse
 ## Visual refresh and personal scope
 
 Users and invitation screens are removed; `/admin/*` redirects to Today. Sign-in and personal account controls remain. The refreshed UI passes 20 frontend tests, ESLint, TypeScript/production builds, and all three Playwright flows (planning/focus/review/settings, mobile accessibility, offline replay). The built dark dashboard and former admin-route redirect were also checked in Chrome. Self-hosted fonts are included in the offline precache. The Lighthouse measurements above predate this visual refresh and have not been remeasured. No deployment was performed.
+
+## Backend reliability pass — 28 October 2026
+
+Three domain agents and the primary integration agent completed the pass described in [Backend reliability](BACKEND_RELIABILITY.md). All ten root reference screenshots were viewed directly and mapped to explicit capabilities and missing work. No UI redesign or deployment was performed in this pass.
+
+Final checks on the frozen source:
+
+- **151 backend tests passed** against isolated PostgreSQL schemas (`docker compose exec -T -e TEST_DATABASE_URL=postgresql+asyncpg://kairos:kairos@db:5432/kairos api python -m pytest -q`). Includes production app composition, manual scheduling/conflict recovery, focus completion and replay, local-date statistics, check-in conflicts, reflection upserts, finite trajectory arithmetic, consented coaching and malformed-output retries, calendar pagination/recovery, and expired extension stops preserving newer sessions.
+- **20 frontend tests**, **4 extension unit tests**, and **3 Playwright browser workflows** passed. Browser coverage includes planning/focus/review/settings, mobile accessibility, and offline check-in replay.
+- Strict Python types (40 source files), web/extension TypeScript, Ruff lint/format, and patch whitespace checks passed. OpenAPI and generated TypeScript contracts were regenerated after the final request-schema changes.
+- All seven local Compose services are running. API readiness confirms PostgreSQL and Redis; local worker and beat were restarted to load the updated calendar code.
+
+The full backend run emits the same two upstream Starlette/AnyIO deprecation warnings. Provider regression tests use controlled responses; no live Google/model-provider acceptance is claimed. No new Chrome lifecycle or Lighthouse measurement is claimed by this pass. The prior Lighthouse numbers predate the visual refresh.
+
+Manual block creation is now available through the API, but is not wired into the current UI. Named primary-calendar event feeds, independent tasks/support areas, recurrence/notes editing, proposal move/remove diffs, historical trend presentation and measured activity-based focus quality remain separate feature work. Exceptional calendar creation/encryption-key recovery constraints are documented in the reliability record.

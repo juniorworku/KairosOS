@@ -18,6 +18,7 @@ from app.models.auth import User
 from app.models.planning import PlanningRecord
 from app.schemas.planning import (
     AcceptInput,
+    BlockCreate,
     BlocklistInput,
     BlocklistResponse,
     BlockPatch,
@@ -110,13 +111,29 @@ def unpack(row: PlanningRecord) -> dict[str, Any]:
     return {**row.payload, "id": row.id}
 
 
-async def goal_response(db: AsyncSession, user: User, row: PlanningRecord) -> GoalResponse:
-    checks = [
-        unpack(check)
-        for check in await records(db, user, "checkin")
-        if check.payload["goal_id"] == row.id
-    ]
-    return GoalResponse.model_validate({**unpack(row), "checkins": checks})
+async def goal_response(
+    db: AsyncSession,
+    user: User,
+    row: PlanningRecord,
+    checkins: list[PlanningRecord] | None = None,
+) -> GoalResponse:
+    if checkins is None:
+        checkins = list(
+            (
+                await db.scalars(
+                    select(PlanningRecord)
+                    .where(
+                        PlanningRecord.user_id == user.id,
+                        PlanningRecord.kind == "checkin",
+                        PlanningRecord.payload["goal_id"].as_string() == row.id,
+                    )
+                    .order_by(PlanningRecord.created_at, PlanningRecord.id)
+                )
+            ).all()
+        )
+    return GoalResponse.model_validate(
+        {**unpack(row), "checkins": [unpack(check) for check in checkins]}
+    )
 
 
 async def validate_goal(
@@ -151,11 +168,27 @@ async def add_season(body: SeasonInput, db: DB, user: Owner) -> dict[str, Any]:
 
 @router.get("/goals", response_model=list[GoalResponse])
 async def goals(db: DB, user: Owner) -> list[GoalResponse]:
-    return [await goal_response(db, user, row) for row in await records(db, user, "goal")]
+    rows = await records(db, user, "goal")
+    if not rows:
+        return []
+    checks = await db.scalars(
+        select(PlanningRecord)
+        .where(
+            PlanningRecord.user_id == user.id,
+            PlanningRecord.kind == "checkin",
+            PlanningRecord.payload["goal_id"].as_string().in_([row.id for row in rows]),
+        )
+        .order_by(PlanningRecord.created_at, PlanningRecord.id)
+    )
+    by_goal: dict[str, list[PlanningRecord]] = {}
+    for check in checks:
+        by_goal.setdefault(check.payload["goal_id"], []).append(check)
+    return [await goal_response(db, user, row, by_goal.get(row.id, [])) for row in rows]
 
 
 @router.post("/goals", response_model=GoalResponse, status_code=201)
 async def add_goal(body: GoalInput, db: DB, user: Owner) -> GoalResponse:
+    await lock_owner(db, user)
     row = create(db, user, "goal", await validate_goal(db, user, body))
     await db.commit()
     return await goal_response(db, user, row)
@@ -171,6 +204,14 @@ async def edit_goal(identifier: str, body: GoalInput, db: DB, user: Owner) -> Go
     await lock_owner(db, user)
     row = await owned(db, user, "goal", identifier)
     row.payload = await validate_goal(db, user, body, row)
+    action_ids = {action["id"] for action in row.payload["actions"]}
+    for block in await records(db, user, "block"):
+        if (
+            block.payload.get("goal_id") == identifier
+            and block.payload["status"] == "proposed"
+            and (row.payload["status"] != "active" or block.payload["action_id"] not in action_ids)
+        ):
+            block.payload = {**block.payload, "status": "cancelled"}
     await db.commit()
     return await goal_response(db, user, row)
 
@@ -179,6 +220,7 @@ async def edit_goal(identifier: str, body: GoalInput, db: DB, user: Owner) -> Go
 async def delete_goal(identifier: str, db: DB, user: Owner) -> Response:
     await lock_owner(db, user)
     row = await owned(db, user, "goal", identifier)
+    await require_no_active_focus(db, user, goal_id=identifier)
     blocks = await records(db, user, "block")
     if any(
         block.payload.get("goal_id") == identifier
@@ -211,6 +253,11 @@ async def checkin(identifier: str, body: CheckinInput, db: DB, user: Owner) -> d
             if prior.payload.get("client_event_id") == str(body.client_event_id):
                 if prior.payload["goal_id"] != identifier:
                     raise fail("conflict", "Event ID already used for another goal", 409)
+                if (
+                    prior.payload["metric_value"] != body.metric_value
+                    or prior.payload.get("note", "") != body.note
+                ):
+                    raise fail("conflict", "Event ID already used for a different check-in", 409)
                 return unpack(prior)
     row = create(
         db,
@@ -229,6 +276,7 @@ async def busy(db: DB, user: Owner) -> list[dict[str, Any]]:
 
 @router.post("/busy", response_model=BusyResponse, status_code=201)
 async def add_busy(body: BusyInput, db: DB, user: Owner) -> dict[str, Any]:
+    await lock_owner(db, user)
     row = create(db, user, "busy", body.model_dump(mode="json"))
     await db.commit()
     return unpack(row)
@@ -236,6 +284,7 @@ async def add_busy(body: BusyInput, db: DB, user: Owner) -> dict[str, Any]:
 
 @router.delete("/busy/{identifier}", status_code=204)
 async def delete_busy(identifier: str, db: DB, user: Owner) -> Response:
+    await lock_owner(db, user)
     await db.delete(await owned(db, user, "busy", identifier))
     await db.commit()
     return Response(status_code=204)
@@ -244,7 +293,11 @@ async def delete_busy(identifier: str, db: DB, user: Owner) -> Response:
 def protect_app_domains(body: BlocklistInput, config: Settings, request: Request) -> None:
     hosts = {
         urlsplit(value).hostname
-        for value in (config.app_base_url, config.google_redirect_uri, str(request.base_url))
+        for value in (
+            config.app_base_url,
+            config.google_redirect_uri,
+            str(request.base_url),
+        )
     }
     for domain in body.domains:
         if any(host and (host == domain or host.endswith("." + domain)) for host in hosts):
@@ -276,7 +329,12 @@ async def add_blocklist(
 
 @router.patch("/blocklists/{identifier}", response_model=BlocklistResponse)
 async def edit_blocklist(
-    identifier: str, body: BlocklistInput, request: Request, config: Config, db: DB, user: Owner
+    identifier: str,
+    body: BlocklistInput,
+    request: Request,
+    config: Config,
+    db: DB,
+    user: Owner,
 ) -> dict[str, Any]:
     protect_app_domains(body, config, request)
     await lock_owner(db, user)
@@ -320,6 +378,7 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
     if body.week_start.weekday() != 0:
         raise fail("invalid_week", "Choose a Monday as the week start")
     await lock_owner(db, user)
+    focus_rows = await close_expired(db, user)
     all_blocks = await records(db, user, "block")
     for row in all_blocks:
         if (
@@ -336,6 +395,13 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
         Interval(instant(row.payload["start_at"]), instant(row.payload["end_at"]))
         for row in await records(db, user, "busy")
     ]
+    # A local skip does not remove a live Google event or its calendar reservation.
+    occupied.extend(
+        Interval(instant(row.payload["start_at"]), instant(row.payload["end_at"]))
+        for row in all_blocks
+        if row.payload.get("google_event_id")
+        and row.payload["status"] not in ("accepted", "published", "completed", "cancelled")
+    )
     window_start = datetime.combine(
         body.week_start, datetime.min.time(), ZoneInfo(user.timezone)
     ).astimezone(UTC)
@@ -345,12 +411,26 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
             db, user.id, window_start, window_start + timedelta(days=8)
         )
     )
-    history = [
-        (f.payload["planned_minutes"], int(f.payload["actual_minutes"]))
-        for f in await records(db, user, "focus")
-        if f.payload.get("ended_at")
-    ]
-    multiplier = duration_multiplier(history)
+    calibration: dict[str, list[tuple[int, int]]] = {}
+    for completed_block in all_blocks:
+        if completed_block.payload["status"] != "completed":
+            continue
+        actual = sum(
+            float(session.payload.get("actual_minutes", 0))
+            for session in focus_rows
+            if session.payload.get("ended_at")
+            and session.payload.get("time_block_id") == completed_block.id
+        )
+        calibration.setdefault(completed_block.payload["action_id"], []).append(
+            (completed_block.payload["planned_minutes"], int(actual))
+        )
+    existing_action_days: dict[str, set[date]] = {}
+    for reserved in all_blocks:
+        if reserved.payload["status"] in ("accepted", "published", "completed"):
+            local_day = (
+                instant(reserved.payload["start_at"]).astimezone(ZoneInfo(user.timezone)).date()
+            )
+            existing_action_days.setdefault(reserved.payload["action_id"], set()).add(local_day)
     completion_history: dict[tuple[int, int], tuple[int, int]] = {}
     now = datetime.now(UTC)
     for past in all_blocks:
@@ -363,18 +443,22 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
         local = instant(p["start_at"]).astimezone(ZoneInfo(user.timezone))
         key = (local.weekday(), local.hour)
         completed, samples = completion_history.get(key, (0, 0))
-        completion_history[key] = (completed + int(p["status"] == "completed"), samples + 1)
+        completion_history[key] = (
+            completed + int(p["status"] == "completed"),
+            samples + 1,
+        )
     actions: list[Action] = []
     for goal in await records(db, user, "goal"):
         p = goal.payload
         if p["status"] != "active":
             continue
         for a in p["actions"]:
+            multiplier = duration_multiplier(calibration.get(a["id"], []))
             quota = a["weekly_minutes_target"]
             if a["kind"] == "project" and a["total_minutes_estimate"]:
                 spent = sum(
                     float(f.payload.get("actual_minutes", 0))
-                    for f in await records(db, user, "focus")
+                    for f in focus_rows
                     if f.payload.get("action_id") == a["id"]
                 )
                 weeks_left = max(
@@ -419,6 +503,7 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
         multiplier=1,
         earliest=datetime.now(UTC),
         completion_history=completion_history,
+        existing_action_days=existing_action_days,
     )
     output: list[BlockResponse] = []
     for block in result.blocks:
@@ -450,6 +535,70 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
     )
 
 
+async def require_no_active_focus(
+    db: AsyncSession,
+    user: User,
+    *,
+    goal_id: str | None = None,
+    block_id: str | None = None,
+) -> None:
+    now = datetime.now(UTC)
+    if any(
+        not row.payload.get("ended_at")
+        and instant(row.payload["ends_at"]) > now
+        and (
+            (goal_id and row.payload.get("goal_id") == goal_id)
+            or (block_id and row.payload.get("time_block_id") == block_id)
+        )
+        for row in await records(db, user, "focus")
+    ):
+        raise fail(
+            "focus_active",
+            "End the linked focus session before changing this plan.",
+            409,
+        )
+
+
+async def block_action(
+    db: AsyncSession, user: User, goal_id: str, action_id: str
+) -> tuple[PlanningRecord, dict[str, Any]]:
+    goal = await owned(db, user, "goal", goal_id)
+    if goal.payload["status"] != "active":
+        raise fail("inactive_goal", "Resume this goal before scheduling its actions.", 409)
+    action = next((item for item in goal.payload["actions"] if item["id"] == action_id), None)
+    if action is None:
+        raise fail("not_found", "Action not found in this goal", 404)
+    return goal, action
+
+
+@router.post("/blocks", response_model=BlockResponse, status_code=201)
+async def add_block(body: BlockCreate, db: DB, user: Owner) -> dict[str, Any]:
+    """Explicit local scheduling never publishes an external calendar event."""
+    await lock_owner(db, user)
+    _, action = await block_action(db, user, body.goal_id, body.action_id)
+    start, end = body.start_at.astimezone(UTC), body.end_at.astimezone(UTC)
+    day = start.astimezone(ZoneInfo(user.timezone)).date()
+    payload = {
+        "goal_id": body.goal_id,
+        "action_id": body.action_id,
+        "title": action["title"],
+        "start_at": start.isoformat(),
+        "end_at": end.isoformat(),
+        "planned_minutes": int((end - start).total_seconds() / 60),
+        "status": body.status,
+        "reason": "Scheduled by you within available work hours.",
+        "week_start": (day - timedelta(days=day.weekday())).isoformat(),
+        "moved_count": 0,
+        "proposed_by": "user",
+    }
+    identifier = str(uuid4())
+    await validate_placements(db, user, [(identifier, payload)])
+    row = PlanningRecord(id=identifier, user_id=user.id, kind="block", payload=payload)
+    db.add(row)
+    await db.commit()
+    return unpack(row)
+
+
 async def validate_placements(
     db: AsyncSession, user: User, candidates: list[tuple[str, dict[str, Any]]]
 ) -> None:
@@ -460,7 +609,10 @@ async def validate_placements(
         (row.id, row.payload)
         for row in await records(db, user, "block")
         if row.id not in identifiers
-        and row.payload["status"] in ("accepted", "published", "completed")
+        and (
+            row.payload["status"] in ("accepted", "published", "completed")
+            or (row.payload.get("google_event_id") and row.payload["status"] != "cancelled")
+        )
     ]
     all_blocks = fixed + candidates
     busy = [
@@ -470,6 +622,25 @@ async def validate_placements(
     for identifier, payload in candidates:
         start, end = instant(payload["start_at"]), instant(payload["end_at"])
         local_start, local_end = start.astimezone(zone), end.astimezone(zone)
+        goal, action = await block_action(db, user, payload["goal_id"], payload["action_id"])
+        if start < datetime.now(UTC):
+            raise fail("past_time", "Choose a future time for this block.", 409)
+        if (
+            not goal.payload["start_date"]
+            <= local_start.date().isoformat()
+            <= goal.payload["target_date"]
+        ):
+            raise fail("goal_dates", "Choose a date within this goal's dates.", 409)
+        seconds = (end - start).total_seconds()
+        if (
+            seconds % 60
+            or not action["min_block_minutes"] <= seconds / 60 <= action["max_block_minutes"]
+        ):
+            raise fail(
+                "block_duration",
+                "Use whole minutes within this action's duration limits.",
+                409,
+            )
         if local_start.date() != local_end.date() or local_start.weekday() not in user.work_days:
             raise fail("outside_hours", "Choose a single working day", 409)
         if local_start.time() < time.fromisoformat(
@@ -506,10 +677,15 @@ async def accept(body: AcceptInput, db: DB, user: Owner) -> list[dict[str, Any]]
     selected = [
         await owned(db, user, "block", identifier) for identifier in dict.fromkeys(body.block_ids)
     ]
-    await validate_placements(db, user, [(row.id, row.payload) for row in selected])
     for row in selected:
         if row.payload["status"] not in ("proposed", "accepted", "published"):
             raise fail("invalid_state", "Only proposed blocks can be accepted", 409)
+    await validate_placements(
+        db,
+        user,
+        [(row.id, row.payload) for row in selected if row.payload["status"] == "proposed"],
+    )
+    for row in selected:
         if row.payload["status"] == "proposed":
             row.payload = {**row.payload, "status": "accepted"}
     await db.commit()
@@ -536,6 +712,9 @@ async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> 
     if end <= start or (end - start).total_seconds() > 14400:
         raise fail("invalid_time", "Choose a positive duration of at most four hours")
     if body.start_at or body.end_at:
+        await require_no_active_focus(db, user, block_id=identifier)
+        if row.payload["status"] == "completed":
+            raise fail("completed_block", "Completed blocks keep their recorded times.", 409)
         payload["moved_count"] = payload.get("moved_count", 0) + 1
         payload["planned_minutes"] = int((end - start).total_seconds() / 60)
         local_date = start.astimezone(ZoneInfo(user.timezone)).date()
@@ -560,6 +739,7 @@ async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> 
 async def delete_block(identifier: str, db: DB, user: Owner) -> Response:
     await lock_owner(db, user)
     row = await owned(db, user, "block", identifier)
+    await require_no_active_focus(db, user, block_id=identifier)
     if row.payload["status"] == "published" or (
         row.payload.get("google_event_id") and row.payload["status"] != "cancelled"
     ):
@@ -575,6 +755,7 @@ async def delete_block(identifier: str, db: DB, user: Owner) -> Response:
 async def close_expired(db: AsyncSession, user: User) -> list[PlanningRecord]:
     rows = await records(db, user, "focus")
     now = datetime.now(UTC)
+    linked_blocks: set[str] = set()
     for row in rows:
         p = row.payload
         if not p.get("ended_at") and instant(p["ends_at"]) <= now:
@@ -585,9 +766,61 @@ async def close_expired(db: AsyncSession, user: User) -> list[PlanningRecord]:
                 "auto_closed": True,
             }
             if p.get("time_block_id"):
-                block = await owned(db, user, "block", p["time_block_id"])
-                block.payload = {**block.payload, "status": "completed"}
+                linked_blocks.add(p["time_block_id"])
+    for block_id in sorted(linked_blocks):
+        await sync_focus_block(db, user, block_id, rows)
     return rows
+
+
+async def sync_focus_block(
+    db: AsyncSession,
+    user: User,
+    block_id: str,
+    sessions: list[PlanningRecord] | None = None,
+) -> None:
+    """Reconcile completion from accumulated duration while the owner is locked.
+
+    Short sessions contribute to a longer block. Manual skips/cancellations and
+    manual completions remain user decisions. Only completion caused by focus
+    can be undone when an offline early-end correction arrives later.
+    """
+    block = await db.scalar(
+        select(PlanningRecord)
+        .where(
+            PlanningRecord.user_id == user.id,
+            PlanningRecord.kind == "block",
+            PlanningRecord.id == block_id,
+        )
+        .with_for_update()
+    )
+    if block is None or block.payload["status"] not in {"accepted", "published", "completed"}:
+        return
+    budget = float(block.payload["planned_minutes"])
+    if budget <= 0:
+        return
+    rows = sessions if sessions is not None else await records(db, user, "focus")
+    done = sum(
+        float(row.payload["actual_minutes"])
+        for row in rows
+        if row.payload.get("time_block_id") == block_id and row.payload.get("ended_at")
+    )
+    payload = block.payload
+    if done >= budget * 0.9 and payload["status"] in {"accepted", "published"}:
+        block.payload = {
+            **payload,
+            "status": "completed",
+            "completed_by_focus": True,
+            "focus_previous_status": payload["status"],
+        }
+    elif (
+        done < budget * 0.9
+        and payload["status"] == "completed"
+        and payload.get("completed_by_focus")
+    ):
+        previous = payload.get("focus_previous_status")
+        if previous not in {"accepted", "published"}:
+            previous = "published" if payload.get("google_event_id") else "accepted"
+        block.payload = {**payload, "status": previous, "completed_by_focus": False}
 
 
 @router.post("/focus/start", response_model=FocusResponse, status_code=201)
@@ -648,31 +881,51 @@ async def end_focus(identifier: str, body: FocusEnd, db: DB, user: Owner) -> dic
     await lock_owner(db, user)
     row = await owned(db, user, "focus", identifier)
     p = row.payload
-    if not p.get("ended_at") or (p.get("auto_closed") and body.ended_at is not None):
-        requested_end = body.ended_at or datetime.now(UTC)
-        if requested_end.tzinfo is None:
-            raise fail("invalid_time", "Timezone offset is required")
-        end = max(
-            instant(p["started_at"]), min(requested_end, datetime.now(UTC), instant(p["ends_at"]))
-        )
+    event_id = str(body.client_event_id) if body.client_event_id else None
+    signature = {
+        "ended_at": body.ended_at.isoformat() if body.ended_at else None,
+        "self_rating": body.self_rating,
+    }
+    if event_id:
+        for prior in await records(db, user, "focus"):
+            prior_events = prior.payload.get("end_events", {})
+            if event_id in prior_events:
+                if prior.id != identifier or prior_events[event_id] != signature:
+                    raise fail(
+                        "conflict", "Event ID already used for a different session update", 409
+                    )
+                return unpack(row)
+    events = dict(p.get("end_events", {}))
+    if event_id and len(events) >= 100:
+        raise fail("too_many_updates", "This session has too many saved updates", 429)
+    now = datetime.now(UTC)
+    start = instant(p["started_at"])
+    if body.ended_at is not None and body.ended_at < start:
+        raise fail("invalid_time", "Session end cannot be before its start")
+    if body.ended_at is not None and body.ended_at > now + timedelta(seconds=30):
+        raise fail("invalid_time", "Session end cannot be in the future")
+    previous_end = instant(p["ended_at"]) if p.get("ended_at") else None
+    requested_end = body.ended_at or previous_end or now
+    end = max(start, min(requested_end, now, instant(p["ends_at"])))
+    # Multiple devices and offline retries converge on the earliest end. A later
+    # repeated request can never add time to an already ended session.
+    if previous_end is None or end < previous_end:
         row.payload = {
             **p,
             "ended_at": end.isoformat(),
-            "actual_minutes": max(0, (end - instant(p["started_at"])).total_seconds() / 60),
-            "self_rating": body.self_rating,
+            "actual_minutes": max(0, (end - start).total_seconds() / 60),
+            "self_rating": body.self_rating
+            if body.self_rating is not None
+            else p.get("self_rating"),
             "auto_closed": False,
         }
-        if p.get("time_block_id") and row.payload["actual_minutes"] >= p["planned_minutes"] * 0.9:
-            block = await owned(db, user, "block", p["time_block_id"])
-            block.payload = {**block.payload, "status": "completed"}
-        elif p.get("time_block_id") and p.get("auto_closed"):
-            block = await owned(db, user, "block", p["time_block_id"])
-            block.payload = {
-                **block.payload,
-                "status": "published" if block.payload.get("google_event_id") else "accepted",
-            }
+        if p.get("time_block_id"):
+            await sync_focus_block(db, user, p["time_block_id"])
     elif body.self_rating is not None:
         row.payload = {**p, "self_rating": body.self_rating}
+    if event_id:
+        events[event_id] = signature
+        row.payload = {**row.payload, "end_events": events}
     await db.commit()
     return unpack(row)
 
@@ -692,20 +945,50 @@ async def focus_stats(
     from_date: Annotated[date | None, Query(alias="from")] = None,
     to_date: Annotated[date | None, Query(alias="to")] = None,
 ) -> FocusStats:
+    if from_date is not None and to_date is not None and to_date < from_date:
+        raise fail("invalid_range", "End date must be on or after start date")
     await lock_owner(db, user)
     rows = await close_expired(db, user)
     await db.commit()
-    selected = [
-        row.payload
-        for row in rows
-        if row.payload.get("ended_at")
-        and (from_date is None or instant(row.payload["started_at"]).date() >= from_date)
-        and (to_date is None or instant(row.payload["started_at"]).date() <= to_date)
-    ]
-    ratings = [float(p["self_rating"]) for p in selected if p.get("self_rating")]
+    timezone = ZoneInfo(user.timezone)
+
+    def midnight(day: date) -> datetime:
+        try:
+            return datetime.combine(day, time.min, timezone).astimezone(UTC)
+        except OverflowError:
+            return (
+                datetime.min.replace(tzinfo=UTC)
+                if day.year == 1
+                else datetime.max.replace(tzinfo=UTC)
+            )
+
+    left = midnight(from_date) if from_date is not None else None
+    right = (
+        midnight(to_date + timedelta(days=1))
+        if to_date is not None and to_date < date.max
+        else None
+    )
+    selected: list[dict[str, Any]] = []
+    total = 0.0
+    for row in rows:
+        payload = row.payload
+        if not payload.get("ended_at"):
+            continue
+        start = instant(payload["started_at"])
+        end = instant(payload["ended_at"])
+        overlap_start = max(start, left) if left is not None else start
+        overlap_end = min(end, right) if right is not None else end
+        overlap = max(0.0, (overlap_end - overlap_start).total_seconds() / 60)
+        instant_session = (
+            start == end and (left is None or start >= left) and (right is None or start < right)
+        )
+        if overlap > 0 or instant_session:
+            selected.append(payload)
+            total += min(float(payload["actual_minutes"]), overlap)
+    ratings = [float(payload["self_rating"]) for payload in selected if payload.get("self_rating")]
     return FocusStats(
         completed_sessions=len(selected),
-        total_minutes=sum(float(p["actual_minutes"]) for p in selected),
+        total_minutes=total,
         average_rating=sum(ratings) / len(ratings) if ratings else None,
     )
 
@@ -782,6 +1065,8 @@ async def trajectory(db: DB, user: Owner) -> list[TrajectoryResponse]:
 
 @router.get("/reflection/{week_start}", response_model=ReflectionResponse | None)
 async def get_reflection(week_start: date, db: DB, user: Owner) -> dict[str, Any] | None:
+    if week_start.weekday() != 0:
+        raise fail("invalid_week", "Week start must be a Monday")
     return next(
         (
             unpack(row)
@@ -796,6 +1081,8 @@ async def get_reflection(week_start: date, db: DB, user: Owner) -> dict[str, Any
 async def save_reflection(
     week_start: date, body: ReflectionInput, db: DB, user: Owner
 ) -> dict[str, Any]:
+    if week_start.weekday() != 0:
+        raise fail("invalid_week", "Week start must be a Monday")
     await lock_owner(db, user)
     payload = {**body.model_dump(), "week_start": week_start.isoformat()}
     rows = [

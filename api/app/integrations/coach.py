@@ -5,8 +5,10 @@ import re
 import time
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime, timedelta
+from datetime import time as daytime
 from pathlib import Path
 from typing import Annotated, Literal, Protocol, TypeVar, cast
+from zoneinfo import ZoneInfo
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException
@@ -230,7 +232,7 @@ def get_provider(config: IntegrationSettings, client: httpx.AsyncClient) -> LLMP
 
 def redact(value: str) -> str:
     value = re.sub(r"[\w.+-]+@[\w.-]+\.[A-Za-z]{2,}", "[email]", value)
-    return re.sub(r"https?://\S+", "[link]", value)
+    return re.sub(r"https?://\S+", "[link]", value, flags=re.IGNORECASE)
 
 
 async def structured(
@@ -368,36 +370,107 @@ async def finish_call(
 
 
 async def server_context(db: AsyncSession, user: User) -> str:
+    """Consent-gated goal/progress summaries, without calendar details or raw IDs.
+
+    A trajectory alone cannot explain whether a goal lacks actions or whether the
+    owner has been putting time into it. Include bounded, measured weekly effort;
+    do not send busy intervals, event titles/times, reflections, or check-in notes.
+    """
     from app.models.planning import PlanningRecord
     from app.routers.planning import trajectory
 
     positions = await trajectory(db, user)
-    goals = (
+    rows = (
         await db.scalars(
             select(PlanningRecord)
-            .where(PlanningRecord.user_id == user.id, PlanningRecord.kind == "goal")
-            .order_by(PlanningRecord.created_at)
-            .limit(20)
+            .where(
+                PlanningRecord.user_id == user.id,
+                PlanningRecord.kind.in_(["goal", "focus", "checkin"]),
+            )
+            .order_by(PlanningRecord.created_at, PlanningRecord.id)
         )
     ).all()
+    zone = ZoneInfo(user.timezone)
+    now = datetime.now(UTC)
+    today = now.astimezone(zone).date()
+    monday = today - timedelta(days=today.weekday())
+    week_start = datetime.combine(monday, daytime.min, zone).astimezone(UTC)
     positions_by_id = {position.goal_id: position for position in positions}
     context: list[dict[str, Json]] = []
-    for index, goal in enumerate(goals):
+    goals = [row for row in rows if row.kind == "goal"]
+    # Active goals come first so old archived goals cannot crowd out current work.
+    goals.sort(key=lambda row: (row.payload.get("status") != "active", row.created_at, row.id))
+    for index, goal in enumerate(goals[:20]):
         position = positions_by_id.get(goal.id)
         if not position:
             continue
+        payload = goal.payload
+        sessions = [
+            row.payload
+            for row in rows
+            if row.kind == "focus"
+            and row.payload.get("goal_id") == goal.id
+            and row.payload.get("ended_at")
+        ]
+        # Attribute only the overlap with this local week, including midnight sessions.
+        weekly_minutes = 0.0
+        weekly_sessions = 0
+        for session in sessions:
+            start = datetime.fromisoformat(session["started_at"]).astimezone(UTC)
+            end = datetime.fromisoformat(session["ended_at"]).astimezone(UTC)
+            overlap = max(0.0, (min(end, now) - max(start, week_start)).total_seconds() / 60)
+            if overlap:
+                weekly_sessions += 1
+                weekly_minutes += min(float(session.get("actual_minutes", 0)), overlap)
+        latest = next(
+            (
+                row.payload
+                for row in reversed(rows)
+                if row.kind == "checkin" and row.payload.get("goal_id") == goal.id
+            ),
+            None,
+        )
+        actions: list[Json] = []
+        for action in payload.get("actions", [])[:5]:
+            summary: dict[str, Json] = {
+                "title": redact(str(action.get("title", "")))[:200],
+                "kind": str(action.get("kind", "habit")),
+            }
+            if action.get("kind") == "project" and action.get("total_minutes_estimate"):
+                estimate = int(action["total_minutes_estimate"])
+                recorded = sum(
+                    float(session.get("actual_minutes", 0))
+                    for session in sessions
+                    if session.get("action_id") == action.get("id")
+                )
+                summary["total_minutes_estimate"] = estimate
+                summary["remaining_minutes_estimate"] = round(max(0, estimate - recorded), 1)
+            else:
+                summary["weekly_minutes_target"] = int(action.get("weekly_minutes_target", 0))
+            actions.append(summary)
         context.append(
             {
                 "goal": f"Goal {index + 1}",
-                "title": redact(str(goal.payload.get("title", ""))),
-                "outcome": redact(str(goal.payload.get("outcome_statement", ""))),
+                "title": redact(str(payload.get("title", "")))[:200],
+                "outcome": redact(str(payload.get("outcome_statement", "")))[:1000],
+                "goal_status": str(payload.get("status", "active")),
+                "target_date": str(payload.get("target_date", "")),
+                "metric_name": redact(str(payload.get("metric_name", "Progress")))[:100],
+                "metric_unit": redact(str(payload.get("metric_unit", "units")))[:100],
+                "metric_start": payload.get("metric_start", 0),
+                "metric_target": payload.get("metric_target", 100),
+                "latest_metric_value": latest.get("metric_value") if latest else None,
                 "status": position.status,
                 "expected_fraction": position.expected_fraction,
                 "actual_fraction": position.actual_fraction,
                 "effort_ratio": position.effort_ratio,
+                "reasons": cast(list[Json], position.reasons),
+                "actions": actions,
+                "focused_minutes_this_week": round(weekly_minutes, 1),
+                "completed_sessions_this_week": weekly_sessions,
             }
         )
-    return json.dumps({"goals": context})
+    return json.dumps({"week_start": monday.isoformat(), "goals": context}, allow_nan=False)
 
 
 class CoachInput(BaseModel):

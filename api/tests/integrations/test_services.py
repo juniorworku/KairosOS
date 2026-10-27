@@ -71,12 +71,19 @@ def test_busy_read_never_requests_event_details() -> None:
     assert json.loads(captured[0].content)["items"] == [{"id": "primary"}]
 
 
-def test_publish_uses_stable_id_and_recovers_duplicate() -> None:
+def test_publish_uses_stable_id_and_preserves_existing_google_move() -> None:
     seen: list[httpx.Request] = []
+    event = {
+        "id": "existing",
+        "status": "confirmed",
+        "start": {"dateTime": "2026-10-28T11:00:00Z"},
+        "end": {"dateTime": "2026-10-28T12:00:00Z"},
+        "extendedProperties": {"private": {"kairos_block_id": "block-1"}},
+    }
 
     def transport(request: httpx.Request) -> httpx.Response:
         seen.append(request)
-        return httpx.Response(409 if request.method == "POST" else 200, json={})
+        return httpx.Response(409 if request.method == "POST" else 200, json=event)
 
     async def run() -> None:
         async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
@@ -98,12 +105,81 @@ def test_publish_uses_stable_id_and_recovers_duplicate() -> None:
                 "2026-10-28T10:00:00Z",
             )
             assert first == second
+            assert first.data["start"] == {"dateTime": "2026-10-28T11:00:00Z"}
 
     asyncio.run(run())
-    assert [request.method for request in seen] == ["POST", "PUT", "POST", "PUT"]
+    assert [request.method for request in seen] == ["POST", "GET", "POST", "GET"]
     assert all("/calendars/app-calendar/events" in str(request.url) for request in seen)
     body = json.loads(seen[0].content)
     assert body["extendedProperties"]["private"]["kairos_block_id"] == "block-1"
+
+
+def test_duplicate_event_with_different_private_owner_is_not_overwritten() -> None:
+    from app.integrations.calendar import CalendarUnavailable
+
+    seen: list[str] = []
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        seen.append(request.method)
+        return httpx.Response(
+            409 if request.method == "POST" else 200,
+            json={"extendedProperties": {"private": {"kairos_block_id": "another-block"}}},
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+            with pytest.raises(CalendarUnavailable):
+                await GoogleCalendar(IntegrationSettings(_env_file=None), client).publish(
+                    "access",
+                    "app",
+                    "block-1",
+                    "Write",
+                    "2026-10-28T09:00:00Z",
+                    "2026-10-28T10:00:00Z",
+                )
+
+    asyncio.run(run())
+    assert seen == ["POST", "GET"]
+
+
+def test_stable_publication_retries_transient_failures_but_calendar_creation_does_not() -> None:
+    from app.integrations.calendar import CalendarHTTPError
+
+    identifiers: list[str] = []
+    creates: list[str] = []
+
+    def transport(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/calendars"):
+            creates.append(request.method)
+            return httpx.Response(503, json={})
+        identifiers.append(json.loads(request.content)["id"])
+        return httpx.Response(
+            429 if len(identifiers) == 1 else 503 if len(identifiers) == 2 else 200, json={}
+        )
+
+    async def run() -> None:
+        async with httpx.AsyncClient(transport=httpx.MockTransport(transport)) as client:
+            google = GoogleCalendar(IntegrationSettings(_env_file=None), client)
+            result = await google.publish(
+                "access", "app", "block-1", "Write", "2026-10-28T09:00:00Z", "2026-10-28T10:00:00Z"
+            )
+            assert result.event_id == identifiers[0]
+            with pytest.raises(CalendarHTTPError):
+                await google.create_calendar("access")
+
+    asyncio.run(run())
+    assert len(identifiers) == 3 and len(set(identifiers)) == 1
+    assert creates == ["POST"]
+
+
+def test_owned_all_day_event_uses_calendar_timezone_and_exclusive_end() -> None:
+    from app.integrations.calendar import event_bounds
+
+    start, end, all_day = event_bounds(
+        {"start": {"date": "2026-11-01"}, "end": {"date": "2026-11-02"}}, "America/New_York"
+    )
+    assert all_day
+    assert (end - start).total_seconds() == 25 * 3600
 
 
 class FakeProvider:

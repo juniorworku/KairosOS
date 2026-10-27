@@ -236,3 +236,85 @@ def test_trajectory_projection_handles_tiny_progress() -> None:
         "g", date(2026, 1, 1), date(2026, 1, 21), 0, 100, 1e-100, 0, 0, date(2026, 1, 11)
     )
     assert result["projected_finish"] is None
+
+
+@pytest.mark.parametrize(
+    "preference,earliest_hour,latest_hour",
+    [("morning", 9, 12), ("afternoon", 12, 17), ("evening", 17, 20)],
+)
+def test_scheduler_searches_inside_open_slots_for_preferred_times(
+    preference: str, earliest_hour: int, latest_hour: int
+) -> None:
+    result = make_plan(
+        date(2026, 10, 26),
+        "UTC",
+        [0],
+        "09:00",
+        "20:00",
+        60,
+        "morning",
+        [Action("a", "g", "Work", 1, 60, preference=preference)],
+        [],
+        [],
+        multiplier=1,
+    )
+    assert len(result.blocks) == 1
+    assert earliest_hour <= result.blocks[0].start.hour < latest_hour
+    assert preference.lower() in result.blocks[0].reason.lower()
+
+
+def test_scheduler_uses_historical_hour_inside_a_single_open_slot() -> None:
+    result = make_plan(
+        date(2026, 10, 26),
+        "UTC",
+        [0],
+        "09:00",
+        "12:00",
+        60,
+        "morning",
+        [Action("a", "g", "Work", 1, 60)],
+        [],
+        [],
+        multiplier=1,
+        completion_history={(0, 9): (0, 10), (0, 10): (9, 10)},
+    )
+    assert result.blocks[0].start.hour == 10
+    assert "90%" in result.blocks[0].reason
+
+
+def test_habit_spread_accounts_for_already_accepted_days() -> None:
+    monday = date(2026, 10, 26)
+    result = make_plan(
+        monday,
+        "UTC",
+        [0, 1],
+        "09:00",
+        "17:00",
+        120,
+        "morning",
+        [Action("a", "g", "Habit", 1, 60)],
+        [],
+        [],
+        multiplier=1,
+        existing_action_days={"a": {monday}},
+    )
+    assert result.blocks[0].start.date() == monday + timedelta(days=1)
+
+
+def test_invalid_pure_scheduler_inputs_fail_without_looping() -> None:
+    with pytest.raises(ValueError):
+        Action("a", "g", "Invalid", 1, 60, minimum=0)
+    with pytest.raises(ValueError):
+        Interval(datetime(2026, 1, 1), datetime(2026, 1, 2))
+
+
+def test_interval_orders_real_instants_across_a_repeated_dst_hour() -> None:
+    from zoneinfo import ZoneInfo
+
+    zone = ZoneInfo("America/New_York")
+    interval = Interval(
+        datetime(2026, 11, 1, 1, 30, tzinfo=zone, fold=0),
+        datetime(2026, 11, 1, 1, 15, tzinfo=zone, fold=1),
+    )
+    assert interval.end - interval.start == timedelta(minutes=45)
+    assert interval.start.tzinfo is UTC
