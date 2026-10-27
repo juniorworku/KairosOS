@@ -135,7 +135,13 @@ export default function App() {
           ))}
         </nav>
         <div className="sidebar-bottom">
-          <Link to="/focus" className="sidebar-focus-card"><span className="sidebar-focus-icon" aria-hidden="true"><Focus size={21}/></span><span>{c.focus.start}</span><ArrowUpRight size={16} aria-hidden="true"/></Link>
+          <Link to="/focus" className="sidebar-focus-card">
+            <span className="sidebar-focus-icon" aria-hidden="true">
+              <Focus size={21} />
+            </span>
+            <span>{c.focus.start}</span>
+            <ArrowUpRight size={16} aria-hidden="true" />
+          </Link>
           <NavLink
             to="/settings"
             className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
@@ -200,7 +206,7 @@ export default function App() {
               path="/settings"
               element={<Settings theme={theme} setTheme={setTheme} />}
             />
-            <Route path="/admin/*" element={<Navigate to="/today" replace/>}/>
+            <Route path="/admin/*" element={<Navigate to="/today" replace />} />
             <Route path="*" element={<Navigate to="/today" replace />} />
           </Routes>
         </Suspense>

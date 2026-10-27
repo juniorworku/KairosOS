@@ -30,7 +30,7 @@ export default defineConfig({
         clientsClaim: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/healthz/, /^\/readyz/],
-        globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
+        globPatterns: ["**/*.{js,css,html,png,svg,ico,woff2}"],
         cleanupOutdatedCaches: true,
       },
     }),

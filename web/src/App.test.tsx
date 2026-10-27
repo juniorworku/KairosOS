@@ -87,6 +87,18 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("functional shell", () => {
+  it("hides user administration and redirects its former route", async () => {
+    mount("/admin");
+    expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(
+      "Today",
+    );
+    expect(
+      screen.queryByRole("link", { name: /^Users$/ }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("heading", { name: "Invites" }),
+    ).not.toBeInTheDocument();
+  });
   it("shows a plain Today page with real empty states", async () => {
     mount();
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent(

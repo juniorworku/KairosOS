@@ -23,3 +23,7 @@ The working app has implementation across the core M0–M9 loop. This record dis
 - Personal Mode M10–M17 and release D1/D2 remain deferred. JSON planning aggregates and transactional PostgreSQL quota reservations are documented deviations from the original normalized schema/Redis design.
 
 The test suite emits two upstream Starlette/AnyIO deprecation warnings; all assertions pass.
+
+## Visual refresh and personal scope
+
+Users and invitation screens are removed; `/admin/*` redirects to Today. Sign-in and personal account controls remain. The refreshed UI passes 20 frontend tests, ESLint, TypeScript/production builds, and all three Playwright flows (planning/focus/review/settings, mobile accessibility, offline replay). The built dark dashboard and former admin-route redirect were also checked in Chrome. Self-hosted fonts are included in the offline precache. The Lighthouse measurements above predate this visual refresh and have not been remeasured. No deployment was performed.

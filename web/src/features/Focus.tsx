@@ -114,13 +114,24 @@ export function FocusPage() {
                 c.focus.unlinked
               : c.focus.title}
           </div>
-          <div className="timer-dial" style={{"--session-progress":`${session?Math.max(0,Math.min(360,(1-remaining/(session.planned_minutes*60))*360)):0}deg`} as CSSProperties}><span className="timer-ticks" aria-hidden="true"/><div
-            className={`timer ${session ? "running" : ""}`}
-            role="timer"
-            aria-label={c.focus.remaining}
+          <div
+            className="timer-dial"
+            style={
+              {
+                "--session-progress": `${session ? Math.max(0, Math.min(360, (1 - remaining / (session.planned_minutes * 60)) * 360)) : 0}deg`,
+              } as CSSProperties
+            }
           >
-            {time}
-          </div><span className="timer-dial-label">{c.focus.remaining}</span></div>
+            <span className="timer-ticks" aria-hidden="true" />
+            <div
+              className={`timer ${session ? "running" : ""}`}
+              role="timer"
+              aria-label={c.focus.remaining}
+            >
+              {time}
+            </div>
+            <span className="timer-dial-label">{c.focus.remaining}</span>
+          </div>
           {session ? (
             <Button
               className="primary"

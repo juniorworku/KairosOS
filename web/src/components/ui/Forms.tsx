@@ -7,7 +7,7 @@ import {
   type ReactNode,
   type FormEvent,
 } from "react";
-import {CircleDashed} from "lucide-react";
+import { CircleDashed } from "lucide-react";
 import { copy as c } from "../../copy/en";
 export function Field({
   label,
@@ -67,7 +67,9 @@ export function Empty({
 }) {
   return (
     <div className="empty-state">
-      <span className="empty-state-symbol" aria-hidden="true">{icon||<CircleDashed size={28} strokeWidth={1.4}/>}</span>
+      <span className="empty-state-symbol" aria-hidden="true">
+        {icon || <CircleDashed size={28} strokeWidth={1.4} />}
+      </span>
       <p>{title}</p>
       {children}
     </div>

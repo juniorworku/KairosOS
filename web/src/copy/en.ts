@@ -53,8 +53,9 @@ export const copy = {
     "This link has expired or has already been used. Request another link.",
   today: {
     title: "Today",
-    week:"This week",
-    blockCount:(count:number)=>`${count} ${count===1?"block":"blocks"}`,
+    week: "This week",
+    blockCount: (count: number) =>
+      `${count} ${count === 1 ? "block" : "blocks"}`,
     empty: "No blocks planned for today.",
     plan: "Plan your week",
     newGoal: "Add a goal",
@@ -67,7 +68,7 @@ export const copy = {
     skip: "Skip",
     upcoming: "Schedule",
     progress: "Goal progress",
-    noGoals: "No goals yet.",
+    noGoals: "No active goals.",
     checkin: "Record progress",
   },
   goals: {
