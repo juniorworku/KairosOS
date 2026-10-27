@@ -435,7 +435,7 @@ function BlockDetails({
   close: () => void;
   save: (path: string, body: unknown, method: string) => Promise<void>;
 }) {
-  const[actionError,setActionError]=useState<unknown>();
+  const [actionError, setActionError] = useState<unknown>();
   const [start, setStart] = useState(localInput(block.start_at, timezone));
   const [end, setEnd] = useState(localInput(block.end_at, timezone));
   return (
@@ -446,7 +446,8 @@ function BlockDetails({
           <X size={17} />
         </Button>
       </div>
-      <Notice error={actionError}/><h3>{block.title}</h3>
+      <Notice error={actionError} />
+      <h3>{block.title}</h3>
       <span className={`status-label status-${block.status}`}>
         {c.plan[block.status as keyof typeof c.plan] || block.status} ·{" "}
         {minutes(block.planned_minutes)}
@@ -519,7 +520,9 @@ function BlockDetails({
                 type="button"
                 disabled={busy || !online}
                 onClick={() =>
-                  void save(`/blocks/${block.id}`, undefined, "DELETE").catch(setActionError)
+                  void save(`/blocks/${block.id}`, undefined, "DELETE").catch(
+                    setActionError,
+                  )
                 }
               >
                 {c.plan.discard}

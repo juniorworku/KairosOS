@@ -5,7 +5,13 @@ import { copy as c } from "../copy/en";
 import { useAuth } from "../lib/auth";
 import { useData, useOnline } from "../lib/hooks";
 import { api } from "../api/client";
-import type { Block, Goal, Trajectory, FocusStats,FocusSession } from "../api/types";
+import type {
+  Block,
+  Goal,
+  Trajectory,
+  FocusStats,
+  FocusSession,
+} from "../api/types";
 import { dateKey, weekStart, clock, minutes } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Empty, Notice } from "../components/ui/Forms";
@@ -18,7 +24,7 @@ export function Today() {
   const goals = useData<Goal[]>("/goals");
   const trajectories = useData<Trajectory[]>("/trajectory");
   const stats = useData<FocusStats>(`/focus/stats?from=${today}&to=${today}`);
-  const active=useData<FocusSession|null>("/focus/active");
+  const active = useData<FocusSession | null>("/focus/active");
   const navigate = useNavigate();
   const client = useQueryClient();
   const [error, setError] = useState<unknown>();
@@ -66,7 +72,14 @@ export function Today() {
         </Link>
       </header>
       <Notice error={error || blocks.error || goals.error} />
-      {active.data&&<div className="draft-toolbar"><span>{active.data.title||c.focus.title}</span><Link className="button primary" to="/focus">{c.focus.resume}</Link></div>}
+      {active.data && (
+        <div className="draft-toolbar">
+          <span>{active.data.title || c.focus.title}</span>
+          <Link className="button primary" to="/focus">
+            {c.focus.resume}
+          </Link>
+        </div>
+      )}
       <div className="stats-row">
         <div>
           <span>{c.today.goals}</span>

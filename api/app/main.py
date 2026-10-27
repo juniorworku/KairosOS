@@ -4,6 +4,7 @@ import asyncio
 import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 from contextlib import asynccontextmanager
+from time import perf_counter
 from typing import Literal
 from uuid import uuid4
 
@@ -26,6 +27,7 @@ from app.integrations.coach import coach_router
 from app.integrations.config import IntegrationSettings
 from app.integrations.router import calendar_router, disconnect_calendar_for_user, ext_router
 from app.models.auth import User
+from app.observability import configure_logging
 from app.routers.planning import router as planning_router
 
 logger = logging.getLogger("kairos.health")
@@ -47,6 +49,7 @@ def create_app(
     database_check: Check | None = None,
     redis_check: Check | None = None,
 ) -> FastAPI:
+    configure_logging()
     config = settings or get_settings()
     engine = create_engine(config.database_url)
     redis: Redis = Redis.from_url(config.redis_url)
@@ -120,10 +123,22 @@ def create_app(
     async def response_headers(
         request: Request, call_next: Callable[[Request], Awaitable[Response]]
     ) -> Response:
+        started = perf_counter()
+        request_id = str(uuid4())
         response = await call_next(request)
+        logger.info(
+            "request_completed",
+            extra={
+                "request_id": request_id,
+                "method": request.method,
+                "path": request.url.path,
+                "status": response.status_code,
+                "duration_ms": round((perf_counter() - started) * 1000),
+            },
+        )
         if request.url.path.startswith("/api/"):
             response.headers["Cache-Control"] = "no-store"
-        response.headers["X-Request-ID"] = str(uuid4())
+        response.headers["X-Request-ID"] = request_id
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["X-Frame-Options"] = "DENY"

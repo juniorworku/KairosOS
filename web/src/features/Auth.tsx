@@ -1,4 +1,4 @@
-import { useState,useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
 import { copy as c } from "../copy/en";
@@ -11,7 +11,11 @@ export function Welcome() {
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [cooldown, setCooldown] = useState(0);
-  const[now,setNow]=useState(Date.now());useEffect(()=>{const timer=window.setInterval(()=>setNow(Date.now()),1000);return()=>clearInterval(timer);},[]);
+  const [now, setNow] = useState(Date.now());
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(timer);
+  }, []);
   const config = useData<{
     google_enabled: boolean;
     email_enabled: boolean;
@@ -29,10 +33,7 @@ export function Welcome() {
         {sent ? (
           <>
             <p>{c.sentBody}</p>
-            <Button
-              disabled={now < cooldown}
-              onClick={() => setSent(false)}
-            >
+            <Button disabled={now < cooldown} onClick={() => setSent(false)}>
               {c.resend}
             </Button>
           </>

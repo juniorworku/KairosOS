@@ -28,7 +28,9 @@ import { Notice } from "./components/ui/Forms";
 import { Welcome, Confirm } from "./features/Auth";
 import { Today } from "./features/Today";
 import { Goals, GoalDetail, GoalEditor } from "./features/Goals";
-const Plan=lazy(()=>import("./features/Plan").then(module=>({default:module.Plan})));
+const Plan = lazy(() =>
+  import("./features/Plan").then((module) => ({ default: module.Plan })),
+);
 import { FocusPage } from "./features/Focus";
 import { Review, Coach } from "./features/Review";
 import { Settings, Admin } from "./features/Settings";
@@ -56,7 +58,7 @@ export default function App() {
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const online = useOnline();
   const replay = useReplay();
-  const[actionError,setActionError]=useState<unknown>();
+  const [actionError, setActionError] = useState<unknown>();
   const location = useLocation();
   useEffect(() => setOpen(false), [location.pathname]);
   useEffect(() => {
@@ -167,30 +169,47 @@ export default function App() {
             {c.offline}
           </div>
         )}
-        <Notice error={actionError}/>{replay.error?<div className="sync-issue"><Notice error={replay.error}/><div className="button-row"><Button onClick={()=>void replay.retry()}>{c.retry}</Button><Button onClick={()=>{if(window.confirm(c.discardUnsynced))void replay.discard();}}>{c.discardUpdates}</Button></div></div>:null}
-        <Suspense fallback={<p role="status">{c.loading}</p>}><Routes>
-          <Route path="/today" element={<Today />} />
-          <Route path="/goals" element={<Goals />} />
-          <Route path="/goals/new" element={<GoalEditor />} />
-          <Route path="/goals/:id" element={<GoalDetail />} />
-          <Route path="/goals/:id/edit" element={<GoalEditor />} />
-          <Route path="/onboarding" element={<GoalEditor />} />
-          <Route path="/plan" element={<Plan />} />
-          <Route path="/focus" element={<FocusPage />} />
-          <Route path="/review" element={<Review />} />
-          <Route path="/coach" element={<Coach />} />
-          <Route
-            path="/settings"
-            element={<Settings theme={theme} setTheme={setTheme} />}
-          />
-          <Route
-            path="/admin"
-            element={
-              user.role === "user" ? <Navigate to="/today" /> : <Admin />
-            }
-          />
-          <Route path="*" element={<Navigate to="/today" replace />} />
-        </Routes></Suspense>
+        <Notice error={actionError} />
+        {replay.error ? (
+          <div className="sync-issue">
+            <Notice error={replay.error} />
+            <div className="button-row">
+              <Button onClick={() => void replay.retry()}>{c.retry}</Button>
+              <Button
+                onClick={() => {
+                  if (window.confirm(c.discardUnsynced)) void replay.discard();
+                }}
+              >
+                {c.discardUpdates}
+              </Button>
+            </div>
+          </div>
+        ) : null}
+        <Suspense fallback={<p role="status">{c.loading}</p>}>
+          <Routes>
+            <Route path="/today" element={<Today />} />
+            <Route path="/goals" element={<Goals />} />
+            <Route path="/goals/new" element={<GoalEditor />} />
+            <Route path="/goals/:id" element={<GoalDetail />} />
+            <Route path="/goals/:id/edit" element={<GoalEditor />} />
+            <Route path="/onboarding" element={<GoalEditor />} />
+            <Route path="/plan" element={<Plan />} />
+            <Route path="/focus" element={<FocusPage />} />
+            <Route path="/review" element={<Review />} />
+            <Route path="/coach" element={<Coach />} />
+            <Route
+              path="/settings"
+              element={<Settings theme={theme} setTheme={setTheme} />}
+            />
+            <Route
+              path="/admin"
+              element={
+                user.role === "user" ? <Navigate to="/today" /> : <Admin />
+              }
+            />
+            <Route path="*" element={<Navigate to="/today" replace />} />
+          </Routes>
+        </Suspense>
         <PwaPrompt />
       </main>
     </div>

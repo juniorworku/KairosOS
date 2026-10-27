@@ -121,6 +121,8 @@ jobs:
           docker compose exec -T worker celery -A app.jobs.celery_app:celery_app inspect ping --timeout=10
           test "$(docker compose ps --status running --services | wc -l)" -eq 7
           curl --fail --silent http://localhost:8000/healthz
+      - run: npm ci && npm run build && npm run test:e2e
+        working-directory: extension
       - name: Run complete local browser workflow
         run: npm run e2e
         working-directory: web

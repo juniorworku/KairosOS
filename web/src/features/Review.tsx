@@ -67,11 +67,7 @@ export function Review() {
           {review.isPending ? (
             <p>{c.loading}</p>
           ) : (
-            <ReflectionForm
-              key={`${week}-${review.data?.week_start || ""}`}
-              week={week}
-              initial={review.data}
-            />
+            <ReflectionForm key={week} week={week} initial={review.data} />
           )}
         </section>
         <section className="panel">
@@ -217,9 +213,7 @@ export function Coach() {
           <div className="messages" aria-live="polite">
             {messages.map((m, i) => (
               <div key={i} className={`message ${m.role}`}>
-                <span>
-                  {m.role === "user" ? c.settings.profile : c.coach.title}
-                </span>
+                <span>{m.role === "user" ? c.coach.you : c.coach.title}</span>
                 <p>{m.content || c.loading}</p>
               </div>
             ))}

@@ -1,16 +1,25 @@
-# M0 verification
+# Local verification — 2026-10-28
 
-Local checks on 2026-10-27:
+The working app has implementation across the core M0–M9 loop. This record distinguishes local automated evidence from credentialed provider and public-release acceptance.
 
-- Ruff lint and formatting pass.
-- Strict mypy passes for 14 source files; TypeScript and ESLint pass.
-- 11 API tests and 3 frontend component tests pass.
-- 2 Playwright smoke tests pass with the matching Chromium installation: desktop navigation and appearance persistence, mobile navigation and overflow.
-- Frontend production build passes.
-- Python and npm dependency audits report zero known vulnerabilities.
-- Desktop, mobile, and light/dark layouts visually inspected.
-- Compose configuration validates; all seven local services start.
-- PostgreSQL and Redis readiness checks succeed; the web proxy reaches API liveness.
-- Alembic baseline applies successfully; Celery worker answers ping.
+## Passed
 
-CI is configured, but remote GitHub Actions has not run. No remote repository or deployment was created. This is the foundation milestone, not completion of the full product MVP.
+- Full backend suite: 92 tests against isolated PostgreSQL schemas, run inside the API container. Coverage includes authentication, scanner-safe and concurrent single-use links, account linking, CSRF/origin checks, ownership, admin/session revocation, deletion/export, deterministic scheduling/DST/capacity, focus concurrency/expiry, offline event idempotency, trajectory, quotas, provider mocks, calendar consent/publishing boundaries, and extension bearer restrictions.
+- Frontend: 19 component/storage tests for the plain app shell, wizard, suggestion request/review/apply boundary, account-scoped cache, ordered/idempotent replay, failed-write quarantine, and persisted offline session ending.
+- Three Playwright production-build flows pass: goal wizard → check-in → draft/accept → focus/reload/end/rating → review/settings; mobile navigation with no horizontal overflow and WCAG A/AA axe checks; offline shell reload and exactly-once check-in replay.
+- Extension: 4 rule unit tests and 5 real Chromium lifecycle checks pass against a controlled loopback API. The latter exercise native navigation blocking, full browser/worker restart, alarm expiry during outage, immediate offline pause, and original-session end replay. A temporary fixture manifest grants the test API; the packaged manifest remains unchanged.
+- Ruff lint/format, strict mypy, TypeScript, ESLint, web production build, extension build, and generated API contract checks pass.
+- Local production Lighthouse 12.8.2: signed-in Today performance **96**, accessibility **100**; Welcome performance **92**, accessibility **100**. No audit runtime errors or failing automated accessibility audits. Today FCP 1.4 s, LCP 2.0 s, TBT 150 ms, CLS 0.077 under the audit’s mobile throttling. This is evidence for these two local routes, not every device or future deployment.
+- All seven Compose services start. PostgreSQL/Redis readiness, frontend API proxy, full Alembic migration chain, repeat migration, and worker connectivity are checked locally.
+- Dependency audits reported zero known advisories for the locked Python, web, and extension dependencies during this build.
+
+## Remaining acceptance gates
+
+- Real Google sign-in/calendar consent, live event publication/reconciliation, and real-domain email delivery require configured credentials and domain setup. Local email-link sign-in is verified through Mailpit.
+- Anthropic/Gemini adapters, streaming, consent and quota logic are tested with controlled responses; live model availability/output quality requires a configured key/model.
+- The extension’s idle-only service-worker suspension, Chrome/OS matrix, permission prompts and store disclosures retain manual QA items. The automated recovery test restarts Chromium itself.
+- PWA install/device testing and broader accessibility review extend beyond the local browser and two Lighthouse routes.
+- CI is configured with real PostgreSQL/Redis and production-preview browser flows, but no remote GitHub Actions run is claimed. Nothing is deployed or published.
+- Personal Mode M10–M17 and release D1/D2 remain deferred. JSON planning aggregates and transactional PostgreSQL quota reservations are documented deviations from the original normalized schema/Redis design.
+
+The test suite emits two upstream Starlette/AnyIO deprecation warnings; all assertions pass.

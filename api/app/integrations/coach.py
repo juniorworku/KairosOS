@@ -34,8 +34,16 @@ class AIUnavailable(Exception):
 
 class ProviderResult(BaseModel):
     text: str
-    input_tokens: int = 0
-    output_tokens: int = 0
+    input_tokens: int | None = Field(default=None, ge=0)
+    output_tokens: int | None = Field(default=None, ge=0)
+
+
+def token_count(value: Json) -> int | None:
+    if value is None:
+        return None
+    if isinstance(value, int) and not isinstance(value, bool) and value >= 0:
+        return value
+    raise ValueError("Invalid provider usage")
 
 
 class LLMProvider(Protocol):
@@ -88,8 +96,8 @@ class AnthropicProvider:
         usage = object_value(data.get("usage", {}))
         return ProviderResult(
             text="".join(parts),
-            input_tokens=int(str(usage.get("input_tokens", 0))),
-            output_tokens=int(str(usage.get("output_tokens", 0))),
+            input_tokens=token_count(usage.get("input_tokens")),
+            output_tokens=token_count(usage.get("output_tokens")),
         )
 
     async def stream_text(
@@ -109,7 +117,8 @@ class AnthropicProvider:
         ) as response:
             if response.status_code != 200:
                 raise AIUnavailable("Coaching is unavailable. Try again later.")
-            input_tokens = output_tokens = 0
+            input_tokens: int | None = None
+            output_tokens: int | None = None
             async for line in response.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -119,14 +128,16 @@ class AnthropicProvider:
                     raise AIUnavailable("Coaching was interrupted. Try again.")
                 if kind == "message_start":
                     usage = object_value(object_value(data.get("message")).get("usage", {}))
-                    input_tokens = int(str(usage.get("input_tokens", 0)))
+                    input_tokens = token_count(usage.get("input_tokens"))
                 elif kind == "message_delta":
                     usage = object_value(data.get("usage", {}))
-                    output_tokens = int(str(usage.get("output_tokens", output_tokens)))
+                    output_tokens = token_count(usage.get("output_tokens", output_tokens))
                 elif kind == "content_block_delta":
                     delta = object_value(data.get("delta"))
                     if delta.get("type") == "text_delta":
                         yield ProviderResult(text=string_value(delta.get("text")))
+            if output_tokens is None:
+                raise AIUnavailable("Coaching was interrupted before usage was confirmed.")
             yield ProviderResult(text="", input_tokens=input_tokens, output_tokens=output_tokens)
 
 
@@ -163,8 +174,8 @@ class GeminiProvider:
         usage = object_value(data.get("usageMetadata", {}))
         return ProviderResult(
             text=answer,
-            input_tokens=int(str(usage.get("promptTokenCount", 0))),
-            output_tokens=int(str(usage.get("candidatesTokenCount", 0))),
+            input_tokens=token_count(usage.get("promptTokenCount")),
+            output_tokens=token_count(usage.get("candidatesTokenCount")),
         )
 
     async def stream_text(
@@ -187,7 +198,8 @@ class GeminiProvider:
         ) as response:
             if response.status_code != 200:
                 raise AIUnavailable("Coaching is unavailable. Try again later.")
-            input_tokens = output_tokens = 0
+            input_tokens: int | None = None
+            output_tokens: int | None = None
             async for line in response.aiter_lines():
                 if not line.startswith("data: "):
                     continue
@@ -195,14 +207,16 @@ class GeminiProvider:
                 if data.get("error"):
                     raise AIUnavailable("Coaching was interrupted. Try again.")
                 usage = object_value(data.get("usageMetadata", {}))
-                input_tokens = int(str(usage.get("promptTokenCount", input_tokens)))
-                output_tokens = int(str(usage.get("candidatesTokenCount", output_tokens)))
+                input_tokens = token_count(usage.get("promptTokenCount", input_tokens))
+                output_tokens = token_count(usage.get("candidatesTokenCount", output_tokens))
                 for candidate in list_value(data.get("candidates", [])):
                     content = object_value(object_value(candidate).get("content", {}))
                     for part in list_value(content.get("parts", [])):
                         value = object_value(part).get("text")
                         if isinstance(value, str):
                             yield ProviderResult(text=value)
+            if output_tokens is None:
+                raise AIUnavailable("Coaching was interrupted before usage was confirmed.")
             yield ProviderResult(text="", input_tokens=input_tokens, output_tokens=output_tokens)
 
 
@@ -317,7 +331,11 @@ async def reserve(db: AsyncSession, user: User, task: str, config: IntegrationSe
                     "limit": limit,
                     "used": used,
                     "resets_at": resets.isoformat(),
-                    "message": "Your coaching allowance has been used.",
+                    "message": (
+                        "Your monthly coaching allowance has been used."
+                        if metric in {"ai.output_tokens", "ai.retro"}
+                        else "Your daily coaching allowance has been used."
+                    ),
                 },
             )
     call = AICall(
@@ -335,10 +353,17 @@ async def reserve(db: AsyncSession, user: User, task: str, config: IntegrationSe
 async def finish_call(
     db: AsyncSession, call: AICall, result: ProviderResult | None, elapsed: float
 ) -> None:
-    call.status = "success" if result else "failed"
+    # Missing usage includes cancellation, partial streams, and provider failures. Keep the
+    # committed maximum reservation: releasing it would let repeated aborts evade quotas.
+    # These conservative counts are quota reservations, not claims about actual billing.
+    usage_known = result is not None and result.output_tokens is not None
+    call.status = "success" if usage_known else "failed" if result is None else "usage_unknown"
     call.latency_ms = round(elapsed * 1000)
-    call.input_tokens = result.input_tokens if result else 0
-    call.output_tokens = result.output_tokens if result else 0
+    if result is not None:
+        if result.input_tokens is not None:
+            call.input_tokens = result.input_tokens
+        if result.output_tokens is not None:
+            call.output_tokens = result.output_tokens
     await db.commit()
 
 
@@ -382,7 +407,7 @@ class CoachInput(BaseModel):
 
 class GoalSuggestion(BaseModel):
     outcome_statement: str = Field(max_length=1000)
-    metric_name: str = Field(max_length=120)
+    metric_name: str = Field(min_length=1, max_length=100)
     metric_unit: str = Field(max_length=60)
     suggested_target: float = Field(allow_inf_nan=False)
     clarifying_questions: list[str] = Field(max_length=5)
@@ -391,7 +416,7 @@ class GoalSuggestion(BaseModel):
 class ActionSuggestion(BaseModel):
     title: str = Field(max_length=200)
     kind: Literal["habit", "project"]
-    weekly_minutes: int = Field(ge=0, le=2400)
+    weekly_minutes: int = Field(ge=30, le=2400)
     rationale: str = Field(max_length=1000)
 
 
@@ -476,7 +501,9 @@ async def suggest(
                     503,
                     detail={
                         "code": "ai_unavailable",
-                        "message": "Coaching is unavailable. Your plan is unchanged.",
+                        "message": (
+                            "Coaching is unavailable. This attempt still counts toward your allowance."
+                        ),
                     },
                 ) from exc
             finally:
@@ -544,7 +571,12 @@ async def chat(body: ChatInput, db: DB, user: Owner) -> StreamingResponse:
             yield (
                 "event: error\ndata: "
                 + json.dumps(
-                    {"code": "ai_unavailable", "message": "Coaching was interrupted. Try again."}
+                    {
+                        "code": "ai_unavailable",
+                        "message": (
+                            "Coaching stopped. This request still counts toward your allowance."
+                        ),
+                    }
                 )
                 + "\n\n"
             )

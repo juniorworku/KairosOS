@@ -19,6 +19,8 @@ The development account comes from `OWNER_EMAIL`, initially `owner@localhost.tes
 
 The API applies migrations before starting and seeds the owner and plans idempotently. Workers do not independently run migrations. `make migrate` can reapply pending revisions safely; `make seed-owner` checks owner setup. Deleting the owner prevents automatic account recreation on restart.
 
+For the installable production build and offline shell, run `make preview` after the stack starts. `make dev` remains the hot-reload development command.
+
 Stop with `make down`. PostgreSQL records remain in a named local volume.
 
 ## Use the core loop
@@ -46,4 +48,4 @@ Browser checks use the real local app, API, and Mailpit. `PLAYWRIGHT_EXTERNAL_SE
 
 `make generate-api` exports OpenAPI and regenerates frontend types. Both generated files are committed and checked for drift in CI. Python dependencies are pinned in `api/requirements.lock`; npm lockfiles pin the web and extension. CI also builds the local stack, checks migrations and workers, and audits dependencies. No CI job deploys or publishes anything. A workflow file is not evidence that remote CI has run; see the verification record for actual results.
 
-See [architecture](docs/ARCHITECTURE.md), [privacy](docs/PRIVACY.md), [the demo](docs/DEMO.md), and [remaining work](docs/ROADMAP.md). Public deployment, live provider verification, Lighthouse budgets, and the Chrome manual QA checklist remain separate acceptance gates.
+See [architecture](docs/ARCHITECTURE.md), [privacy](docs/PRIVACY.md), [the demo](docs/DEMO.md), and [remaining work](docs/ROADMAP.md). Local production Lighthouse and offline checks have passed; see the verification report. Public deployment, live provider verification, and remaining Chrome manual QA remain separate acceptance gates.

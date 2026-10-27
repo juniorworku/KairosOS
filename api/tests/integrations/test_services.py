@@ -180,3 +180,27 @@ def test_redaction_omits_links_and_emails() -> None:
     assert "token=secret" not in value
     assert "[email]" in value
     assert "[link]" in value
+
+
+def test_truncated_provider_stream_does_not_report_zero_confirmed_usage() -> None:
+    event = {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "Partial"}}
+    content = "data: " + json.dumps(event) + "\n\n"
+
+    async def run() -> None:
+        async with httpx.AsyncClient(
+            transport=httpx.MockTransport(lambda request: httpx.Response(200, text=content))
+        ) as client:
+            provider = AnthropicProvider(
+                IntegrationSettings(
+                    anthropic_api_key="test", anthropic_model="configured-model", _env_file=None
+                ),
+                client,
+            )
+            stream = provider.stream_text(system="safe", user="data", max_tokens=20)
+            first = await anext(stream)
+            assert first.text == "Partial"
+            assert first.output_tokens is None
+            with pytest.raises(AIUnavailable):
+                await anext(stream)
+
+    asyncio.run(run())

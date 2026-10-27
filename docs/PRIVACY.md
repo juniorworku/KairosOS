@@ -18,9 +18,9 @@ Coaching is optional. When enabled/configured, the chosen Anthropic or Gemini se
 
 ## Browser and extension
 
-The browser may cache private planning reads and queue supported offline check-ins/session endings in IndexedDB. Signing out/account changes clear this cache and queue. Anyone with access to an unlocked browser profile may be able to view locally cached data; no claim of encrypted browser storage is made.
+The browser may cache private planning reads and queue supported offline check-ins/session endings in IndexedDB. Reads and queued writes are scoped to the signed-in account. Switching accounts hides the previous account’s data; signing out clears all local private reads and queued writes. Failed queued writes are retained for an explicit retry or discard. Anyone with access to an unlocked browser profile may be able to view locally cached data; no claim of encrypted browser storage is made.
 
-The Chrome extension reads no page content or browsing history. It stores its paired bearer token, active session timing and the selected domain list locally, and uses navigation rules only while focusing. Optional redirects require separately granted host access. Blocked-navigation counts can be sent to the server. Pairing and bearer access are revocable; disabling an account also invalidates extension access.
+The Chrome extension reads no page content or browsing history. It stores its paired bearer token, active session timing and the selected domain list locally, and uses navigation rules only while focusing. Optional redirects require separately granted host access. Optional reminder-page mode counts its own blocked page loads. Basic native blocking does not collect navigation counts. Session-bound pending pause/end events are stored locally during outages and replayed after reconnect. Pairing and bearer access are revocable; disabling an account also invalidates extension access.
 
 ## Export, deletion and limits
 

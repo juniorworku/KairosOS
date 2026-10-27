@@ -446,3 +446,82 @@ def test_extension_replay_is_idempotent_and_bound_to_original_session(
             assert row.payload["actual_minutes"] < 1.2
 
     client.portal.call(inspect)
+
+
+@pytest.mark.parametrize("interruption", ["cancel", "provider_error"])
+def test_interrupted_stream_keeps_reservation_and_monthly_concurrency_is_bounded(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+    interruption: str,
+) -> None:
+    import app.integrations.coach as module
+    from app.integrations.coach import AIUnavailable, ChatInput, ProviderResult, chat
+    from app.integrations.jsonutil import Json
+
+    class PartialProvider:
+        async def generate(
+            self, *, system: str, user: str, schema: dict[str, Json] | None, max_tokens: int
+        ) -> ProviderResult:
+            raise AIUnavailable("Test provider unavailable")
+
+        async def stream_text(self, *, system: str, user: str, max_tokens: int):  # type: ignore[no-untyped-def]
+            yield ProviderResult(text="Partial response")
+            raise AIUnavailable("Test stream interrupted before usage was known")
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "configured-model")
+    monkeypatch.setenv("LLM_MAX_OUTPUT_TOKENS", "1500")
+    monkeypatch.setattr(module, "get_provider", lambda config, client: PartialProvider())
+    client = integration_client
+    user = login(client)
+
+    async def run() -> None:
+        factory = client.app.state.session_factory  # type: ignore[union-attr]
+        async with factory() as db:
+            owner = await db.get(User, user["id"])
+            assert owner
+            plan = await db.get(Plan, owner.plan_id)
+            assert plan
+            plan.quotas = {"ai.calls": 10, "ai.output_tokens": 3000, "ai.chat_messages": 10}
+            await db.commit()
+            response = await chat(
+                ChatInput(messages=[{"role": "user", "content": "Help"}]), db, owner
+            )
+            stream = response.body_iterator.__aiter__()
+            assert "Partial response" in await anext(stream)
+            if interruption == "cancel":
+                await stream.aclose()
+            else:
+                tail = "".join([part async for part in stream])
+                assert "event: error" in tail
+                assert "still counts toward your allowance" in tail
+            first = await db.scalar(select(AICall))
+            assert first
+            assert first.status == "failed"
+            assert first.output_tokens == 1500
+
+        async def next_request() -> bool:
+            async with factory() as db:
+                owner = await db.get(User, user["id"])
+                assert owner
+                try:
+                    await reserve(db, owner, "chat", IntegrationSettings(_env_file=None))
+                    return True
+                except HTTPException as error:
+                    assert error.status_code == 429
+                    assert error.detail["metric"] == "ai.output_tokens"
+                    assert (
+                        error.detail["message"] == "Your monthly coaching allowance has been used."
+                    )
+                    reset = datetime.fromisoformat(error.detail["resets_at"])
+                    assert reset.day == 1 and reset > datetime.now(UTC)
+                    return False
+
+        assert sorted(await asyncio.gather(next_request(), next_request())) == [False, True]
+        async with factory() as db:
+            rows = list((await db.scalars(select(AICall))).all())
+            assert len(rows) == 2
+            assert sum(row.output_tokens for row in rows) == 3000
+
+    assert client.portal
+    client.portal.call(run)

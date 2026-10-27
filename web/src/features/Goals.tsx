@@ -17,6 +17,7 @@ import { addDays, dateKey, minutes } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Empty, Field, Notice, SubmitForm } from "../components/ui/Forms";
 import { GoalRow } from "./Today";
+import { Suggestions } from "./Suggestions";
 export function Goals() {
   const goals = useData<Goal[]>("/goals");
   const trajectory = useData<Trajectory[]>("/trajectory");
@@ -646,7 +647,11 @@ function Editor({ existing }: { existing?: Goal }) {
                           value={a.kind}
                           onChange={(e) =>
                             action(i, {
-                              kind: e.target.value as Action["kind"],total_minutes_estimate:e.target.value==="project"?(a.total_minutes_estimate||120):null,
+                              kind: e.target.value as Action["kind"],
+                              total_minutes_estimate:
+                                e.target.value === "project"
+                                  ? a.total_minutes_estimate || 120
+                                  : null,
                             })
                           }
                         >
@@ -658,7 +663,7 @@ function Editor({ existing }: { existing?: Goal }) {
                       </Field>
                       <Field
                         label={
-                          a.kind === "habit"
+                          a.total_minutes_estimate === null
                             ? c.goals.form.weekly
                             : c.goals.form.estimate
                         }
@@ -670,14 +675,14 @@ function Editor({ existing }: { existing?: Goal }) {
                           step={1}
                           required
                           value={
-                            a.kind === "habit"
+                            a.total_minutes_estimate === null
                               ? a.weekly_minutes_target
                               : (a.total_minutes_estimate ?? 120)
                           }
                           onChange={(e) =>
                             action(
                               i,
-                              a.kind === "habit"
+                              a.total_minutes_estimate === null
                                 ? {
                                     weekly_minutes_target: Number(
                                       e.target.value,
@@ -692,6 +697,7 @@ function Editor({ existing }: { existing?: Goal }) {
                           }
                         />
                       </Field>
+                      {a.kind==='project'&&<label className="checkbox project-estimate-toggle"><input type="checkbox" checked={a.total_minutes_estimate!==null} onChange={e=>action(i,{total_minutes_estimate:e.target.checked?120:null})}/>{c.goals.form.finite}</label>}
                     </div>
                   </div>
                 ))}
@@ -864,6 +870,15 @@ function Editor({ existing }: { existing?: Goal }) {
                   </div>
                 ))}
               </>
+            )}
+            {(step === 0 || step === 3 || step === 5) && (
+              <Suggestions
+                kind={
+                  step === 0 ? "goal" : step === 3 ? "actions" : "obstacles"
+                }
+                goal={draft}
+                onUse={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+              />
             )}
           </fieldset>
           <div className="wizard-actions">

@@ -694,7 +694,8 @@ small {
   margin-bottom: 20px;
   min-width: 0;
 }
-.field > span {
+.field > span,
+.field > label {
   display: block;
   font-size: 12px;
   margin-bottom: 9px;
@@ -1677,7 +1678,8 @@ td .button {
   .form-grid {
     gap: 0 14px;
   }
-  .field > span {
+  .field > span,
+  .field > label {
     font-size: 11px;
   }
   .field input:not([type="range"]),
@@ -1812,3 +1814,8 @@ td .button {
     scroll-behavior: auto !important;
   }
 }
+
+.project-estimate-toggle { grid-column: 1 / -1; margin-bottom: 0; }
+.suggestion-preview { border: 1px solid var(--line); border-radius: 8px; padding: 18px; margin: 18px 0; font-size: 12px; line-height: 1.8; }
+.suggestion-preview ul { padding-left: 18px; }
+.suggestion-preview p { color: var(--muted); }

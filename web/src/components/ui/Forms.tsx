@@ -1,4 +1,12 @@
-import { useState, type ReactNode, type FormEvent } from "react";
+import {
+  useState,
+  useId,
+  Children,
+  isValidElement,
+  cloneElement,
+  type ReactNode,
+  type FormEvent,
+} from "react";
 import { copy as c } from "../../copy/en";
 export function Field({
   label,
@@ -9,14 +17,37 @@ export function Field({
   children: ReactNode;
   hint?: string;
 }) {
+  const generated = useId();
+  const controls = Children.toArray(children);
+  const control = controls.find(
+    (child) =>
+      isValidElement<{ id?: string }>(child) &&
+      typeof child.type === "string" &&
+      ["input", "select", "textarea"].includes(child.type),
+  );
+  const id = isValidElement<{ id?: string }>(control)
+    ? control.props.id || generated
+    : generated;
   return (
-    <label className="field">
-      <span>{label}</span>
-      {children}
-      {hint && <small>{hint}</small>}
-    </label>
+    <div className="field">
+      <label htmlFor={id}>{label}</label>
+      {Children.map(children, (child) =>
+        isValidElement<{ id?: string; "aria-describedby"?: string }>(child) &&
+        typeof child.type === "string" &&
+        ["input", "select", "textarea"].includes(child.type)
+          ? cloneElement(child, {
+              id: child.props.id || id,
+              "aria-describedby": hint
+                ? `${id}-hint`
+                : child.props["aria-describedby"],
+            })
+          : child,
+      )}
+      {hint && <small id={`${id}-hint`}>{hint}</small>}
+    </div>
   );
 }
+
 export function Notice({ error }: { error: unknown }) {
   return error ? (
     <p role="alert" className="error-note">

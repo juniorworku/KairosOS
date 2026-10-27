@@ -54,7 +54,14 @@ export function Settings({
   const calendar = useData<CalendarStatus>("/calendar/status");
   const sessions = useData<SessionInfo[]>("/me/sessions");
   const tokens = useData<ExtToken[]>("/ext/tokens");
-  const usage = useData<{plan:string;calls_used:number;calls_limit:number;output_tokens_used:number;output_tokens_limit:number;resets_at:string}>("/coach/usage");
+  const usage = useData<{
+    plan: string;
+    calls_used: number;
+    calls_limit: number;
+    output_tokens_used: number;
+    output_tokens_limit: number;
+    resets_at: string;
+  }>("/coach/usage");
   function set<K extends keyof User>(key: K, value: User[K]) {
     setProfile((p) => ({ ...p, [key]: value }));
     setSaved(false);
@@ -261,7 +268,7 @@ export function Settings({
               <div className="button-row">
                 <Button
                   disabled={!online}
-                  onClick={() => void action("/calendar/sync").catch(()=>{})}
+                  onClick={() => void action("/calendar/sync").catch(() => {})}
                 >
                   {c.settings.sync}
                 </Button>
@@ -275,7 +282,9 @@ export function Settings({
                 )}
                 <Button
                   disabled={!online}
-                  onClick={() => void action("/calendar/disconnect").catch(()=>{})}
+                  onClick={() =>
+                    void action("/calendar/disconnect").catch(() => {})
+                  }
                 >
                   {c.settings.disconnect}
                 </Button>
@@ -307,7 +316,11 @@ export function Settings({
                 <Button
                   disabled={!online}
                   onClick={() =>
-                    void action(`/ext/tokens/${t.id}`, undefined, "DELETE").catch(()=>{})
+                    void action(
+                      `/ext/tokens/${t.id}`,
+                      undefined,
+                      "DELETE",
+                    ).catch(() => {})
                   }
                 >
                   {c.settings.revoke}
@@ -357,8 +370,25 @@ export function Settings({
           {usage.data && (
             <section className="panel">
               <h2>{c.settings.usage}</h2>
-              <div className="metric-line"><span>{c.coach.calls}</span><strong>{usage.data.calls_used} / {usage.data.calls_limit}</strong></div><div className="metric-line"><span>{c.coach.words}</span><strong>{usage.data.output_tokens_used} / {usage.data.output_tokens_limit}</strong></div>
-              </section>
+              <div className="metric-line">
+                <span>{c.coach.calls}</span>
+                <strong>
+                  {usage.data.calls_used} / {usage.data.calls_limit}
+                </strong>
+              </div>
+              <div className="metric-line">
+                <span>{c.coach.resets}</span>
+                <strong>
+                  {new Date(usage.data.resets_at).toLocaleString(undefined, {
+                    timeZone: user.timezone,
+                    month: "short",
+                    day: "numeric",
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}
+                </strong>
+              </div>
+            </section>
           )}
           <section className="panel">
             <h2>{c.settings.data}</h2>

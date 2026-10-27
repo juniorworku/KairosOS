@@ -27,6 +27,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        clientsClaim: true,
         navigateFallback: "/index.html",
         navigateFallbackDenylist: [/^\/api\//, /^\/healthz/, /^\/readyz/],
         globPatterns: ["**/*.{js,css,html,png,svg,ico}"],
@@ -37,6 +38,16 @@ export default defineConfig({
   server: {
     strictPort: true,
     proxy: { "/healthz": target, "/readyz": target, "/api": target },
+  },
+  preview: {
+    strictPort: true,
+    headers: {
+      "Content-Security-Policy":
+        "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self'; connect-src 'self'; worker-src 'self'; manifest-src 'self'; object-src 'none'; base-uri 'self'; frame-ancestors 'none'; form-action 'self'",
+      "X-Content-Type-Options": "nosniff",
+      "Referrer-Policy": "same-origin",
+      "X-Frame-Options": "DENY",
+    },
   },
   test: {
     exclude: ["e2e/**", "node_modules/**"],

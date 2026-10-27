@@ -42,13 +42,21 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         throw error;
       }
     },
-    networkMode:"always",
+    networkMode: "always",
     retry: false,
     staleTime: 60000,
   });
   useEffect(() => {
-    if (query.data) {setAccount(query.data.id);client.removeQueries({predicate:cached=>cached.queryKey[0]!=="me"&&cached.queryKey[0]!=="anonymous"&&cached.queryKey[0]!==query.data?.id});}
-  }, [query.data,client]);
+    if (query.data) {
+      setAccount(query.data.id);
+      client.removeQueries({
+        predicate: (cached) =>
+          cached.queryKey[0] !== "me" &&
+          cached.queryKey[0] !== "anonymous" &&
+          cached.queryKey[0] !== query.data?.id,
+      });
+    }
+  }, [query.data, client]);
   async function refresh() {
     await client.invalidateQueries({ queryKey: ["me"] });
   }

@@ -1,9 +1,15 @@
-.PHONY: dev down install test unit integration lint typecheck build e2e check migrate seed seed-owner generate-api ext-zip
+.PHONY: dev preview extension-e2e down install test unit integration lint typecheck build e2e check migrate seed seed-owner generate-api ext-zip
 
 PYTHON := api/.venv/bin/python
 
 dev:
 	docker compose up --build
+
+preview:
+	KAIROS_WEB_COMMAND="npm ci && npm run build && npm exec vite preview -- --host 0.0.0.0 --port 5173" docker compose up -d web
+
+extension-e2e:
+	cd extension && npm run build && npm run test:e2e
 
 down:
 	docker compose down

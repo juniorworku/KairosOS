@@ -1,6 +1,6 @@
 export const copy = {
-  discardUnsynced:"Discard the offline updates that could not sync?",
-  discardUpdates:"Discard failed updates",
+  discardUnsynced: "Discard the offline updates that could not sync?",
+  discardUpdates: "Discard failed updates",
   brand: "Kairos",
   nav: {
     today: "Today",
@@ -129,7 +129,8 @@ export const copy = {
       feelings: "How do you want to feel?",
       function: "What will this make possible?",
       protect: "What do you want to protect?",
-      protectHint: "One item per line. For example: evenings with family.",
+      protectHint:
+        "One item per line. Set scheduling limits with work hours or unavailable time in Plan.",
       action: "Action",
       addAction: "Add action",
       actionTitle: "What will you do?",
@@ -138,6 +139,7 @@ export const copy = {
       project: "Project",
       weekly: "Minutes per week",
       estimate: "Total estimated minutes",
+      finite: "Has a fixed total estimate",
       block: "Block length (minutes)",
       preference: "Preferred time",
       any: "Any time",
@@ -207,7 +209,7 @@ export const copy = {
   },
   focus: {
     title: "Focus",
-    resume:"Resume session",
+    resume: "Resume session",
     action: "Action",
     unlinked: "Unlinked session",
     duration: "Minutes",
@@ -243,6 +245,16 @@ export const copy = {
   },
   coach: {
     title: "Coach",
+    suggestGoal: "Suggest a measure",
+    suggestActions: "Suggest actions",
+    suggestObstacles: "Suggest if-then plans",
+    suggestions: "Suggestions",
+    useSuggestions: "Use suggestions",
+    suggestionHint:
+      "Your goal and actions are shared with the coaching service when you request suggestions. You can review and edit the result before saving.",
+    suggestReview: "Suggest adjustments",
+    you: "You",
+    resets: "Resets",
     disabled: "Coaching is off. You can enable it in Settings.",
     unconfigured:
       "Coaching is not set up. Your goals, plan, and reviews are still available.",

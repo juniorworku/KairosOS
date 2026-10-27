@@ -13,4 +13,6 @@ The local core can be used before these production/integration decisions are mad
 9. **Public hosting.** Domain, region, instance sizes, DNS/email authentication, backup/restore and monitoring decisions remain deferred. No deployment is authorized.
 10. **Personal Mode.** Primary OS, native capture, Slack/Teams, smart-home integrations, activity retention, and intervention preferences remain deferred with M10–M17. The current app does not collect native activity or change OS settings.
 
-The user authorized continuation beyond the original M0 stop instruction. Acceptance status remains evidence-based; provider credentials, manual Chrome testing, Lighthouse measurements, and public deployment are not silently treated as completed.
+The user authorized continuation beyond the original M0 stop instruction. Acceptance status remains evidence-based; provider credentials, remaining manual Chrome testing, device/installation coverage, and public deployment are not silently treated as completed.
+
+Anti-goal text is a planning note, not a natural-language scheduling rule. Working hours and explicitly entered unavailable intervals are the enforced exclusions. Recurring blackout controls can be added separately. Duration calibration currently uses recorded session history; richer task-completion estimates remain a future refinement.
