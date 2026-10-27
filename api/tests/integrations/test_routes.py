@@ -188,3 +188,197 @@ def test_quota_reservation_exact_boundary_and_global_cap(integration_client: Tes
 
     assert client.portal
     client.portal.call(run)
+
+
+def configure_calendar(monkeypatch: pytest.MonkeyPatch) -> str:
+    from cryptography.fernet import Fernet
+
+    key = Fernet.generate_key().decode()
+    monkeypatch.setenv("GOOGLE_CLIENT_ID", "client")
+    monkeypatch.setenv("GOOGLE_CLIENT_SECRET", "secret")
+    monkeypatch.setenv("TOKEN_ENCRYPTION_KEY", key)
+    return key
+
+
+def test_calendar_consent_uses_minimal_scopes_and_hashed_state(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.integrations.calendar import FREEBUSY_SCOPE, WRITE_SCOPE
+    from app.integrations.models import CalendarState
+    from app.integrations.router import digest
+
+    client = integration_client
+    configure_calendar(monkeypatch)
+    login(client)
+    response = client.get("/api/v1/calendar/connect", follow_redirects=False)
+    params = parse_qs(urlsplit(response.headers["location"]).query)
+    assert params["scope"] == [FREEBUSY_SCOPE]
+    assert params["code_challenge_method"] == ["S256"]
+    raw_state = params["state"][0]
+
+    async def inspect_state() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            row = await db.scalar(select(CalendarState))
+            assert row
+            assert row.token_hash == digest(raw_state)
+            assert raw_state not in row.__dict__.values()
+
+    assert client.portal
+    client.portal.call(inspect_state)
+    write = client.get("/api/v1/calendar/connect?write=true", follow_redirects=False)
+    assert set(parse_qs(urlsplit(write.headers["location"]).query)["scope"][0].split()) == {
+        FREEBUSY_SCOPE,
+        WRITE_SCOPE,
+    }
+    assert client.get("/api/v1/calendar/callback?state=forged&code=bad").status_code == 400
+
+
+def test_calendar_publish_requires_prior_acceptance_and_owns_records(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from app.integrations.calendar import FREEBUSY_SCOPE, WRITE_SCOPE, encrypt_token
+    from app.integrations.models import CalendarBusy, CalendarConnection
+
+    client = integration_client
+    key = configure_calendar(monkeypatch)
+    user = login(client)
+    ids: list[str] = []
+
+    async def prepare() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            owner = await db.get(User, user["id"])
+            assert owner
+            other = User(email="other@example.test", plan_id=owner.plan_id)
+            db.add(other)
+            await db.flush()
+            db.add(
+                CalendarConnection(
+                    user_id=owner.id,
+                    token_enc=encrypt_token({"refresh_token": "test"}, key),
+                    scopes=[FREEBUSY_SCOPE, WRITE_SCOPE],
+                    app_calendar_id="own-calendar",
+                )
+            )
+            own_block = PlanningRecord(
+                user_id=owner.id, kind="block", payload={"status": "proposed"}
+            )
+            other_block = PlanningRecord(
+                user_id=other.id, kind="block", payload={"status": "accepted"}
+            )
+            db.add_all([own_block, other_block])
+            db.add(
+                CalendarBusy(
+                    user_id=other.id,
+                    start_at=datetime.now(UTC),
+                    end_at=datetime.now(UTC) + timedelta(hours=1),
+                )
+            )
+            await db.commit()
+            ids.extend([own_block.id, other_block.id])
+
+    assert client.portal
+    client.portal.call(prepare)
+    assert (
+        client.post(
+            "/api/v1/calendar/publish", json={"block_ids": [ids[0]]}, headers=csrf(client)
+        ).status_code
+        == 409
+    )
+    assert (
+        client.post(
+            "/api/v1/calendar/publish", json={"block_ids": [ids[1]]}, headers=csrf(client)
+        ).status_code
+        == 404
+    )
+    assert client.get("/api/v1/calendar/busy").json() == []
+
+
+def test_coach_stream_uses_provider_deltas_records_usage_and_respects_ai_off(
+    integration_client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import app.integrations.coach as module
+    from app.integrations.coach import ProviderResult
+    from app.integrations.jsonutil import Json
+
+    class Provider:
+        async def generate(
+            self, *, system: str, user: str, schema: dict[str, Json] | None, max_tokens: int
+        ) -> ProviderResult:
+            return ProviderResult(text="{}")
+
+        async def stream_text(self, *, system: str, user: str, max_tokens: int):  # type: ignore[no-untyped-def]
+            assert "computed_context" not in user
+            yield ProviderResult(text="Choose one ")
+            yield ProviderResult(text="action.")
+            yield ProviderResult(text="", input_tokens=20, output_tokens=4)
+
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "test-key")
+    monkeypatch.setenv("ANTHROPIC_MODEL", "configured-model")
+    monkeypatch.setattr(module, "get_provider", lambda config, client: Provider())
+    client = integration_client
+    login(client)
+    response = client.post(
+        "/api/v1/coach/chat",
+        json={"messages": [{"role": "user", "content": "What next?"}]},
+        headers=csrf(client),
+    )
+    assert response.status_code == 200
+    assert "text/event-stream" in response.headers["content-type"]
+    assert "Choose one " in response.text
+    assert "event: done" in response.text
+    usage = client.get("/api/v1/coach/usage").json()
+    assert usage["calls_used"] == 1
+    assert usage["output_tokens_used"] == 4
+    assert (
+        client.patch("/api/v1/me", json={"ai_enabled": False}, headers=csrf(client)).status_code
+        == 200
+    )
+    assert (
+        client.post(
+            "/api/v1/coach/chat",
+            json={"messages": [{"role": "user", "content": "What next?"}]},
+            headers=csrf(client),
+        ).status_code
+        == 403
+    )
+    assert client.get("/api/v1/coach/usage").json()["calls_used"] == 1
+
+
+def test_output_token_quota_boundary_and_period_rollover(integration_client: TestClient) -> None:
+    client = integration_client
+    user = login(client)
+
+    async def run() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            owner = await db.get(User, user["id"])
+            assert owner
+            plan = await db.get(Plan, owner.plan_id)
+            assert plan
+            plan.quotas = {"ai.calls": 10, "ai.output_tokens": 1500, "ai.chat_messages": 10}
+            stale = datetime.now(UTC).replace(day=1) - timedelta(days=1)
+            db.add(
+                AICall(
+                    user_id=owner.id,
+                    task="chat",
+                    provider="anthropic",
+                    model="test",
+                    input_tokens=0,
+                    output_tokens=99999,
+                    status="success",
+                    created_at=stale,
+                )
+            )
+            await db.commit()
+            await reserve(db, owner, "chat", IntegrationSettings(_env_file=None))
+            with pytest.raises(HTTPException) as error:
+                await reserve(db, owner, "chat", IntegrationSettings(_env_file=None))
+            assert error.value.status_code == 429
+            assert error.value.detail["metric"] == "ai.output_tokens"
+            assert error.value.detail["used"] == 1500
+            assert error.value.detail["resets_at"]
+
+    assert client.portal
+    client.portal.call(run)

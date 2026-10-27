@@ -217,3 +217,22 @@ def test_blocklist_domains_normalize_and_reject_unsafe_values() -> None:
     ]:
         with pytest.raises(ValidationError):
             BlocklistInput(name="Focus", domains=[domain])
+
+
+@pytest.mark.parametrize(
+    "metric,status", [(45, "on_track"), (35, "adjust"), (34.9, "off_track"), (-1, "off_track")]
+)
+def test_trajectory_status_boundaries(metric: float, status: str) -> None:
+    result = compute(
+        "g", date(2026, 1, 1), date(2026, 1, 21), 0, 100, metric, 0, 0, date(2026, 1, 11)
+    )
+    assert result["status"] == status
+    assert result["effort_ratio"] is None
+    assert result["actual_fraction"] >= 0
+
+
+def test_trajectory_projection_handles_tiny_progress() -> None:
+    result = compute(
+        "g", date(2026, 1, 1), date(2026, 1, 21), 0, 100, 1e-100, 0, 0, date(2026, 1, 11)
+    )
+    assert result["projected_finish"] is None

@@ -260,3 +260,74 @@ def test_admin_plan_change_is_audited(auth_client: TestClient) -> None:
     assert changed.json()["plan_id"] == plus["id"]
     audit = client.get("/api/v1/admin/audit").json()
     assert any(entry["action"] == "user.plan_changed" for entry in audit)
+
+
+def test_private_integration_tokens_are_not_exported_and_are_revoked(
+    auth_client: TestClient,
+) -> None:
+    from app.integrations.models import CalendarState, ExtensionToken
+
+    client = auth_client
+    owner = sign_in(client)
+
+    async def seed() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            db.add(ExtensionToken(user_id=owner["id"], token_hash="a" * 64, label="Test"))
+            db.add(
+                CalendarState(
+                    user_id=owner["id"],
+                    token_hash="b" * 64,
+                    verifier="private-pkce-verifier",
+                    write_access=False,
+                    expires_at=now() + timedelta(minutes=5),
+                )
+            )
+            await db.commit()
+
+    assert client.portal is not None
+    client.portal.call(seed)
+    exported = client.get("/api/v1/me/export")
+    assert exported.status_code == 200
+    assert "private-pkce-verifier" not in exported.text
+    assert "extension_tokens" not in exported.json()
+    assert client.post("/api/v1/me/sessions/revoke-all", headers=csrf(client)).status_code == 200
+
+    async def check() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            assert await db.scalar(select(ExtensionToken)) is None
+
+    client.portal.call(check)
+
+
+def test_redis_outage_fails_closed_with_generic_request_response(auth_client: TestClient) -> None:
+    class UnavailableLimiter:
+        async def allow(self, key: str, limit: int, seconds: int) -> bool:
+            raise ConnectionError("unavailable")
+
+    client = auth_client
+    client.app.state.auth_limiter = UnavailableLimiter()  # type: ignore[union-attr]
+    response = client.post(
+        "/api/v1/auth/magic/request", json={"email": "owner@example.test"}, headers=csrf(client)
+    )
+    assert response.status_code == 202
+    assert response.json() == {"message": "If this email can sign in, we sent a link."}
+    assert not client.app.state.email_sender.messages  # type: ignore[union-attr]
+
+
+def test_session_cookie_is_http_only_and_bad_ids_do_not_crash(auth_client: TestClient) -> None:
+    client = auth_client
+    token = request_token(client)
+    signed_in = client.post(
+        "/api/v1/auth/magic/verify", json={"token": token}, headers=csrf(client)
+    )
+    cookies = signed_in.headers.get_list("set-cookie")
+    session = next(cookie for cookie in cookies if cookie.startswith("kairos_session="))
+    assert "HttpOnly" in session
+    assert "SameSite=lax" in session
+    assert client.delete("/api/v1/me/sessions/not-a-uuid", headers=csrf(client)).status_code == 404
+    assert (
+        client.patch(
+            "/api/v1/admin/users/not-a-uuid", json={"disabled": True}, headers=csrf(client)
+        ).status_code
+        == 404
+    )

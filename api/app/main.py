@@ -7,26 +7,24 @@ from contextlib import asynccontextmanager
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, Request, HTTPException
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from fastapi.exceptions import RequestValidationError
-from sqlalchemy.ext.asyncio import async_sessionmaker
-from app.auth.router import router as auth_router
-from app.auth.service import initialize_auth
-from app.routers.planning import router as planning_router
-from app.integrations.router import calendar_router, ext_router
-from app.integrations.coach import coach_router
-from app.integrations.router import disconnect_calendar_for_user
-from app.models.auth import User
-from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy import text
+from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 from starlette.responses import Response
 
+from app.auth.router import router as auth_router
+from app.auth.service import initialize_auth
 from app.config import Settings, get_settings
 from app.db import create_engine
+from app.integrations.coach import coach_router
+from app.integrations.router import calendar_router, disconnect_calendar_for_user, ext_router
+from app.models.auth import User
+from app.routers.planning import router as planning_router
 
 logger = logging.getLogger("kairos.health")
 Check = Callable[[], Awaitable[bool]]
@@ -87,13 +85,22 @@ def create_app(
     @app.exception_handler(HTTPException)
     async def http_error(_: Request, error: HTTPException) -> JSONResponse:
         detail = error.detail
-        value = detail if isinstance(detail, dict) else {"code": "request_failed", "message": str(detail), "details": {}}
-        return JSONResponse(status_code=error.status_code, content={"error": value}, headers=error.headers)
+        value = (
+            detail
+            if isinstance(detail, dict)
+            else {"code": "request_failed", "message": str(detail), "details": {}}
+        )
+        return JSONResponse(
+            status_code=error.status_code, content={"error": value}, headers=error.headers
+        )
 
     @app.exception_handler(RequestValidationError)
     async def validation_error(_: Request, error: RequestValidationError) -> JSONResponse:
         messages = "; ".join(str(item["msg"]) for item in error.errors())
-        return JSONResponse(status_code=422, content={"error": {"code": "validation_error", "message": messages, "details": {}}})
+        return JSONResponse(
+            status_code=422,
+            content={"error": {"code": "validation_error", "message": messages, "details": {}}},
+        )
 
     app.add_middleware(
         CORSMiddleware,

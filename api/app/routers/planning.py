@@ -1,6 +1,6 @@
 """Authenticated, ownership-scoped goal-to-action core."""
 
-from datetime import UTC, date, datetime, timedelta
+from datetime import UTC, date, datetime, time, timedelta
 from math import ceil
 from typing import Annotated, Any
 from urllib.parse import urlsplit
@@ -90,7 +90,14 @@ async def owned(db: AsyncSession, user: User, kind: str, identifier: str) -> Pla
 
 
 async def lock_owner(db: AsyncSession, user: User) -> None:
-    await db.execute(select(User.id).where(User.id == user.id).with_for_update())
+    locked = await db.scalar(
+        select(User)
+        .where(User.id == user.id)
+        .with_for_update()
+        .execution_options(populate_existing=True)
+    )
+    if locked is None or locked.disabled_at is not None:
+        raise fail("unauthorized", "Your session ended. Sign in again.", 401)
 
 
 def create(db: AsyncSession, user: User, kind: str, payload: dict[str, Any]) -> PlanningRecord:
@@ -451,15 +458,14 @@ async def validate_placements(
         local_start, local_end = start.astimezone(zone), end.astimezone(zone)
         if local_start.date() != local_end.date() or local_start.weekday() not in user.work_days:
             raise fail("outside_hours", "Choose a single working day", 409)
-        if (
-            local_start.strftime("%H:%M") < user.work_start
-            or local_end.strftime("%H:%M") > user.work_end
-        ):
+        if local_start.time() < time.fromisoformat(
+            user.work_start
+        ) or local_end.time() > time.fromisoformat(user.work_end):
             raise fail("outside_hours", "Choose a time inside your work hours", 409)
         if end <= start:
             raise fail("invalid_time", "End must follow start")
-        calendar_busy = await read_calendar_busy(db, user.id, start, end)
         padding = timedelta(minutes=10)
+        calendar_busy = await read_calendar_busy(db, user.id, start - padding, end + padding)
         if any(
             start < right + padding and end > left - padding for left, right in busy + calendar_busy
         ):
@@ -500,6 +506,8 @@ async def accept(body: AcceptInput, db: DB, user: Owner) -> list[dict[str, Any]]
 async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> dict[str, Any]:
     await lock_owner(db, user)
     row = await owned(db, user, "block", identifier)
+    if row.payload["status"] == "published" and body.status == "accepted":
+        raise fail("invalid_state", "This block is already published", 409)
     payload = {**row.payload, **body.model_dump(mode="json", exclude_none=True)}
     start, end = instant(payload["start_at"]), instant(payload["end_at"])
     if body.start_at and body.start_at.tzinfo is None or body.end_at and body.end_at.tzinfo is None:
@@ -526,7 +534,7 @@ async def edit_block(identifier: str, body: BlockPatch, db: DB, user: Owner) -> 
                 "Move this published block in Google Calendar",
                 409,
             )
-    elif body.status == "accepted" and row.payload["status"] == "proposed":
+    elif body.status == "accepted":
         await validate_placements(db, user, [(row.id, payload)])
     row.payload = payload
     await db.commit()

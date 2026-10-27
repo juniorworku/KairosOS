@@ -478,6 +478,7 @@ ExtUser = Annotated[User, Depends(extension_user)]
 
 
 async def active_focus(db: AsyncSession, user_id: str) -> PlanningRecord | None:
+    await db.scalar(select(User).where(User.id == user_id).with_for_update())
     rows = (
         await db.scalars(
             select(PlanningRecord)
@@ -549,14 +550,14 @@ async def ext_event(body: ExtEvent, db: DB, user: ExtUser) -> dict[str, str]:
 
 @ext_router.post("/end")
 async def ext_end(db: DB, user: ExtUser) -> dict[str, str]:
+    from app.routers.planning import end_focus
+    from app.schemas.planning import FocusEnd
+
     focus = await active_focus(db, user.id)
     if focus:
-        now = datetime.now(UTC)
-        minutes = max(
-            0, int((now - parse_timestamp(str(focus.payload["started_at"]))).total_seconds() // 60)
-        )
-        focus.payload = {**focus.payload, "ended_at": now.isoformat(), "actual_minutes": minutes}
-    await db.commit()
+        await end_focus(focus.id, FocusEnd(), db, user)
+    else:
+        await db.commit()
     return {"status": "ended"}
 
 

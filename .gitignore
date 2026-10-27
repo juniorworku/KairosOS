@@ -20,3 +20,4 @@
 *.log
 .DS_Store
 celerybeat-schedule*
+extension/kairos-focus.zip

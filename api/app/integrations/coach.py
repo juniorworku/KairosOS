@@ -4,7 +4,7 @@ import json
 import re
 import time
 from collections.abc import AsyncIterator
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Literal, Protocol, TypeVar, cast
 
@@ -274,10 +274,11 @@ async def reserve(db: AsyncSession, user: User, task: str, config: IntegrationSe
         or 0
     )
     checks = [
-        ("ai.calls", calls, int(quotas.get("ai.calls", 10))),
+        ("ai.calls", calls, 1, int(quotas.get("ai.calls", 10))),
         (
             "ai.output_tokens",
-            output + config.llm_max_output_tokens,
+            int(output),
+            config.llm_max_output_tokens,
             int(quotas.get("ai.output_tokens", 20000)),
         ),
     ]
@@ -290,7 +291,7 @@ async def reserve(db: AsyncSession, user: User, task: str, config: IntegrationSe
             )
             or 0
         )
-        checks.append(("ai.chat_messages", chat_calls, int(quotas.get("ai.chat_messages", 10))))
+        checks.append(("ai.chat_messages", chat_calls, 1, int(quotas.get("ai.chat_messages", 10))))
     if task == "weekly-review":
         reviews = (
             await db.scalar(
@@ -300,10 +301,14 @@ async def reserve(db: AsyncSession, user: User, task: str, config: IntegrationSe
             )
             or 0
         )
-        checks.append(("ai.retro", reviews, int(quotas.get("ai.retro", 4))))
-    for metric, used, limit in checks:
-        exceeded = used > limit if metric == "ai.output_tokens" else used >= limit
-        if exceeded:
+        checks.append(("ai.retro", reviews, 1, int(quotas.get("ai.retro", 4))))
+    for metric, used, cost, limit in checks:
+        if used + cost > limit:
+            resets = (
+                (month + timedelta(days=32)).replace(day=1)
+                if metric in {"ai.output_tokens", "ai.retro"}
+                else day + timedelta(days=1)
+            )
             raise HTTPException(
                 429,
                 detail={
@@ -311,6 +316,7 @@ async def reserve(db: AsyncSession, user: User, task: str, config: IntegrationSe
                     "metric": metric,
                     "limit": limit,
                     "used": used,
+                    "resets_at": resets.isoformat(),
                     "message": "Your coaching allowance has been used.",
                 },
             )
@@ -371,14 +377,14 @@ async def server_context(db: AsyncSession, user: User) -> str:
 
 class CoachInput(BaseModel):
     text: str = Field(min_length=1, max_length=12000)
-    context: str = Field(default="", max_length=12000)
+    include_context: bool = False
 
 
 class GoalSuggestion(BaseModel):
     outcome_statement: str = Field(max_length=1000)
     metric_name: str = Field(max_length=120)
     metric_unit: str = Field(max_length=60)
-    suggested_target: float
+    suggested_target: float = Field(allow_inf_nan=False)
     clarifying_questions: list[str] = Field(max_length=5)
 
 
@@ -442,8 +448,9 @@ async def suggest(
     task: str, body: CoachInput, schema: type[Schema], db: AsyncSession, user: User
 ) -> Schema:
     config = require_ai(user)
-    prompt = f"Task: {task}\n<user_data>{redact(body.text)}\n{redact(body.context)}</user_data>"
-    prompt += "\n<computed_context>" + await server_context(db, user) + "</computed_context>"
+    prompt = f"Task: {task}\n<user_data>{redact(body.text)}</user_data>"
+    if body.include_context:
+        prompt += "\n<computed_context>" + await server_context(db, user) + "</computed_context>"
     async with httpx.AsyncClient(timeout=45) as client:
         provider = get_provider(config, client)
         for attempt in range(2):
@@ -506,17 +513,18 @@ class Message(BaseModel):
 
 class ChatInput(BaseModel):
     messages: list[Message] = Field(min_length=1, max_length=20)
-    context: str = Field(default="", max_length=12000)
+    include_context: bool = False
 
 
 @coach_router.post("/chat")
 async def chat(body: ChatInput, db: DB, user: Owner) -> StreamingResponse:
     config = require_ai(user)
-    context = await server_context(db, user)
+    context = await server_context(db, user) if body.include_context else None
     call = await reserve(db, user, "chat", config)
     prompt = "\n".join(f"{m.role}: {redact(m.content)}" for m in body.messages)
-    prompt = "<user_data>" + prompt + "\n" + redact(body.context) + "</user_data>"
-    prompt += "\n<computed_context>" + context + "</computed_context>"
+    prompt = "<user_data>" + prompt + "</user_data>"
+    if context is not None:
+        prompt += "\n<computed_context>" + context + "</computed_context>"
 
     async def events() -> AsyncIterator[str]:
         started = time.monotonic()
@@ -573,8 +581,6 @@ async def usage(db: DB, user: Owner) -> dict[str, Json]:
         or 0
     )
     quotas = plan.quotas if plan else {}
-    from datetime import timedelta
-
     return {
         "plan": plan.name if plan else "",
         "calls_used": calls,

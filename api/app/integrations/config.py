@@ -1,5 +1,6 @@
 """Integration credentials are read on the server only."""
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -14,8 +15,8 @@ class IntegrationSettings(BaseSettings):
     anthropic_model: str = ""
     gemini_api_key: str = ""
     gemini_model: str = ""
-    llm_max_output_tokens: int = 1500
-    global_ai_daily_call_cap: int = 500
+    llm_max_output_tokens: int = Field(default=1500, ge=1, le=8192)
+    global_ai_daily_call_cap: int = Field(default=500, ge=0)
     extension_id: str = ""
 
     @property
