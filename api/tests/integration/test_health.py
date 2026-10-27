@@ -1,4 +1,5 @@
 import asyncio
+from unittest.mock import AsyncMock, patch
 
 from fastapi.testclient import TestClient
 
@@ -44,17 +45,19 @@ def test_failed_readiness_is_sanitized() -> None:
 
 
 def test_production_hsts() -> None:
-    with TestClient(
-        create_app(
-            Settings(
-                app_env="production",
-                app_base_url="https://kairos.example",
-                secret_key="x" * 32,
-                smtp_starttls=True,
+    with patch("app.main.initialize_auth", new_callable=AsyncMock) as initialize:
+        with TestClient(
+            create_app(
+                Settings(
+                    app_env="production",
+                    app_base_url="https://kairos.example",
+                    secret_key="x" * 32,
+                    smtp_starttls=True,
+                )
             )
-        )
-    ) as client:
-        assert "max-age" in client.get("/healthz").headers["strict-transport-security"]
+        ) as client:
+            assert "max-age" in client.get("/healthz").headers["strict-transport-security"]
+        initialize.assert_awaited_once()
 
 
 def test_readiness_timeout_is_unavailable() -> None:

@@ -149,8 +149,6 @@ export function Coach() {
   const status = useData<{ configured: boolean; enabled: boolean }>(
     "/coach/status",
   );
-  const goals = useData<Goal[]>("/goals");
-  const trajectory = useData<Trajectory[]>("/trajectory");
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [consent, setConsent] = useState(false);

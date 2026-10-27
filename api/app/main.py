@@ -7,7 +7,7 @@ from contextlib import asynccontextmanager
 from typing import Literal
 from uuid import uuid4
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -15,6 +15,7 @@ from pydantic import BaseModel
 from redis.asyncio import Redis
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
+from starlette.exceptions import HTTPException
 from starlette.responses import Response
 
 from app.auth.router import router as auth_router
@@ -22,6 +23,7 @@ from app.auth.service import initialize_auth
 from app.config import Settings, get_settings
 from app.db import create_engine
 from app.integrations.coach import coach_router
+from app.integrations.config import IntegrationSettings
 from app.integrations.router import calendar_router, disconnect_calendar_for_user, ext_router
 from app.models.auth import User
 from app.routers.planning import router as planning_router
@@ -102,12 +104,16 @@ def create_app(
             content={"error": {"code": "validation_error", "message": messages, "details": {}}},
         )
 
+    integration_config = IntegrationSettings()
+    origins = [config.app_base_url]
+    if integration_config.extension_id:
+        origins.append(f"chrome-extension://{integration_config.extension_id}")
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[config.app_base_url],
+        allow_origins=origins,
         allow_credentials=True,
         allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
-        allow_headers=["Content-Type", "X-CSRF-Token"],
+        allow_headers=["Content-Type", "X-CSRF-Token", "Authorization"],
     )
 
     @app.middleware("http")

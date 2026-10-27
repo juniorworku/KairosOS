@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, lazy, Suspense } from "react";
 import {
   NavLink,
   Navigate,
@@ -28,7 +28,7 @@ import { Notice } from "./components/ui/Forms";
 import { Welcome, Confirm } from "./features/Auth";
 import { Today } from "./features/Today";
 import { Goals, GoalDetail, GoalEditor } from "./features/Goals";
-import { Plan } from "./features/Plan";
+const Plan=lazy(()=>import("./features/Plan").then(module=>({default:module.Plan})));
 import { FocusPage } from "./features/Focus";
 import { Review, Coach } from "./features/Review";
 import { Settings, Admin } from "./features/Settings";
@@ -55,7 +55,8 @@ export default function App() {
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const online = useOnline();
-  const replayError = useReplay();
+  const replay = useReplay();
+  const[actionError,setActionError]=useState<unknown>();
   const location = useLocation();
   useEffect(() => setOpen(false), [location.pathname]);
   useEffect(() => {
@@ -152,7 +153,7 @@ export default function App() {
             <Button
               className="icon-button"
               aria-label={c.signOut}
-              onClick={() => void auth.logout()}
+              onClick={() => void auth.logout().catch(setActionError)}
               disabled={!online}
             >
               <LogOut size={15} />
@@ -166,8 +167,8 @@ export default function App() {
             {c.offline}
           </div>
         )}
-        <Notice error={replayError} />
-        <Routes>
+        <Notice error={actionError}/>{replay.error?<div className="sync-issue"><Notice error={replay.error}/><div className="button-row"><Button onClick={()=>void replay.retry()}>{c.retry}</Button><Button onClick={()=>{if(window.confirm(c.discardUnsynced))void replay.discard();}}>{c.discardUpdates}</Button></div></div>:null}
+        <Suspense fallback={<p role="status">{c.loading}</p>}><Routes>
           <Route path="/today" element={<Today />} />
           <Route path="/goals" element={<Goals />} />
           <Route path="/goals/new" element={<GoalEditor />} />
@@ -189,7 +190,7 @@ export default function App() {
             }
           />
           <Route path="*" element={<Navigate to="/today" replace />} />
-        </Routes>
+        </Routes></Suspense>
         <PwaPrompt />
       </main>
     </div>

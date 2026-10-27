@@ -98,6 +98,8 @@ jobs:
         working-directory: web
       - run: docker compose config --quiet
       - run: docker compose up --build -d
+        env:
+          KAIROS_WEB_COMMAND: npm ci && npm run build && npm exec vite preview -- --host 0.0.0.0 --port 5173
       - name: Wait for app dependencies
         run: |
           for attempt in $(seq 1 90); do

@@ -1284,8 +1284,11 @@ export interface components {
             end_at: string;
             /** Planned Minutes */
             planned_minutes: number;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "proposed" | "accepted" | "published" | "completed" | "skipped" | "moved" | "cancelled";
             /** Reason */
             reason: string;
             /**
@@ -1445,6 +1448,19 @@ export interface components {
              * @default
              */
             domain: string;
+            /** Session Id */
+            session_id?: string | null;
+            /** Pause Until */
+            pause_until?: string | null;
+            /** Event Id */
+            event_id?: string | null;
+        };
+        /** ExtensionEnd */
+        ExtensionEnd: {
+            /** Session Id */
+            session_id?: string | null;
+            /** Ended At */
+            ended_at?: string | null;
         };
         /** FocusEnd */
         FocusEnd: {
@@ -1995,8 +2011,11 @@ export interface components {
         TrajectoryResponse: {
             /** Goal Id */
             goal_id: string;
-            /** Status */
-            status: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "on_track" | "adjust" | "off_track" | "insufficient_data";
             /** Expected Fraction */
             expected_fraction: number;
             /** Actual Fraction */
@@ -3867,7 +3886,11 @@ export interface operations {
             path?: never;
             cookie?: never;
         };
-        requestBody?: never;
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["ExtensionEnd"] | null;
+            };
+        };
         responses: {
             /** @description Successful Response */
             200: {
@@ -3878,6 +3901,15 @@ export interface operations {
                     "application/json": {
                         [key: string]: string;
                     };
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
                 };
             };
         };

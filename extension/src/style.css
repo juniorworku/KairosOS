@@ -1,1 +1,78 @@
-:root{font-family:system-ui,sans-serif;color:#25392f;background:#f7f8f4}body{margin:0;padding:25px;min-width:290px;max-width:440px;margin-inline:auto}h1{font-size:23px;font-weight:600;letter-spacing:-.5px;margin:0 0 24px}h2{font-size:15px}p{font-size:13px;line-height:1.7;color:#667166}label{display:block;font-size:12px;margin:15px 0 7px}input{box-sizing:border-box;width:100%;font:inherit;border:1px solid #ccd5c9;border-radius:7px;padding:10px;background:white}button,a{display:inline-block;font:inherit;font-size:12px;border-radius:7px;padding:10px 14px;border:1px solid #ccd5c9;background:white;color:#315c43;cursor:pointer;margin:8px 5px 0 0;text-decoration:none}button.primary{background:#315c43;color:white;border-color:#315c43}#timer{font-size:47px;font-variant-numeric:tabular-nums;margin:15px 0}#message{min-height:25px}button:focus-visible,a:focus-visible,input:focus-visible{outline:2px solid #315c43;outline-offset:3px}hr{border:0;border-top:1px solid #dfe5dc;margin:24px 0}
+:root {
+  font-family: system-ui, sans-serif;
+  color: #25392f;
+  background: #f7f8f4;
+}
+body {
+  margin: 0;
+  padding: 25px;
+  min-width: 290px;
+  max-width: 440px;
+  margin-inline: auto;
+}
+h1 {
+  font-size: 23px;
+  font-weight: 600;
+  letter-spacing: -0.5px;
+  margin: 0 0 24px;
+}
+h2 {
+  font-size: 15px;
+}
+p {
+  font-size: 13px;
+  line-height: 1.7;
+  color: #667166;
+}
+label {
+  display: block;
+  font-size: 12px;
+  margin: 15px 0 7px;
+}
+input {
+  box-sizing: border-box;
+  width: 100%;
+  font: inherit;
+  border: 1px solid #ccd5c9;
+  border-radius: 7px;
+  padding: 10px;
+  background: white;
+}
+button,
+a {
+  display: inline-block;
+  font: inherit;
+  font-size: 12px;
+  border-radius: 7px;
+  padding: 10px 14px;
+  border: 1px solid #ccd5c9;
+  background: white;
+  color: #315c43;
+  cursor: pointer;
+  margin: 8px 5px 0 0;
+  text-decoration: none;
+}
+button.primary {
+  background: #315c43;
+  color: white;
+  border-color: #315c43;
+}
+#timer {
+  font-size: 47px;
+  font-variant-numeric: tabular-nums;
+  margin: 15px 0;
+}
+#message {
+  min-height: 25px;
+}
+button:focus-visible,
+a:focus-visible,
+input:focus-visible {
+  outline: 2px solid #315c43;
+  outline-offset: 3px;
+}
+hr {
+  border: 0;
+  border-top: 1px solid #dfe5dc;
+  margin: 24px 0;
+}

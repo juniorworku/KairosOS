@@ -382,3 +382,67 @@ def test_output_token_quota_boundary_and_period_rollover(integration_client: Tes
 
     assert client.portal
     client.portal.call(run)
+
+
+def test_extension_replay_is_idempotent_and_bound_to_original_session(
+    integration_client: TestClient,
+) -> None:
+    client = integration_client
+    user = login(client)
+    pair = client.post("/api/v1/ext/pair", headers=csrf(client)).json()
+    token = client.post("/api/v1/ext/pair/redeem", json={"code": pair["code"]}).json()["token"]
+    ids: list[str] = []
+
+    async def prepare() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            row = PlanningRecord(
+                user_id=user["id"],
+                kind="focus",
+                payload={
+                    "started_at": (datetime.now(UTC) - timedelta(minutes=2)).isoformat(),
+                    "ends_at": (datetime.now(UTC) + timedelta(minutes=28)).isoformat(),
+                    "ended_at": None,
+                    "planned_minutes": 30,
+                    "title": "Read",
+                },
+            )
+            db.add(row)
+            await db.commit()
+            ids.append(row.id)
+
+    assert client.portal
+    client.portal.call(prepare)
+    headers = {"Authorization": "Bearer " + token}
+    paused = {
+        "type": "pause",
+        "event_id": "d24ded79-d81e-47ca-80ac-a2dc15e6150c",
+        "session_id": ids[0],
+        "pause_until": (datetime.now(UTC) + timedelta(minutes=4)).isoformat(),
+    }
+    for _ in range(2):
+        assert client.post("/api/v1/ext/event", json=paused, headers=headers).status_code == 200
+    assert (
+        client.post(
+            "/api/v1/ext/end", json={"session_id": "different-session"}, headers=headers
+        ).status_code
+        == 200
+    )
+    assert client.get("/api/v1/ext/state", headers=headers).json()["active_session"]
+    ended = datetime.now(UTC) - timedelta(minutes=1)
+    assert (
+        client.post(
+            "/api/v1/ext/end",
+            json={"session_id": ids[0], "ended_at": ended.isoformat()},
+            headers=headers,
+        ).status_code
+        == 200
+    )
+
+    async def inspect() -> None:
+        async with client.app.state.session_factory() as db:  # type: ignore[union-attr]
+            row = await db.get(PlanningRecord, ids[0])
+            assert row
+            assert row.payload["pause_count"] == 1
+            assert row.payload["actual_minutes"] < 1.2
+
+    client.portal.call(inspect)

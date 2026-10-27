@@ -165,7 +165,9 @@ class BlockResponse(PlanningModel):
     start_at: datetime
     end_at: datetime
     planned_minutes: int
-    status: str
+    status: Literal[
+        "proposed", "accepted", "published", "completed", "skipped", "moved", "cancelled"
+    ]
     reason: str
     week_start: date
     moved_count: int = 0
@@ -206,7 +208,7 @@ class ReflectionResponse(ReflectionInput):
 
 class TrajectoryResponse(PlanningModel):
     goal_id: str
-    status: str
+    status: Literal["on_track", "adjust", "off_track", "insufficient_data"]
     expected_fraction: float
     actual_fraction: float
     effort_ratio: float | None

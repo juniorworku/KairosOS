@@ -646,7 +646,7 @@ function Editor({ existing }: { existing?: Goal }) {
                           value={a.kind}
                           onChange={(e) =>
                             action(i, {
-                              kind: e.target.value as Action["kind"],
+                              kind: e.target.value as Action["kind"],total_minutes_estimate:e.target.value==="project"?(a.total_minutes_estimate||120):null,
                             })
                           }
                         >
@@ -667,7 +667,7 @@ function Editor({ existing }: { existing?: Goal }) {
                           type="number"
                           min={1}
                           max={10080}
-                          step={15}
+                          step={1}
                           required
                           value={
                             a.kind === "habit"

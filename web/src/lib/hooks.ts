@@ -1,11 +1,14 @@
 import { useState, useEffect } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { api, replayQueue } from "../api/client";
+import {useAuth} from "./auth";
+import { api, replayQueue, resetFailedQueue, discardFailedQueue } from "../api/client";
 export function useData<T>(path: string, enabled = true) {
+  const {user}=useAuth();
   return useQuery({
-    queryKey: [path],
+    queryKey: [user?.id||"anonymous",path],
     queryFn: () => api<T>(path),
     enabled,
+    networkMode: "always",
     retry: false,
   });
 }
@@ -32,6 +35,7 @@ export function useOnline() {
   return online;
 }
 export function useReplay() {
+  const {user}=useAuth();
   const online = useOnline();
   const client = useQueryClient();
   const [error, setError] = useState<unknown>();
@@ -40,6 +44,6 @@ export function useReplay() {
       void replayQueue()
         .then(() => client.invalidateQueries())
         .catch(setError);
-  }, [online, client]);
-  return error;
+  }, [online, client,user?.id]);
+  return {error,retry:async()=>{setError(undefined);await resetFailedQueue();try{await replayQueue();await client.invalidateQueries();}catch(error){setError(error);}},discard:async()=>{await discardFailedQueue();setError(undefined);}};
 }

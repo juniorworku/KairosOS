@@ -67,6 +67,7 @@ export function Settings({
       return value;
     } catch (error) {
       setError(error);
+      throw error;
     }
   }
   return (
@@ -260,7 +261,7 @@ export function Settings({
               <div className="button-row">
                 <Button
                   disabled={!online}
-                  onClick={() => void action("/calendar/sync")}
+                  onClick={() => void action("/calendar/sync").catch(()=>{})}
                 >
                   {c.settings.sync}
                 </Button>
@@ -274,7 +275,7 @@ export function Settings({
                 )}
                 <Button
                   disabled={!online}
-                  onClick={() => void action("/calendar/disconnect")}
+                  onClick={() => void action("/calendar/disconnect").catch(()=>{})}
                 >
                   {c.settings.disconnect}
                 </Button>
@@ -306,7 +307,7 @@ export function Settings({
                 <Button
                   disabled={!online}
                   onClick={() =>
-                    void action(`/ext/tokens/${t.id}`, undefined, "DELETE")
+                    void action(`/ext/tokens/${t.id}`, undefined, "DELETE").catch(()=>{})
                   }
                 >
                   {c.settings.revoke}
@@ -555,6 +556,7 @@ export function Admin() {
       await client.invalidateQueries();
     } catch (error) {
       setError(error);
+      throw error;
     }
   }
   return (

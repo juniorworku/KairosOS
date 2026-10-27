@@ -67,9 +67,10 @@ services:
   web:
     image: node:22-alpine
     working_dir: /app
-    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
+    command: sh -c "${KAIROS_WEB_COMMAND:-npm ci && npm run dev -- --host 0.0.0.0}"
     environment:
       VITE_API_PROXY_TARGET: http://api:8000
+      VITE_EXTENSION_ID: ${EXTENSION_ID:-}
     volumes:
       - ./web:/app
       - web-node-modules:/app/node_modules

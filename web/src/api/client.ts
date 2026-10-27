@@ -1,5 +1,5 @@
 import { openDB } from "idb";
-import type { User } from "./types";
+import type { User, FocusSession } from "./types";
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -100,6 +100,7 @@ export async function api<T>(
   const result = (await response.json()) as T;
   if (path === "/auth/magic/verify") csrf = "";
   if (cacheable) await (await db()).put("reads", result, key);
+  if(method!=="GET"&&/^\/focus\/(start|[^/]+\/end)$/.test(path))syncExtension();
   return result;
 }
 interface Queued {
@@ -107,40 +108,32 @@ interface Queued {
   account: string;
   path: string;
   body: unknown;
+  queued_at:number;
+  failure?:string;
 }
 export async function queueWrite(path: string, body: Record<string, unknown>) {
-  const id = crypto.randomUUID();
-  await (
-    await db()
-  ).put("queue", {
-    id,
-    account: accountId,
-    path,
-    body: { ...body, client_event_id: id },
-  } satisfies Queued);
+ const id=crypto.randomUUID();const database=await db();const transaction=database.transaction(["queue","reads"],"readwrite");
+ const sequence=Math.max(Date.now(),Number(await transaction.objectStore("reads").get("queue-sequence")||0)+1);await transaction.objectStore("reads").put(sequence,"queue-sequence");
+ await transaction.objectStore("queue").put({id,account:accountId,path,body:{...body,client_event_id:id},queued_at:sequence} satisfies Queued);
+ if(/^\/focus\/[^/]+\/end$/.test(path)) {
+  const store=transaction.objectStore("reads");const active=await store.get(`${accountId}:/focus/active`) as FocusSession|null|undefined;
+  if(active?.id===path.split("/")[2]) {await store.put(null,`${accountId}:/focus/active`);}
+ }
+ await transaction.done;
 }
-export async function replayQueue() {
-  if (!navigator.onLine || !accountId) return;
-  const database = await db();
-  const queued = (await database.getAll("queue")) as Queued[];
-  for (const item of queued) {
-    if (item.account !== accountId) continue;
-    try {
-      await api(item.path, "POST", item.body);
-      await database.delete("queue", item.id);
-    } catch (error) {
-      if (
-        error instanceof ApiError &&
-        error.status < 500 &&
-        error.status !== 401 &&
-        error.status !== 403
-      ) {
-        throw error;
-      }
-      break;
-    }
+export async function replayQueue(){
+ if(!navigator.onLine||!accountId)return;const database=await db();const queued=(await database.getAll("queue") as Queued[]).sort((a,b)=>(a.queued_at||0)-(b.queued_at||0));
+ const failures:string[]=[];
+ for(const item of queued){if(item.account!==accountId)continue;if(item.failure){failures.push(item.failure);continue;}
+  try{await api(item.path,"POST",item.body);await database.delete("queue",item.id);}catch(error){
+   if(error instanceof ApiError&&error.status<500&&error.status!==401&&error.status!==403){item.failure=error.message;await database.put("queue",item);failures.push(error.message);continue;}
+   throw error;
   }
+ }
+ if(failures.length)throw new Error(`${failures.length} offline update(s) could not sync. ${failures[0]}`);
 }
+export async function resetFailedQueue(){const database=await db();for(const item of await database.getAll("queue") as Queued[]){if(item.account===accountId&&item.failure){delete item.failure;await database.put("queue",item);}}}
+export async function discardFailedQueue(){const database=await db();for(const item of await database.getAll("queue") as Queued[]){if(item.account===accountId&&item.failure)await database.delete("queue",item.id);}}
 export async function readDraft<T>(key: string): Promise<T | undefined> {
   return (await db()).get("reads", `${accountId}:draft:${key}`);
 }
@@ -181,3 +174,6 @@ export async function streamRequest(
   }
   return response;
 }
+
+interface ChromeBridge {runtime?:{lastError?:{message?:string};sendMessage:(id:string,message:{type:string},callback:()=>void)=>void}}
+export function syncExtension(){const id=import.meta.env.VITE_EXTENSION_ID as string|undefined;const bridge=(window as Window&{chrome?:ChromeBridge}).chrome?.runtime;if(id&&/^[a-p]{32}$/.test(id)&&bridge){try{bridge.sendMessage(id,{type:"SESSION_CHANGED"},()=>{void bridge.lastError;});}catch{/* Polling and local expiry remain available. */}}}

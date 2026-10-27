@@ -1,4 +1,6 @@
 export const copy = {
+  discardUnsynced:"Discard the offline updates that could not sync?",
+  discardUpdates:"Discard failed updates",
   brand: "Kairos",
   nav: {
     today: "Today",
@@ -205,6 +207,7 @@ export const copy = {
   },
   focus: {
     title: "Focus",
+    resume:"Resume session",
     action: "Action",
     unlinked: "Unlinked session",
     duration: "Minutes",

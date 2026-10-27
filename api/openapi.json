@@ -2464,6 +2464,23 @@
         ],
         "summary": "Ext End",
         "operationId": "ext_end_api_v1_ext_end_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "anyOf": [
+                  {
+                    "$ref": "#/components/schemas/ExtensionEnd"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "title": "Body"
+              }
+            }
+          }
+        },
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -2475,6 +2492,16 @@
                   },
                   "type": "object",
                   "title": "Response Ext End Api V1 Ext End Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3322,6 +3349,15 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "proposed",
+              "accepted",
+              "published",
+              "completed",
+              "skipped",
+              "moved",
+              "cancelled"
+            ],
             "title": "Status"
           },
           "reason": {
@@ -3667,6 +3703,42 @@
             "maxLength": 253,
             "title": "Domain",
             "default": ""
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "pause_until": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pause Until"
+          },
+          "event_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Event Id"
           }
         },
         "type": "object",
@@ -3674,6 +3746,36 @@
           "type"
         ],
         "title": "ExtEvent"
+      },
+      "ExtensionEnd": {
+        "properties": {
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 36
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "ended_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ended At"
+          }
+        },
+        "type": "object",
+        "title": "ExtensionEnd"
       },
       "FocusEnd": {
         "properties": {
@@ -4994,6 +5096,12 @@
           },
           "status": {
             "type": "string",
+            "enum": [
+              "on_track",
+              "adjust",
+              "off_track",
+              "insufficient_data"
+            ],
             "title": "Status"
           },
           "expected_fraction": {

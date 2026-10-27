@@ -21,3 +21,5 @@
 .DS_Store
 celerybeat-schedule*
 extension/kairos-focus.zip
+
+api/wheelhouse/*.whl

@@ -529,15 +529,28 @@ async def ext_state(db: DB, user: ExtUser) -> dict[str, Json]:
 class ExtEvent(BaseModel):
     type: str = Field(pattern=r"^(blocked|pause)$")
     domain: str = Field(default="", max_length=253)
+    session_id: str | None = Field(default=None, max_length=36)
+    pause_until: datetime | None = None
+    event_id: str | None = Field(default=None, max_length=36)
 
 
 @ext_router.post("/event")
 async def ext_event(body: ExtEvent, db: DB, user: ExtUser) -> dict[str, str]:
     focus = await active_focus(db, user.id)
-    if focus:
+    if focus and (body.session_id is None or body.session_id == focus.id):
         payload = dict(focus.payload)
+        processed = list(payload.get("processed_extension_events", []))
+        if body.event_id and body.event_id in processed:
+            await db.commit()
+            return {"status": "recorded"}
+        if body.event_id:
+            payload["processed_extension_events"] = (processed + [body.event_id])[-100:]
         if body.type == "pause":
-            payload["pause_until"] = (datetime.now(UTC) + timedelta(minutes=5)).isoformat()
+            now = datetime.now(UTC)
+            until = body.pause_until or now + timedelta(minutes=5)
+            if until.tzinfo is None or until > now + timedelta(minutes=5, seconds=5):
+                raise HTTPException(422, detail="Pause must end within five minutes")
+            payload["pause_until"] = min(until, now + timedelta(minutes=5)).isoformat()
             payload["pause_count"] = int(str(payload.get("pause_count", 0))) + 1
         else:
             payload["distractions_blocked_count"] = (
@@ -548,14 +561,19 @@ async def ext_event(body: ExtEvent, db: DB, user: ExtUser) -> dict[str, str]:
     return {"status": "recorded"}
 
 
+class ExtensionEnd(BaseModel):
+    session_id: str | None = Field(default=None, max_length=36)
+    ended_at: datetime | None = None
+
+
 @ext_router.post("/end")
-async def ext_end(db: DB, user: ExtUser) -> dict[str, str]:
+async def ext_end(db: DB, user: ExtUser, body: ExtensionEnd | None = None) -> dict[str, str]:
     from app.routers.planning import end_focus
     from app.schemas.planning import FocusEnd
 
     focus = await active_focus(db, user.id)
-    if focus:
-        await end_focus(focus.id, FocusEnd(), db, user)
+    if focus and (body is None or body.session_id is None or body.session_id == focus.id):
+        await end_focus(focus.id, FocusEnd(ended_at=body.ended_at if body else None), db, user)
     else:
         await db.commit()
     return {"status": "ended"}

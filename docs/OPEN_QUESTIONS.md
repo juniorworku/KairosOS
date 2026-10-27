@@ -1,16 +1,16 @@
-# Open questions
+# Configuration and open questions
 
-These decisions do not block M0. Defaults below keep the foundation narrow.
+The local core can be used before these production/integration decisions are made. No credentials or service purchases are invented.
 
-1. The user requested an MVP, while Section 19 specifies stopping after M0. This delivery establishes M0 first; subsequent milestones will build the usable product loop.
-2. Choose owner email, Google OAuth credentials, and email provider for M1. Default signup remains closed; no fake sign-in is presented as real authentication.
-3. Choose domain, Render region, and instance sizes only when deployment is authorized. No hosting resources are created now.
-4. AI provider/model and plan quotas remain configurable; no sample model identifier is treated as a verified available model.
-5. Calendar creation appears in the connect flow and again at M5. Prefer read-only availability consent in M3, then incremental app-calendar permission in M5.
-6. Define action active/archived status, blackout storage, and metric direction before their domain migrations. These are referenced in behavior but missing from the initial core schema.
-7. Define calibrated versus original planned duration before feeding session history back into quotas; avoid compounding the buffer.
-8. Focus sessions update effort evidence, not goal metric values. Trajectory must not invent outcome progress from time spent.
-9. Define zero-range metric and zero-length goal handling before trajectory implementation.
-10. Specify extension-only end-session and pause endpoints before M9; extension tokens cannot use unrestricted web endpoints.
-11. Dev email delivery may expose a magic link in an isolated local inbox; never put links in application logs outside explicit local delivery.
-12. Primary desktop OS, Home Assistant, Slack/Teams, and intervention preferences are deferred until Personal Mode.
+1. **Owner account.** Local Compose seeds `OWNER_EMAIL`, default `owner@localhost.test`, with closed signup. Use Mailpit to sign in. Choose the actual owner email before configuring real mail. A deleted owner is not automatically recreated; the hash-only seed marker deliberately preserves that choice.
+2. **Google credentials.** Supply an OAuth client/secret and the exact identity/calendar callback URIs. Identity consent is separate from calendar consent. Availability and app-calendar write scopes require live verification and the applicable Google verification process before public launch.
+3. **Email delivery.** Local SMTP targets Mailpit. For real mail choose configured Resend or authenticated STARTTLS SMTP, a sending domain, and delivery/authentication checks. No console transport logs sign-in links.
+4. **Calendar encryption.** Generate and privately retain a valid Fernet key in `TOKEN_ENCRYPTION_KEY` before connecting a calendar. A future key rotation procedure must decrypt with the old key, re-encrypt with the replacement, and keep a secure recovery copy until verification succeeds. Do not rotate by discarding the old key.
+5. **AI provider/model.** Set the chosen Anthropic or Gemini key and an available model name. No default model identifier is assumed to exist. Plan names/numeric limits are placeholders in the auth seeding configuration; existing plans are not overwritten on restart. AI-off mode remains available.
+6. **Planning schema.** The initial local implementation uses typed planning aggregates in a user-owned JSON table rather than every separate table in the guide. Decide when normalized actions/blocks/check-ins and richer database-level relations are needed before scaling.
+7. **Quota architecture.** Current AI reservations are serialized in PostgreSQL with audit rows. The guide's Redis hot counters and nightly reconciliation are not implemented; adopt them only with appropriate concurrency/reconciliation tests when volume warrants it.
+8. **Extension release.** Configure the unpacked extension ID for immediate web sync. Run the manual Chrome QA matrix. Exact hosted origins, privacy disclosures, permission justifications and a Web Store owner are required before distribution.
+9. **Public hosting.** Domain, region, instance sizes, DNS/email authentication, backup/restore and monitoring decisions remain deferred. No deployment is authorized.
+10. **Personal Mode.** Primary OS, native capture, Slack/Teams, smart-home integrations, activity retention, and intervention preferences remain deferred with M10–M17. The current app does not collect native activity or change OS settings.
+
+The user authorized continuation beyond the original M0 stop instruction. Acceptance status remains evidence-based; provider credentials, manual Chrome testing, Lighthouse measurements, and public deployment are not silently treated as completed.

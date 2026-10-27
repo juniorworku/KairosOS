@@ -1,13 +1,33 @@
 # Privacy and data handling
 
-M0 is a local foundation and design preview. It does not connect to Google, send goal text to AI providers, send authentication emails, track browsing, or log focus sessions. No analytics integration is configured.
+This document describes the local implementation. It is engineering documentation, not a final public-launch privacy policy. No analytics or deployment is configured.
 
-Keep `.env` private. The example contains development values only. Uploaded reference screenshots and the implementation plan are source materials, not application user records.
+## Saved data
 
-Before M1 ships, document actual account/session storage, retention, export, deletion, and administrator access. Before calendar integration, document the exact verified scopes and token encryption/key rotation. Standard calendar synchronization stores availability intervals, never event titles, attendees, or locations.
+The server saves account email/profile/work preferences, hashed sign-in credentials, session device metadata and hashed source addresses, goals/actions/obstacles, busy intervals, time blocks, focus logs/self-ratings, metric check-ins, and reflections. Owner/admin roles can manage accounts, plans, invites, session access, and inspect administration audit records. No administrator feature is intended to expose another user's planning content.
 
-Before AI integration, disclose exactly which goal text and aggregate statistics leave the app and offer AI-off mode. AI must never write calendar events without user approval. Before extension distribution, add a privacy policy URL, a single-purpose description, permission justifications, pairing/token lifecycle, and a manual blocking QA checklist.
+Development sign-in messages go to the local Mailpit inbox. Configuring a real email provider sends sign-in email to that provider. Tokens expire after 15 minutes by default and can be used once; opening a link alone does not consume it. Application/task logs omit emails, tokens, sign-in URLs, and provider error bodies. Server access logging must remain disabled or sanitize query strings.
 
-Personal Mode requires separate consent and controls. Raw window titles stay on the local companion; title-less classified data is the only permitted server upload. These features are not implemented in M0.
+Sessions expire after 30 inactive days, with a 90-day absolute limit. The scheduled auth cleanup removes expired/revoked credentials. A hash-only owner seed marker is retained after deletion to prevent the configured owner being recreated automatically. This marker is pseudonymous, not a claim of irreversible anonymization.
 
-This document describes engineering intent and current behavior; it is not a public-launch privacy policy.
+## Calendar and coaching
+
+Google sign-in and calendar access are separate consents. Calendar refresh credentials are encrypted with the configured server key. Standard calendar reads save availability intervals, not event titles, attendees, locations, or descriptions. Accepted time blocks can be published to the dedicated Kairos calendar only after explicit approval. Disconnect revokes credentials and clears local availability; account deletion also attempts provider revocation before removing records.
+
+Coaching is optional. When enabled/configured, the chosen Anthropic or Gemini service receives the text submitted to the coach and, if requested, redacted goal titles/outcomes plus computed trajectory fields. Free-form goal text can still be personal after identifier redaction. Provider credentials, account email, and raw calendar event details are not sent as coaching context. AI audit rows store task/provider/model, token counts, timing and status, rather than raw prompts or chat transcripts. Turning AI off leaves manual planning and focus features available.
+
+## Browser and extension
+
+The browser may cache private planning reads and queue supported offline check-ins/session endings in IndexedDB. Signing out/account changes clear this cache and queue. Anyone with access to an unlocked browser profile may be able to view locally cached data; no claim of encrypted browser storage is made.
+
+The Chrome extension reads no page content or browsing history. It stores its paired bearer token, active session timing and the selected domain list locally, and uses navigation rules only while focusing. Optional redirects require separately granted host access. Blocked-navigation counts can be sent to the server. Pairing and bearer access are revocable; disabling an account also invalidates extension access.
+
+## Export, deletion and limits
+
+Account export returns profile and user-owned planning/integration metadata, excluding private auth/OAuth/pairing/bearer records and credential columns. Account deletion removes user-owned records through cascading foreign keys and clears browser/session access. Provider revocation errors are surfaced so deletion can be retried. Local Docker database volumes and Mailpit messages are operator-managed; backups or exported files require separate removal.
+
+Reference screenshots and the implementation plan are repository source material, not user account records. Keep `.env`, credential encryption keys, exports, and backups private. Losing the encryption key prevents recovery of saved calendar credentials.
+
+Personal Mode is deferred. No native activity logger, window-title upload, privileged helper, OS-wide blocker, Slack/Teams integration, smart-home control, or intervention overlay is implemented.
+
+A public launch still requires a final policy matching the deployed configuration, provider/domain verification, retention/backup decisions, and the Chrome Web Store permission/privacy disclosures. Nothing is published by this repository's CI.
