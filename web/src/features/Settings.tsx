@@ -1,6 +1,5 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { Link } from "react-router-dom";
 import { copy as c } from "../copy/en";
 import { useAuth } from "../lib/auth";
 import { useData, useOnline } from "../lib/hooks";
@@ -22,19 +21,6 @@ interface ExtToken {
   label: string;
   created_at: string;
   last_used_at: string | null;
-}
-interface PlanInfo {
-  id: string;
-  name: string;
-  key: string;
-  quotas: Record<string, number>;
-}
-interface Invite {
-  id: string;
-  email: string;
-  role: string;
-  expires_at: string;
-  revoked_at: string | null;
 }
 export function Settings({
   theme,
@@ -566,162 +552,5 @@ function BlocklistSettings() {
         )}
       </SubmitForm>
     </section>
-  );
-}
-export function Admin() {
-  const users =
-    useData<(User & { disabled_at: string | null })[]>("/admin/users");
-  const plans = useData<PlanInfo[]>("/admin/plans");
-  const invites = useData<Invite[]>("/admin/invites");
-  const audit =
-    useData<
-      { id: string; action: string; target_type: string; created_at: string }[]
-    >("/admin/audit");
-  const client = useQueryClient();
-  const [email, setEmail] = useState("");
-  const [error, setError] = useState<unknown>();
-  const online = useOnline();
-  async function update(userId: string, body: unknown) {
-    try {
-      await api(`/admin/users/${userId}`, "PATCH", body);
-      await client.invalidateQueries();
-    } catch (error) {
-      setError(error);
-      throw error;
-    }
-  }
-  return (
-    <>
-      <header className="content-header">
-        <h1>{c.admin.title}</h1>
-      </header>
-      <Notice error={error || users.error} />
-      <section className="panel table-panel">
-        <table>
-          <thead>
-            <tr>
-              <th>{c.admin.email}</th>
-              <th>{c.admin.role}</th>
-              <th>{c.admin.plan}</th>
-              <th>{c.admin.status}</th>
-              <th>
-                <span className="sr-only">{c.edit}</span>
-              </th>
-            </tr>
-          </thead>
-          <tbody>
-            {users.data?.map((user) => (
-              <tr key={user.id}>
-                <td>{user.email}</td>
-                <td>{user.role}</td>
-                <td>
-                  <select
-                    aria-label={`${c.admin.plan} ${user.email}`}
-                    value={user.plan_id}
-                    disabled={!online}
-                    onChange={(e) =>
-                      void update(user.id, { plan_id: e.target.value })
-                    }
-                  >
-                    {plans.data?.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <Button
-                    disabled={!online}
-                    onClick={() =>
-                      void update(user.id, { disabled: !user.disabled_at })
-                    }
-                  >
-                    {user.disabled_at ? c.admin.enable : c.admin.disable}
-                  </Button>
-                </td>
-                <td>
-                  <Button
-                    disabled={!online}
-                    onClick={() =>
-                      void api(
-                        `/admin/users/${user.id}/revoke-sessions`,
-                        "POST",
-                      ).catch(setError)
-                    }
-                  >
-                    {c.admin.sessions}
-                  </Button>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </section>
-      <section className="panel">
-        <h2>{c.admin.invites}</h2>
-        <SubmitForm
-          className="inline-form"
-          onSubmit={async () => {
-            await api("/admin/invites", "POST", { email });
-            setEmail("");
-            await client.invalidateQueries();
-          }}
-        >
-          {(busy) => (
-            <>
-              <Field label={c.admin.inviteEmail}>
-                <input
-                  type="email"
-                  required
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  disabled={!online}
-                />
-              </Field>
-              <Button disabled={busy || !online} className="primary">
-                {c.admin.invite}
-              </Button>
-            </>
-          )}
-        </SubmitForm>
-        {invites.data
-          ?.filter((i) => !i.revoked_at)
-          .map((i) => (
-            <div className="device-row" key={i.id}>
-              <div>
-                {i.email}
-                <small>
-                  {c.admin.expires} {i.expires_at.slice(0, 10)}
-                </small>
-              </div>
-              <Button
-                onClick={() =>
-                  void api(`/admin/invites/${i.id}`, "DELETE")
-                    .then(() => client.invalidateQueries())
-                    .catch(setError)
-                }
-                disabled={!online}
-              >
-                {c.settings.revoke}
-              </Button>
-            </div>
-          ))}
-      </section>
-      <section className="panel">
-        <h2>{c.admin.audit}</h2>
-        {audit.data?.map((item) => (
-          <div key={item.id} className="metric-line">
-            <span>
-              {item.action} · {item.target_type}
-            </span>
-            <time>{item.created_at.slice(0, 10)}</time>
-          </div>
-        ))}
-      </section>
-      <Link to="/settings" className="text-link">
-        {c.settings.title}
-      </Link>
-    </>
   );
 }
