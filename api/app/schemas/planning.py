@@ -112,6 +112,7 @@ class AcceptInput(PlanningModel):
 
 
 class BlockPatch(PlanningModel):
+    notes: str | None = Field(default=None, max_length=10000)
     start_at: datetime | None = None
     end_at: datetime | None = None
     status: Literal["accepted", "skipped", "completed", "cancelled"] | None = None
@@ -128,6 +129,7 @@ class BlockPatch(PlanningModel):
 
 
 class BlockCreate(BusyInput):
+    notes: str = Field(default="", max_length=10000)
     goal_id: str = Field(min_length=1, max_length=36)
     action_id: str = Field(min_length=1, max_length=36)
     status: Literal["proposed", "accepted"] = "accepted"
@@ -186,6 +188,7 @@ class BusyResponse(BusyInput):
 
 
 class BlockResponse(PlanningModel):
+    notes: str = ""
     id: str
     action_id: str
     goal_id: str
@@ -202,10 +205,48 @@ class BlockResponse(PlanningModel):
     google_event_id: str | None = None
 
 
+class PlanChangeInput(PlanningModel):
+    block_id: str = Field(min_length=1, max_length=36)
+    operation: Literal["move", "remove"]
+    start_at: datetime | None = None
+    end_at: datetime | None = None
+    reason: str = Field(default="", max_length=1000)
+
+    @model_validator(mode="after")
+    def placement(self) -> "PlanChangeInput":
+        if self.operation == "move":
+            if self.start_at is None or self.end_at is None:
+                raise ValueError("A move requires start and end times")
+            BusyInput(start_at=self.start_at, end_at=self.end_at)
+        elif self.start_at is not None or self.end_at is not None:
+            raise ValueError("A removal does not take start or end times")
+        return self
+
+
+class PlanChangeResponse(PlanningModel):
+    id: str
+    block_id: str
+    operation: Literal["move", "remove"]
+    status: Literal["pending", "applied", "dismissed"]
+    before: BlockResponse
+    after: BlockResponse | None
+    reason: str
+    created_at: datetime
+    applied_at: datetime | None = None
+
+
 class DraftResponse(PlanningModel):
     blocks: list[BlockResponse]
     capacity_warning: str | None = None
     dropped_minutes: int = 0
+    message: str = ""
+    empty_reason: (
+        Literal[
+            "no_goals", "no_actions", "outside_dates", "already_planned", "no_capacity", "past_week"
+        ]
+        | None
+    ) = None
+    changes: list[PlanChangeResponse] = Field(default_factory=list)
 
 
 class FocusResponse(PlanningModel):

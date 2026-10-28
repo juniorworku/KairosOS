@@ -2,11 +2,11 @@
 
 Current scope is a personal productivity app. The Users, invites, and administration screens have been removed. Sign-in, personal settings, session controls, export, and account deletion remain. Existing account data has not been deleted.
 
-## Backend first
+## Current feature pass
 
-The current pass is assigned in [Backend reliability](BACKEND_RELIABILITY.md), including a direct review of all ten reference screenshots. The first reliability pass is complete: manual planning, calendar recovery, focus completion/statistics, and grounded coaching context are covered by 151 passing backend tests. API contracts and web/extension types are current; see [Verification](VERIFICATION.md). This does not complete the remaining calendar/task feature model below.
+The initial reliability pass is followed by the [events/tasks/calendar implementation](AGENDA.md): unified agenda, independent tasks, local notes and daily/weekly recurrence, single-occurrence edits, explicit Google-details consent, manual block creation in the UI, and move/removal previews with acceptance. Draft week now explains empty results and avoids local recurring commitments.
 
-The next calendar UI pass must expose direct block creation and editing, keep goals/tasks visible beside the week, and distinguish proposals from accepted work. Named external/all-day events, recurrence, independent tasks/support areas, historical trend data, and typed apply-able schedule recommendations still require backend work; they are not merely styling changes.
+The Plan UI exposes these workflows; they are no longer API-only. Final checks are recorded in [Verification](VERIFICATION.md). Remaining calendar work is a Google calendar picker/remote editing, monthly/yearly recurrence, and broader device/live-provider acceptance. Deployment remains paused.
 
 ## External setup and later work
 
@@ -28,8 +28,8 @@ The core local app now has implementation across M0–M9. Code being present is 
 | M0 | Monorepo, Compose, CI, typed API/UI, migrations and generated client | Remote CI results depend on a connected/pushed repository; no remote success is implied |
 | M1 | Google OIDC and email-link flows, closed/invite/open signup, roles, sessions, CSRF, profile, export/delete; admin backend retained for later | Real Google client and real-domain email delivery verification; user/invite UI deferred |
 | M2 | Seasons and typed saved goal aggregates with actions, obstacles, metric check-ins and editing | Planning aggregates use a documented JSON table deviation; per-aggregate normalization remains a future migration decision |
-| M3 | Separate calendar consent, encrypted tokens, availability cache, sync and disconnect | Real OAuth/consent and provider scope verification with the owner's credentials |
-| M4 | Pure deterministic scheduler, manual busy intervals, proposal reasons, capacity warning and review controls | Browser goal/draft/accept workflow verified locally; external calendar interaction remains credential-gated |
+| M3 | Separate availability/details consent, encrypted tokens and event details, unified primary/local feed, sync and disconnect | Real OAuth/consent and provider scope verification with the owner's credentials |
+| M4 | Deterministic scheduler, local recurring commitments, manual creation UI, explicit draft outcomes, move/removal previews and stale-safe acceptance | Browser goal/draft/accept workflow verified locally; external calendar interaction remains credential-gated |
 | M5 | Explicit calendar publish, deterministic event identity, moved/deleted reconciliation and periodic sync | Real Google calendar publication/move/delete/retry acceptance |
 | M6 | Timed focus sessions, self-ratings, session history/stats, deterministic trajectory and duration calibration | Longer manual usage across sleep/restart and representative session history |
 | M7 | Anthropic/Gemini adapters, structured suggestions/streaming, AI-off, audited plan quotas/global cap | Credentialed live provider checks and output-quality evaluation; Redis hot counters/nightly reconciliation differ from the current transactional PostgreSQL design |

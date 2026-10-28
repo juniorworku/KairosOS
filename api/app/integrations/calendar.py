@@ -19,6 +19,7 @@ from app.integrations.config import IntegrationSettings
 from app.integrations.jsonutil import Json, list_value, object_value, string_value
 from app.integrations.models import CalendarBusy, CalendarConnection
 
+DETAIL_SCOPE = "https://www.googleapis.com/auth/calendar.events.owned.readonly"
 FREEBUSY_SCOPE = "https://www.googleapis.com/auth/calendar.events.freebusy"
 WRITE_SCOPE = "https://www.googleapis.com/auth/calendar.app.created"
 API_URL = "https://www.googleapis.com/calendar/v3"
@@ -199,6 +200,46 @@ class GoogleCalendar:
             )
             for item in list_value(primary.get("busy", []))
         ]
+
+    async def event_instances(
+        self, access: str, start: datetime, end: datetime, timezone: str
+    ) -> tuple[list[dict[str, Json]], str, str]:
+        params = {
+            "timeMin": start.isoformat(),
+            "timeMax": end.isoformat(),
+            "singleEvents": "true",
+            "showDeleted": "false",
+            "orderBy": "startTime",
+            "maxResults": "2500",
+            "timeZone": timezone,
+            "fields": (
+                "summary,timeZone,nextPageToken,items(id,status,summary,description,"
+                "start,end,recurringEventId,originalStartTime)"
+            ),
+        }
+        events: list[dict[str, Json]] = []
+        pages: set[str] = set()
+        calendar_name, calendar_timezone = "Google Calendar", timezone
+        while True:
+            data = await self.request("GET", "/calendars/primary/events", access, params=params)
+            if isinstance(data.get("summary"), str):
+                calendar_name = string_value(data["summary"])
+            if isinstance(data.get("timeZone"), str):
+                calendar_timezone = string_value(data["timeZone"])
+            for event in list_value(data.get("items", [])):
+                value = object_value(event)
+                if value.get("status") != "cancelled":
+                    events.append(value)
+            if len(events) > 20000:
+                raise CalendarUnavailable("Choose a shorter calendar range.")
+            page = data.get("nextPageToken")
+            if not isinstance(page, str) or not page:
+                break
+            if page in pages or len(pages) >= 20:
+                raise CalendarUnavailable("Calendar pagination did not complete")
+            pages.add(page)
+            params["pageToken"] = page
+        return events, calendar_timezone, calendar_name
 
     async def create_calendar(self, access: str, timezone: str = "UTC") -> str:
         # Google assigns calendar IDs: an ambiguous failure cannot safely be retried automatically.

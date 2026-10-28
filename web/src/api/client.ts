@@ -40,11 +40,12 @@ export async function api<T>(
   method = "GET",
   body?: unknown,
 ): Promise<T> {
-  const key = `${accountId}:${path}`;
+  const requestAccount = accountId;
+  const key = `${requestAccount}:${path}`;
   const cacheable =
     method === "GET" &&
     accountId &&
-    /^\/(goals|plan\/week|focus\/(stats|active|sessions)|trajectory|reflection|busy|seasons)/.test(
+    /^\/(goals|plan\/week|focus\/(stats|active|sessions)|trajectory|reflection|busy|seasons|agenda(?:\?|$)|tasks(?:\/|\?|$)|events(?:\/|\?|$))/.test(
       path,
     );
   if (!navigator.onLine && cacheable) {
@@ -111,6 +112,18 @@ export async function api<T>(
   }
   if (response.status === 204) return undefined as T;
   const result = (await response.json()) as T;
+  if (path === "/calendar/details" && method === "DELETE" && requestAccount) {
+    const database = await db();
+    const transaction = database.transaction("reads", "readwrite");
+    for (const savedKey of await transaction.store.getAllKeys()) {
+      if (
+        typeof savedKey === "string" &&
+        savedKey.startsWith(`${requestAccount}:/agenda?`)
+      )
+        await transaction.store.delete(savedKey);
+    }
+    await transaction.done;
+  }
   if (path === "/auth/magic/verify") csrf = "";
   if (cacheable) await (await db()).put("reads", result, key);
   if (method !== "GET" && /^\/focus\/(start|[^/]+\/end)$/.test(path))

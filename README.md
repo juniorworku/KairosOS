@@ -31,6 +31,10 @@ Google sign-in, Google Calendar, and the coach remain unavailable until their cr
 
 To try the extension, follow [its local setup guide](extension/README.md). Nothing installs the extension or publishes it automatically.
 
+## Calendar and tasks
+
+Plan now combines local events, goal blocks, and explicitly consented read-only Google primary-calendar events. Add independent tasks, schedule them, save notes, create timed/all-day daily or weekly recurring events, and edit one occurrence or a series. Schedule action creates goal blocks manually. Moves/removals of accepted local blocks appear as proposals before applying. Draft week explains empty results and respects recurring commitments. See [agenda behavior and limits](docs/AGENDA.md). Deployment remains paused.
+
 ## Verify changes
 
 ```sh

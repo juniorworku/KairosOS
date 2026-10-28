@@ -1,131 +1,262 @@
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
 import luxonPlugin from "@fullcalendar/luxon3";
 import { DateTime } from "luxon";
-import { useQueryClient } from "@tanstack/react-query";
 import { ChevronLeft, ChevronRight, Plus, X } from "lucide-react";
-import { copy as c } from "../copy/en";
+import { useQueryClient } from "@tanstack/react-query";
+import { copy as c, agendaCopy as a } from "../copy/en";
 import { useAuth } from "../lib/auth";
 import { useData, useOnline } from "../lib/hooks";
 import { api } from "../api/client";
-import type { Block, Busy, Draft } from "../api/types";
-import {
-  addDays,
-  clock,
-  dateKey,
-  localInput,
-  minutes,
-  weekStart,
-} from "../lib/time";
+import type { Busy, Goal } from "../api/types";
+import type {
+  AgendaItem,
+  DraftOutcome,
+  NotedBlock,
+  PlanChange,
+  Task,
+} from "../api/agenda";
+import { addDays, clock, dateKey, weekStart } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Empty, Field, Notice, SubmitForm } from "../components/ui/Forms";
+import { AgendaEditor, type AgendaEditorSelection } from "./AgendaEditor";
+import { AgendaTasks } from "./AgendaTasks";
+import { AgendaChanges } from "./AgendaChanges";
+import "./agenda.css";
+
 export interface CalendarStatus {
   configured: boolean;
   connected: boolean;
   status: string;
   can_publish: boolean;
   last_synced_at: string | null;
+  details_enabled?: boolean;
+  can_read_events?: boolean;
+  details_cached_from?: string | null;
+  details_cached_to?: string | null;
+  details_error?: string | null;
 }
 export function Plan() {
   const { user } = useAuth();
   const timezone = user!.timezone;
-  const [week, setWeek] = useState(weekStart(dateKey(new Date(), timezone)));
+  const [day, setDay] = useState(dateKey(new Date(), timezone));
+  const week = weekStart(day);
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [mobile, setMobile] = useState(window.innerWidth < 700);
+  const calendarRef = useRef<FullCalendar>(null);
+  const calendarContainer = useRef<HTMLElement>(null);
   useEffect(() => {
-    const change = () => setMobile(window.innerWidth < 700);
-    window.addEventListener("resize", change);
-    return () => window.removeEventListener("resize", change);
+    const resize = () => setMobile(window.innerWidth < 700);
+    window.addEventListener("resize", resize);
+    return () => window.removeEventListener("resize", resize);
   }, []);
-  const blocks = useData<Block[]>(`/plan/week?start=${week}`);
+  useEffect(() => {
+    calendarRef.current?.getApi().gotoDate(day);
+  }, [day, mobile, view]);
+  const feed = useData<AgendaItem[]>(
+    `/agenda?start=${week}&end=${addDays(week, 7)}`,
+  );
+  const blocks = useData<NotedBlock[]>(`/plan/week?start=${week}`);
+  const tasks = useData<Task[]>("/tasks");
+  const goals = useData<Goal[]>("/goals");
+  const proposals = useData<PlanChange[]>(`/plan/changes?start=${week}`);
   const busy = useData<Busy[]>("/busy");
   const googleBusy = useData<Omit<Busy, "id">[]>("/calendar/busy");
-  const calendar = useData<CalendarStatus>("/calendar/status");
   const online = useOnline();
+  const calendar = useData<CalendarStatus>("/calendar/status");
+  const { refetch: refetchCalendarStatus } = calendar;
+  useEffect(() => {
+    if (online && feed.dataUpdatedAt) void refetchCalendarStatus();
+  }, [feed.dataUpdatedAt, online, refetchCalendarStatus]);
   const client = useQueryClient();
-  const [error, setError] = useState<unknown>();
-  const [warning, setWarning] = useState("");
+  const navigate = useNavigate();
   const [pending, setPending] = useState(false);
-  const [selected, setSelected] = useState<Block | null>(null);
-  const [showBusy, setShowBusy] = useState(false);
+  const [error, setError] = useState<unknown>();
   const [notice, setNotice] = useState("");
-  const proposed = blocks.data?.filter((b) => b.status === "proposed") || [];
-  const accepted = blocks.data?.filter((b) => b.status === "accepted") || [];
+  const [draftResult, setDraftResult] = useState<DraftOutcome | null>(null);
+  const [editing, setEditing] = useState<AgendaEditorSelection | null>(null);
+  const [showBusy, setShowBusy] = useState(false);
+  const changes = (proposals.data || []).filter(
+    (change) => change.status === "pending",
+  );
+  const proposed = (blocks.data || []).filter(
+    (block) => block.status === "proposed",
+  );
+  const accepted = (blocks.data || []).filter(
+    (block) => block.status === "accepted",
+  );
+  async function refresh() {
+    await client.invalidateQueries();
+  }
   async function mutate(path: string, body?: unknown, method = "POST") {
     setError(undefined);
     setNotice("");
     setPending(true);
     try {
-      const value = await api<Draft>(path, method, body);
-      await client.invalidateQueries();
-      return value;
+      const result = await api<DraftOutcome>(path, method, body);
+      if (path === "/calendar/details" && method === "DELETE") {
+        await client.resetQueries({
+          predicate: (query) =>
+            query.queryKey[0] === user!.id &&
+            typeof query.queryKey[1] === "string" &&
+            query.queryKey[1].startsWith("/agenda?"),
+        });
+      }
+      await refresh();
+      return result;
     } catch (error) {
       setError(error);
     } finally {
       setPending(false);
     }
   }
+  async function draft() {
+    setDraftResult(null);
+    const result = await mutate("/plan/draft", { week_start: week });
+    if (result) {
+      setDraftResult(result);
+      setNotice(
+        result.message || (result.blocks.length ? a.drafted : a.noDraft),
+      );
+    }
+  }
+  async function focus(block: NotedBlock) {
+    await api("/focus/start", "POST", {
+      time_block_id: block.id,
+      planned_minutes: block.planned_minutes,
+    });
+    await refresh();
+    navigate("/focus");
+  }
+  function select(item: AgendaItem) {
+    if (item.source === "block") {
+      const block = blocks.data?.find((value) => value.id === item.source_id);
+      if (block) setEditing({ kind: "block", block });
+    } else setEditing({ kind: "event", item });
+  }
   async function move(
-    blockId: string,
+    item: AgendaItem,
     start: string,
     end: string,
+    allDay: boolean,
     revert: () => void,
   ) {
-    if (!online) {
+    if (!online || !item.editable) {
       revert();
       return;
     }
+    setError(undefined);
     try {
-      await api(`/blocks/${blockId}`, "PATCH", {
-        start_at: start,
-        end_at: end,
-      });
-      await client.invalidateQueries();
+      if (item.source === "block") {
+        const block = blocks.data?.find((value) => value.id === item.source_id);
+        if (!block) throw new Error(c.requestFailed);
+        if (block.status === "proposed")
+          await api(`/blocks/${block.id}`, "PATCH", {
+            start_at: start,
+            end_at: end,
+          });
+        else {
+          await api("/plan/changes", "POST", {
+            block_id: block.id,
+            operation: "move",
+            start_at: start,
+            end_at: end,
+          });
+          revert();
+          setNotice(a.proposalSaved);
+        }
+      } else if (item.source === "local") {
+        const path =
+          item.recurring && item.occurrence_date
+            ? `/events/${item.source_id}/occurrences/${item.occurrence_date}`
+            : `/events/${item.source_id}`;
+        await api(path, "PATCH", {
+          start_at: start,
+          end_at: end,
+          all_day: allDay,
+          timezone: item.timezone,
+        });
+      } else revert();
+      await refresh();
     } catch (error) {
       revert();
       setError(error);
     }
   }
-  const selectedBlock =
-    blocks.data?.find((b) => b.id === selected?.id) || selected;
-  const events = (blocks.data || [])
-    .filter((b) => b.status !== "cancelled")
-    .map((b) => ({
-      id: b.id,
-      title: b.title || "",
-      start: b.start_at,
-      end: b.end_at,
-      classNames: [`event-${b.status}`],
-      editable: online && b.status !== "published" && b.status !== "completed",
-      extendedProps: { block: b },
+  const pendingRemoval = new Set(
+    changes
+      .filter((change) => change.operation === "remove")
+      .map((change) => change.block_id),
+  );
+  const events = (feed.data || []).map((item) => ({
+    id: item.id,
+    title: item.title,
+    start: item.start_at,
+    end: item.end_at,
+    allDay: item.all_day,
+    editable:
+      online &&
+      item.editable &&
+      !(
+        item.source === "block" &&
+        ["completed", "published", "cancelled"].includes(item.status)
+      ),
+    classNames: [
+      `agenda-source-${item.source}`,
+      `event-${item.status}`,
+      ...(pendingRemoval.has(item.source_id) ? ["agenda-pending-removal"] : []),
+    ],
+    extendedProps: { item },
+  }));
+  const ghosts = changes
+    .filter((change) => change.operation === "move" && change.after)
+    .map((change) => ({
+      id: `change-${change.id}`,
+      title: `${a.proposal}: ${change.after!.title}`,
+      start: change.after!.start_at,
+      end: change.after!.end_at,
+      editable: false,
+      classNames: ["agenda-proposed-move"],
+      extendedProps: { change },
     }));
   const unavailable = [...(busy.data || []), ...(googleBusy.data || [])].map(
-    (b, i) => ({
-      id: `busy-${i}`,
-      start: b.start_at,
-      end: b.end_at,
+    (value, index) => ({
+      id: `busy-${index}`,
+      start: value.start_at,
+      end: value.end_at,
       display: "background",
-      classNames: ["event-busy"],
       editable: false,
+      classNames: ["event-busy"],
     }),
   );
   return (
     <>
       <header className="content-header">
         <h1>{c.plan.title}</h1>
-        <div className="header-actions">
+        <div className="header-actions agenda-header-actions">
           <Button
+            type="button"
             disabled={!online || pending}
+            onClick={() => setEditing({ kind: "event" })}
+          >
+            <Plus size={15} />
+            {a.addEvent}
+          </Button>
+          <Button
+            type="button"
+            disabled={!online || pending}
+            onClick={() => setEditing({ kind: "block" })}
+          >
+            {a.scheduleAction}
+          </Button>
+          <Button
+            type="button"
             className="primary"
-            onClick={() =>
-              void mutate("/plan/draft", { week_start: week }).then(
-                (result) => {
-                  if (result) setWarning(result.capacity_warning || "");
-                },
-              )
-            }
+            disabled={!online || pending}
+            onClick={() => void draft()}
           >
             {pending ? c.loading : c.plan.draft}
           </Button>
@@ -134,10 +265,12 @@ export function Plan() {
       <div className="plan-toolbar">
         <div className="week-nav">
           <Button
+            type="button"
             aria-label={c.plan.previous}
             onClick={() => {
-              setWeek(addDays(week, -7));
-              setSelected(null);
+              setDay(addDays(day, -7));
+              setDraftResult(null);
+              setNotice("");
             }}
           >
             <ChevronLeft size={16} />
@@ -146,23 +279,33 @@ export function Plan() {
             {week} — {addDays(week, 6)}
           </span>
           <Button
+            type="button"
             aria-label={c.plan.next}
             onClick={() => {
-              setWeek(addDays(week, 7));
-              setSelected(null);
+              setDay(addDays(day, 7));
+              setDraftResult(null);
+              setNotice("");
             }}
           >
             <ChevronRight size={16} />
           </Button>
+          <Button
+            type="button"
+            onClick={() => setDay(dateKey(new Date(), timezone))}
+          >
+            {c.today.title}
+          </Button>
         </div>
         <div className="segmented">
           <Button
+            type="button"
             aria-pressed={view === "calendar"}
             onClick={() => setView("calendar")}
           >
             {c.plan.calendar}
           </Button>
           <Button
+            type="button"
             aria-pressed={view === "list"}
             onClick={() => setView("list")}
           >
@@ -170,15 +313,24 @@ export function Plan() {
           </Button>
         </div>
       </div>
-      <Notice error={error || blocks.error} />
-      {warning && (
-        <p className="warning-note" role="status">
-          {warning}
-        </p>
-      )}
+      <Notice
+        error={
+          error || feed.error || blocks.error || goals.error || proposals.error
+        }
+      />
       {notice && (
-        <p className="save-note" role="status">
-          {notice}
+        <div className="save-note agenda-outcome" role="status">
+          <p>{notice}</p>
+          {draftResult?.empty_reason === "no_goals" && (
+            <Link className="button" to="/goals/new">
+              {c.goals.new}
+            </Link>
+          )}
+        </div>
+      )}
+      {draftResult?.capacity_warning && (
+        <p className="warning-note" role="status">
+          {draftResult.capacity_warning}
         </p>
       )}
       {proposed.length > 0 && (
@@ -187,10 +339,11 @@ export function Plan() {
             {proposed.length} {c.plan.proposed.toLowerCase()}
           </span>
           <Button
+            type="button"
             disabled={!online || pending}
             onClick={() =>
               void mutate("/plan/accept", {
-                block_ids: proposed.map((b) => b.id),
+                block_ids: proposed.map((block) => block.id),
               })
             }
           >
@@ -202,12 +355,15 @@ export function Plan() {
         <div className="draft-toolbar">
           <p>{c.plan.approval}</p>
           <Button
+            type="button"
             disabled={!online || pending}
-            onClick={() =>
+            onClick={() => {
+              setPending(true);
+              setError(undefined);
               void api<{ published: string[]; failed: string[] }>(
                 "/calendar/publish",
                 "POST",
-                { block_ids: accepted.map((b) => b.id) },
+                { block_ids: accepted.map((block) => block.id) },
               )
                 .then(async (result) => {
                   setNotice(
@@ -215,64 +371,132 @@ export function Plan() {
                       ? `${result.published.length} / ${accepted.length} ${c.plan.published.toLowerCase()}`
                       : c.plan.publishedNote,
                   );
-                  await client.invalidateQueries();
+                  await refresh();
                 })
                 .catch(setError)
-            }
+                .finally(() => setPending(false));
+            }}
           >
             {c.plan.publish}
           </Button>
         </div>
       )}
-      <div className={`plan-layout ${selectedBlock ? "has-selection" : ""}`}>
-        <section className="calendar-panel">
+      <div className="agenda-layout">
+        <section
+          ref={calendarContainer}
+          className="calendar-panel agenda-calendar"
+          aria-label={c.plan.calendar}
+        >
+          {feed.isPending && (
+            <p className="agenda-loading" role="status">
+              {c.loading}
+            </p>
+          )}
           {view === "calendar" ? (
             <FullCalendar
-              key={`${week}-${mobile}`}
+              ref={calendarRef}
+              key={mobile ? "day" : "week"}
               plugins={[timeGridPlugin, interactionPlugin, luxonPlugin]}
               initialView={mobile ? "timeGridDay" : "timeGridWeek"}
-              initialDate={
-                mobile && week === weekStart(dateKey(new Date(), timezone))
-                  ? dateKey(new Date(), timezone)
-                  : week
-              }
-              firstDay={1}
+              initialDate={day}
               timeZone={timezone}
+              firstDay={1}
+              buttonIcons={false}
+              buttonText={{ prev: a.previousDay, next: a.nextDay }}
+              viewDidMount={(info) => prepareScrollRegion(info.el)}
               headerToolbar={
                 mobile
                   ? { left: "prev,next", center: "title", right: "" }
                   : false
               }
-              allDaySlot={false}
-              slotMinTime="06:00:00"
-              slotMaxTime="23:00:00"
-              height="auto"
+              datesSet={(info) => {
+                if (calendarContainer.current)
+                  prepareScrollRegion(calendarContainer.current);
+                const start = dateKey(info.start, timezone);
+                if (mobile) {
+                  if (start !== day) setDay(start);
+                } else if (weekStart(start) !== week) setDay(start);
+              }}
+              allDaySlot
+              allDayText={a.allDay}
+              slotMinTime="00:00:00"
+              slotMaxTime="24:00:00"
+              scrollTime="08:00:00"
+              height={mobile ? 650 : 730}
               nowIndicator
               weekends
+              selectable={online}
+              selectMirror
               editable={online}
               eventDurationEditable={online}
-              events={[...events, ...unavailable]}
+              eventResizableFromStart
+              eventAllow={(drop, dragged) => {
+                const item = dragged?.extendedProps.item as
+                  AgendaItem | undefined;
+                return item?.source !== "block" || !drop.allDay;
+              }}
+              events={[...events, ...ghosts, ...unavailable]}
+              select={(info) => {
+                if (online)
+                  setEditing({
+                    kind: "event",
+                    start: info.startStr,
+                    end: info.endStr,
+                    allDay: info.allDay,
+                  });
+                info.view.calendar.unselect();
+              }}
               eventClick={(info) => {
-                const block = info.event.extendedProps.block as
-                  Block | undefined;
-                if (block) setSelected(block);
+                const item = info.event.extendedProps.item as
+                  AgendaItem | undefined;
+                if (item) select(item);
+                else if (info.event.extendedProps.change)
+                  document
+                    .getElementById("plan-changes")
+                    ?.scrollIntoView({ behavior: "smooth", block: "nearest" });
               }}
               eventDrop={(info) => {
-                if (info.event.start && info.event.end)
+                const item = info.event.extendedProps.item as
+                  AgendaItem | undefined;
+                if (item && info.event.start && info.event.end)
                   void move(
-                    info.event.id,
-                    info.event.start.toISOString(),
-                    info.event.end.toISOString(),
+                    item,
+                    eventInstant(
+                      info.event.start,
+                      info.event.startStr,
+                      info.event.allDay,
+                      item.timezone,
+                    ),
+                    eventInstant(
+                      info.event.end,
+                      info.event.endStr,
+                      info.event.allDay,
+                      item.timezone,
+                    ),
+                    info.event.allDay,
                     info.revert,
                   );
                 else info.revert();
               }}
               eventResize={(info) => {
-                if (info.event.start && info.event.end)
+                const item = info.event.extendedProps.item as
+                  AgendaItem | undefined;
+                if (item && info.event.start && info.event.end)
                   void move(
-                    info.event.id,
-                    info.event.start.toISOString(),
-                    info.event.end.toISOString(),
+                    item,
+                    eventInstant(
+                      info.event.start,
+                      info.event.startStr,
+                      info.event.allDay,
+                      item.timezone,
+                    ),
+                    eventInstant(
+                      info.event.end,
+                      info.event.endStr,
+                      info.event.allDay,
+                      item.timezone,
+                    ),
+                    info.event.allDay,
                     info.revert,
                   );
                 else info.revert();
@@ -284,88 +508,144 @@ export function Plan() {
                 hour12: false,
               }}
             />
-          ) : blocks.data?.length ? (
+          ) : feed.data?.length ? (
             <div className="plan-list">
-              {blocks.data
+              {feed.data
                 .slice()
-                .sort((a, b) => a.start_at.localeCompare(b.start_at))
-                .map((block) => (
+                .sort((left, right) =>
+                  left.start_at.localeCompare(right.start_at),
+                )
+                .map((item) => (
                   <button
-                    key={block.id}
-                    onClick={() => setSelected(block)}
+                    type="button"
                     className="plan-list-row"
+                    key={item.id}
+                    onClick={() => select(item)}
                   >
                     <span>
-                      {dateKey(new Date(block.start_at), timezone)}
+                      {item.start_at.slice(0, 10)}
                       <small>
-                        {clock(block.start_at, timezone)} –{" "}
-                        {clock(block.end_at, timezone)}
+                        {item.all_day
+                          ? a.allDay
+                          : `${clock(item.start_at, timezone)}–${clock(item.end_at, timezone)}`}
                       </small>
                     </span>
-                    <strong>{block.title}</strong>
-                    <span className={`status-label status-${block.status}`}>
-                      {c.plan[block.status as keyof typeof c.plan] ||
-                        block.status}
+                    <strong>{item.title}</strong>
+                    <span className="status-label">
+                      {item.source === "google"
+                        ? a.google
+                        : item.source === "local"
+                          ? a.event
+                          : c.plan[item.status as keyof typeof c.plan] ||
+                            item.status}
+                      {item.recurring ? ` · ${a.recurring}` : ""}
                     </span>
                   </button>
                 ))}
             </div>
-          ) : (
-            <Empty title={c.plan.empty} />
-          )}
+          ) : !feed.isPending ? (
+            <Empty title={a.noItems}>
+              <p>{a.emptyWeekHint}</p>
+            </Empty>
+          ) : null}
         </section>
-        {selectedBlock && (
-          <BlockDetails
-            key={`${selectedBlock.id}-${selectedBlock.start_at}`}
-            block={selectedBlock}
-            timezone={timezone}
-            online={online}
-            close={() => setSelected(null)}
-            save={async (path, body, method) => {
-              await api(path, method, body);
-              await client.invalidateQueries();
-              if (method === "DELETE") setSelected(null);
-            }}
-          />
-        )}
+        <AgendaTasks
+          tasks={tasks.data || []}
+          goals={goals.data || []}
+          online={online}
+          pending={tasks.isPending}
+          error={tasks.error}
+          onChange={refresh}
+          onSchedule={(task) => setEditing({ kind: "event", task })}
+        />
       </div>
-      <section className="panel">
+      <AgendaChanges
+        changes={changes}
+        timezone={timezone}
+        online={online}
+        onChange={refresh}
+      />
+      <section className="panel agenda-calendar-permissions">
+        <Notice error={calendar.error} />
+        {(calendar.data?.details_enabled || calendar.data?.can_read_events) && (
+          <Button
+            type="button"
+            disabled={!online || pending}
+            onClick={() =>
+              void mutate("/calendar/details", undefined, "DELETE")
+            }
+          >
+            {pending ? c.saving : a.hideDetails}
+          </Button>
+        )}
+        {calendar.data?.details_error && (
+          <p className="warning-note" role="status">
+            {a.detailsUnavailable}
+          </p>
+        )}
+        {calendar.data?.configured &&
+          !(calendar.data.details_enabled || calendar.data.can_read_events) && (
+            <>
+              <p className="form-hint">{a.detailsHint}</p>
+              <a
+                className={`button ${online ? "" : "disabled-link"}`}
+                aria-disabled={!online}
+                href={
+                  online ? "/api/v1/calendar/connect?details=true" : undefined
+                }
+              >
+                {a.detailsConsent}
+              </a>
+            </>
+          )}
+      </section>
+      <section className="panel agenda-busy">
         <div className="panel-heading">
-          <h2>{c.plan.busy}</h2>
-          <Button onClick={() => setShowBusy(!showBusy)} disabled={!online}>
+          <h2>{a.busy}</h2>
+          <Button
+            type="button"
+            disabled={!online}
+            onClick={() => setShowBusy(!showBusy)}
+          >
             <Plus size={14} />
-            {c.plan.addBusy}
+            {a.addBusy}
           </Button>
         </div>
-        <p className="form-hint">{c.plan.busyHint}</p>
+        <Notice error={busy.error} />
         {showBusy && (
           <BusyForm
             timezone={timezone}
+            online={online}
             onSave={async (body) => {
               await api("/busy", "POST", body);
-              await client.invalidateQueries();
+              await refresh();
               setShowBusy(false);
             }}
           />
         )}
         {busy.data
           ?.filter(
-            (b) =>
-              dateKey(new Date(b.start_at), timezone) >= week &&
-              dateKey(new Date(b.start_at), timezone) <= addDays(week, 6),
+            (item) =>
+              new Date(item.end_at) >
+                DateTime.fromISO(week, { zone: timezone }).toJSDate() &&
+              new Date(item.start_at) <
+                DateTime.fromISO(addDays(week, 7), {
+                  zone: timezone,
+                }).toJSDate(),
           )
-          .map((b) => (
-            <div className="busy-row" key={b.id}>
+          .map((item) => (
+            <div className="busy-row" key={item.id}>
               <span>
-                {dateKey(new Date(b.start_at), timezone)} ·{" "}
-                {clock(b.start_at, timezone)}–{clock(b.end_at, timezone)}
+                {dateKey(new Date(item.start_at), timezone)} ·{" "}
+                {clock(item.start_at, timezone)}–{clock(item.end_at, timezone)}
               </span>
               <Button
+                type="button"
                 className="icon-button"
-                disabled={!online}
+                disabled={!online || pending}
                 aria-label={c.plan.clearBusy}
                 onClick={() =>
-                  void mutate(`/busy/${b.id}`, undefined, "DELETE")
+                  void mutate(`/busy/${item.id}`, undefined, "DELETE")
                 }
               >
                 <X size={14} />
@@ -373,14 +653,28 @@ export function Plan() {
             </div>
           ))}
       </section>
+      {editing && (
+        <AgendaEditor
+          selection={editing}
+          timezone={timezone}
+          goals={goals.data || []}
+          tasks={tasks.data || []}
+          online={online}
+          close={() => setEditing(null)}
+          onChange={refresh}
+          onFocus={focus}
+        />
+      )}
     </>
   );
 }
 function BusyForm({
   timezone,
+  online,
   onSave,
 }: {
   timezone: string;
+  online: boolean;
   onSave: (body: unknown) => Promise<void>;
 }) {
   const [start, setStart] = useState("");
@@ -389,32 +683,38 @@ function BusyForm({
     <SubmitForm
       className="inline-form"
       onSubmit={async () => {
+        const left = DateTime.fromISO(start, { zone: timezone });
+        const right = DateTime.fromISO(end, { zone: timezone });
+        if (!left.isValid || !right.isValid || right <= left)
+          throw new Error(a.invalidDates);
         await onSave({
-          start_at: DateTime.fromISO(start, { zone: timezone }).toUTC().toISO(),
-          end_at: DateTime.fromISO(end, { zone: timezone }).toUTC().toISO(),
+          start_at: left.toUTC().toISO(),
+          end_at: right.toUTC().toISO(),
         });
       }}
     >
-      {(busy) => (
+      {(pending) => (
         <>
           <Field label={c.plan.start}>
             <input
               type="datetime-local"
               required
               value={start}
+              disabled={!online}
               onChange={(e) => setStart(e.target.value)}
             />
           </Field>
           <Field label={c.plan.end}>
             <input
               type="datetime-local"
-              required
               min={start}
+              required
               value={end}
+              disabled={!online}
               onChange={(e) => setEnd(e.target.value)}
             />
           </Field>
-          <Button disabled={busy} className="primary">
+          <Button className="primary" disabled={!online || pending}>
             {c.add}
           </Button>
         </>
@@ -422,115 +722,33 @@ function BusyForm({
     </SubmitForm>
   );
 }
-function BlockDetails({
-  block,
-  timezone,
-  online,
-  close,
-  save,
-}: {
-  block: Block;
-  timezone: string;
-  online: boolean;
-  close: () => void;
-  save: (path: string, body: unknown, method: string) => Promise<void>;
-}) {
-  const [actionError, setActionError] = useState<unknown>();
-  const [start, setStart] = useState(localInput(block.start_at, timezone));
-  const [end, setEnd] = useState(localInput(block.end_at, timezone));
-  return (
-    <aside className="panel block-details">
-      <div className="panel-heading">
-        <h2>{c.plan.selectBlock}</h2>
-        <Button className="icon-button" aria-label={c.close} onClick={close}>
-          <X size={17} />
-        </Button>
-      </div>
-      <Notice error={actionError} />
-      <h3>{block.title}</h3>
-      <span className={`status-label status-${block.status}`}>
-        {c.plan[block.status as keyof typeof c.plan] || block.status} ·{" "}
-        {minutes(block.planned_minutes)}
-      </span>
-      <h4>{c.plan.reason}</h4>
-      <p className="body-text">{block.reason}</p>
-      <SubmitForm
-        onSubmit={() =>
-          save(
-            `/blocks/${block.id}`,
-            {
-              start_at: DateTime.fromISO(start, { zone: timezone })
-                .toUTC()
-                .toISO(),
-              end_at: DateTime.fromISO(end, { zone: timezone }).toUTC().toISO(),
-            },
-            "PATCH",
-          )
-        }
-      >
-        {(busy) => (
-          <>
-            <fieldset
-              disabled={
-                !online ||
-                block.status === "published" ||
-                block.status === "completed"
-              }
-            >
-              <Field label={c.plan.start}>
-                <input
-                  type="datetime-local"
-                  value={start}
-                  required
-                  onChange={(e) => setStart(e.target.value)}
-                />
-              </Field>
-              <Field label={c.plan.end}>
-                <input
-                  type="datetime-local"
-                  value={end}
-                  min={start}
-                  required
-                  onChange={(e) => setEnd(e.target.value)}
-                />
-              </Field>
-              <Button type="submit" disabled={busy}>
-                {c.plan.move}
-              </Button>
-            </fieldset>
-          </>
-        )}
-      </SubmitForm>
-      <SubmitForm
-        onSubmit={() =>
-          block.status === "proposed"
-            ? save("/plan/accept", { block_ids: [block.id] }, "POST")
-            : save(`/blocks/${block.id}`, { status: "skipped" }, "PATCH")
-        }
-      >
-        {(busy) => (
-          <div className="block-controls">
-            {!["completed", "skipped", "cancelled"].includes(block.status) && (
-              <Button className="primary" disabled={busy || !online}>
-                {block.status === "proposed" ? c.plan.acceptOne : c.today.skip}
-              </Button>
-            )}
-            {block.status !== "published" && (
-              <Button
-                type="button"
-                disabled={busy || !online}
-                onClick={() =>
-                  void save(`/blocks/${block.id}`, undefined, "DELETE").catch(
-                    setActionError,
-                  )
-                }
-              >
-                {c.plan.discard}
-              </Button>
-            )}
-          </div>
-        )}
-      </SubmitForm>
-    </aside>
-  );
+
+function eventInstant(
+  value: Date,
+  raw: string,
+  allDay: boolean,
+  timezone: string,
+) {
+  return allDay
+    ? DateTime.fromISO(raw.slice(0, 10), { zone: timezone })
+        .startOf("day")
+        .toUTC()
+        .toISO() || value.toISOString()
+    : value.toISOString();
+}
+
+function prepareScrollRegion(view: HTMLElement) {
+  view
+    .querySelectorAll<HTMLElement>(".fc-scroller-liquid-absolute")
+    .forEach((scroller) => {
+      scroller
+        .querySelectorAll<HTMLElement>('.fc-timegrid-col[role="gridcell"]')
+        .forEach((cell) => {
+          cell.tabIndex = 0;
+          cell.setAttribute(
+            "title",
+            `${a.timedAgenda} ${cell.dataset.date || ""}`,
+          );
+        });
+    });
 }

@@ -15,4 +15,6 @@ A proposed manual block can be reviewed and accepted through `POST /api/v1/plan/
 
 `PATCH /api/v1/blocks/{id}` moves/resizes local blocks with the same placement checks. An active linked focus session prevents changing times or deleting its block/goal. Published blocks must be changed in Google and synced before removing their local records.
 
-Current limits: the web UI does not yet expose direct manual block creation. Blocks require goals/actions; independent tasks, support areas, recurrence and event notes are not supported by this endpoint. Draft generation replaces only existing proposed blocks and returns a placement preview; it does not produce an added/moved/removed diff for accepted plans.
+The Plan screen now exposes manual block creation through Schedule action. Blocks support notes. Independent tasks and local events with recurrence/notes use their own endpoints; see [Events, tasks and week drafts](AGENDA.md).
+
+Accepted local blocks use `/plan/changes` for move/removal previews. Applying checks current state and availability; dismissing leaves the block unchanged. Draft generation proposes additions and repairs for conflicting accepted local blocks. Published Google-linked blocks remain managed through Google and synchronization. Draft responses include a message and an explicit reason when no additions fit.

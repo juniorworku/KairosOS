@@ -356,3 +356,33 @@ def test_coaching_schema_failure_retries_are_metered_and_never_save_a_goal(
     assert client.get("/api/v1/coach/usage").json()["calls_used"] == 2
     assert client.get("/api/v1/coach/usage").json()["output_tokens_used"] == 4
     assert client.get("/api/v1/goals").json() == []
+
+
+def test_account_export_omits_encrypted_calendar_payloads(core_client: TestClient) -> None:
+    from app.integrations.models import GoogleEventCache
+
+    client = core_client
+    owner = login(client)
+
+    async def seed() -> None:
+        async with client.app.state.session_factory() as db:
+            start = datetime.now(UTC)
+            db.add(
+                GoogleEventCache(
+                    user_id=owner["id"],
+                    provider_event_id="event-export-test",
+                    start_at=start,
+                    end_at=start + timedelta(hours=1),
+                    all_day=False,
+                    timezone="UTC",
+                    details_enc=b"\xff\x00\xfe",
+                )
+            )
+            await db.commit()
+
+    assert client.portal
+    client.portal.call(seed)
+    response = client.get("/api/v1/me/export")
+    assert response.status_code == 200, response.text
+    assert "details_enc" not in response.text
+    assert response.json()["google_event_cache"][0]["provider_event_id"] == "event-export-test"

@@ -201,6 +201,53 @@ describe("durable offline updates", () => {
 });
 
 describe("private offline reads", () => {
+  it("purges cached Google agenda details when details are turned off, preserving tasks", async () => {
+    const path = "/agenda?start=2026-10-26&end=2026-11-02";
+    fetchMock.mockImplementation(async () =>
+      json([{ title: "Private Google title" }]),
+    );
+    await api(path);
+    await api("/tasks");
+    fetchMock.mockImplementation(async (input) =>
+      json(
+        String(input).endsWith("/auth/csrf")
+          ? { csrf_token: "csrf" }
+          : { status: "disabled" },
+      ),
+    );
+    await api("/calendar/details", "DELETE");
+    online(false);
+    fetchMock.mockRejectedValue(new TypeError("Offline"));
+    await expect(api(path)).rejects.toThrow("Offline");
+    expect(await api("/tasks")).toEqual([{ title: "Private Google title" }]);
+  });
+
+  it("keeps agenda notes and tasks scoped to the account and clears them on sign out", async () => {
+    const paths = [
+      "/agenda?start=2026-10-26&end=2026-11-02",
+      "/tasks",
+      "/events/event-a",
+    ];
+    fetchMock.mockImplementation(async () =>
+      json([{ title: "Private event", notes: "Private notes" }]),
+    );
+    for (const path of paths) await api(path);
+    online(false);
+    fetchMock.mockRejectedValue(new TypeError("Offline"));
+    for (const path of paths)
+      expect(await api(path)).toEqual([
+        { title: "Private event", notes: "Private notes" },
+      ]);
+    setAccount("account-b");
+    for (const path of paths)
+      await expect(api(path)).rejects.toThrow("Offline");
+    setAccount("account-a");
+    await clearPrivateData();
+    setAccount("account-a");
+    for (const path of paths)
+      await expect(api(path)).rejects.toThrow("Offline");
+  });
+
   it("keeps cached goals and wizard drafts separate for each account", async () => {
     fetchMock.mockImplementation(async () => json([{ title: "Private A" }]));
     await api("/goals");

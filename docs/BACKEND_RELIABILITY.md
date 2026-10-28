@@ -17,7 +17,7 @@ The target is a usable personal planning loop: save a goal and its actions, plac
 4. Record passed checks and outstanding gaps separately.
 5. Begin calendar UI work only after this backend pass. Do not deploy.
 
-## What the screenshots require
+## What the screenshots required at the initial audit
 
 All ten reference PNGs in the repository root were inspected directly on 28 October 2026. They are product references, not evidence that Kairos already implements the depicted behavior.
 
@@ -33,7 +33,7 @@ All ten reference PNGs in the repository root were inspected directly on 28 Octo
 | 4.29.37 | Shared active session across desktop and phone | Persisted active session and replay-safe writes; native clients and OS effects remain later work |
 | 4.30.37 | Calendar and meeting-note integrations | Provider-specific consent, synchronization and recovery; logos are not implemented integrations |
 
-## Scope limits
+## Scope at the initial audit
 
 A FullCalendar week view is already used in the frontend, but its input is primarily goal blocks and background busy intervals. Restyling that grid cannot supply missing event or task behavior. This pass adds backend capability and repairs behavior; it does not claim parity with the reference product.
 
@@ -62,3 +62,7 @@ Goal list reads now batch check-ins instead of rescanning them once per goal. Ex
 Live Google and coaching providers remain credential-gated. The automated provider tests use controlled responses. Final check results are recorded in [Verification](VERIFICATION.md).
 
 Calendar recovery limits: losing or changing the token-encryption key prevents credential decryption. The current disconnect/account-deletion paths require restoring the original key or a deliberate operator-assisted cleanup; self-service recovery without that key is not implemented. If Google creates an app calendar but its response is lost, automatic creation retries are disabled to reduce duplicates, but a later fresh consent attempt can still leave an orphan calendar requiring cleanup. Neither limitation is claimed solved by database transaction locks.
+
+## Follow-on event/task feature pass
+
+The gaps above now have a working implementation for unified primary/local feeds, independent tasks, daily/weekly recurrence, event/block notes, manual creation in Plan, and proposed local goal-block moves/removals. Draft week now explains empty results and uses recurring local commitments as busy time. See [Events, tasks and week drafts](AGENDA.md) for current routes, semantics and remaining limits; the earlier audit table describes the starting point, not the current feature inventory. Deployment remains paused.

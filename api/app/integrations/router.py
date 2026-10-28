@@ -2,13 +2,13 @@
 
 import hashlib
 import secrets
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Annotated, cast
 from urllib.parse import urlencode
 from zoneinfo import ZoneInfo
 
 import httpx
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Response
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
@@ -17,6 +17,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.deps import current_user, get_db
 from app.integrations.calendar import (
+    DETAIL_SCOPE,
     FREEBUSY_SCOPE,
     WRITE_SCOPE,
     CalendarHTTPError,
@@ -32,6 +33,13 @@ from app.integrations.calendar import (
     stable_event_id,
 )
 from app.integrations.config import IntegrationSettings
+from app.integrations.event_feed import (
+    AgendaItem,
+    cached_details,
+    details_allowed,
+    refresh_details,
+    window_bounds,
+)
 from app.integrations.jsonutil import Json, list_value, string_value
 from app.integrations.models import (
     CalendarBusy,
@@ -39,11 +47,13 @@ from app.integrations.models import (
     CalendarState,
     ExtensionPair,
     ExtensionToken,
+    GoogleEventCache,
 )
 from app.models.auth import User
 from app.models.planning import PlanningRecord
 
 calendar_router = APIRouter(prefix="/api/v1/calendar", tags=["Calendar"])
+agenda_router = APIRouter(prefix="/api/v1", tags=["Agenda"])
 ext_router = APIRouter(prefix="/api/v1/ext", tags=["Extension"])
 DB = Annotated[AsyncSession, Depends(get_db)]
 Owner = Annotated[User, Depends(current_user)]
@@ -100,11 +110,30 @@ async def calendar_status(db: DB, user: Owner) -> dict[str, Json]:
         if connection and connection.last_synced_at
         else None,
         "app_calendar_id": connection.app_calendar_id if connection else None,
+        "details_enabled": details_allowed(connection),
+        "can_read_events": bool(
+            configured
+            and connection
+            and connection.status == "active"
+            and details_allowed(connection)
+        ),
+        "details_cached_from": connection.details_from.isoformat()
+        if connection and connection.details_from
+        else None,
+        "details_cached_to": connection.details_to.isoformat()
+        if connection and connection.details_to
+        else None,
+        "details_synced_at": connection.details_synced_at.isoformat()
+        if connection and connection.details_synced_at
+        else None,
+        "details_error": connection.details_error if connection else None,
     }
 
 
 @calendar_router.get("/connect")
-async def calendar_connect(db: DB, user: Owner, write: bool = False) -> RedirectResponse:
+async def calendar_connect(
+    db: DB, user: Owner, write: bool = False, details: bool = False
+) -> RedirectResponse:
     config = require_calendar()
     state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
     db.add(
@@ -113,6 +142,7 @@ async def calendar_connect(db: DB, user: Owner, write: bool = False) -> Redirect
             token_hash=digest(state),
             verifier=verifier,
             write_access=write,
+            details_access=details,
             expires_at=datetime.now(UTC) + timedelta(minutes=10),
         )
     )
@@ -121,7 +151,11 @@ async def calendar_connect(db: DB, user: Owner, write: bool = False) -> Redirect
         "client_id": config.google_client_id,
         "redirect_uri": config.google_calendar_redirect_uri,
         "response_type": "code",
-        "scope": " ".join([FREEBUSY_SCOPE] + ([WRITE_SCOPE] if write else [])),
+        "scope": " ".join(
+            [FREEBUSY_SCOPE]
+            + ([WRITE_SCOPE] if write else [])
+            + ([DETAIL_SCOPE] if details else [])
+        ),
         "state": state,
         "code_challenge": challenge(verifier),
         "code_challenge_method": "S256",
@@ -163,7 +197,11 @@ async def calendar_callback(
             google = GoogleCalendar(config, client)
             token = await google.exchange(code, record.verifier)
             scopes = string_value(token.get("scope", "")).split()
-            if FREEBUSY_SCOPE not in scopes or (record.write_access and WRITE_SCOPE not in scopes):
+            if (
+                FREEBUSY_SCOPE not in scopes
+                or (record.write_access and WRITE_SCOPE not in scopes)
+                or (record.details_access and DETAIL_SCOPE not in scopes)
+            ):
                 raise CalendarUnavailable("Required calendar permission was not granted")
             connection = await db.scalar(
                 select(CalendarConnection)
@@ -177,11 +215,17 @@ async def calendar_callback(
                 connection.token_enc = encrypt_token(token, config.token_encryption_key)
                 connection.scopes = scopes
                 connection.status = "active"
+                connection.details_enabled = bool(
+                    (connection.details_enabled or record.details_access) and DETAIL_SCOPE in scopes
+                )
+                if not connection.details_enabled:
+                    await clear_event_details(db, connection)
             else:
                 connection = CalendarConnection(
                     user_id=user.id,
                     token_enc=encrypt_token(token, config.token_encryption_key),
                     scopes=scopes,
+                    details_enabled=record.details_access and DETAIL_SCOPE in scopes,
                 )
                 db.add(connection)
             if not isinstance(token.get("refresh_token"), str):
@@ -224,6 +268,27 @@ async def _sync_user(db: AsyncSession, user_id: str) -> None:
         await replace_busy(db, user_id, start, end, intervals)
         if connection.app_calendar_id and WRITE_SCOPE in connection.scopes:
             await reconcile(db, user_id, connection, google, access, user.timezone)
+        if details_allowed(connection):
+            today = datetime.now(ZoneInfo(user.timezone)).date()
+            try:
+                await refresh_details(
+                    db,
+                    user,
+                    connection,
+                    google,
+                    access,
+                    connection.details_from or today - timedelta(days=30),
+                    connection.details_to or today + timedelta(days=90),
+                    config,
+                )
+            except CalendarReauth:
+                connection.status = "needs_reauth"
+                connection.details_error = "Reconnect Google Calendar to refresh event details."
+            except (CalendarUnavailable, httpx.HTTPError, ValueError):
+                # Optional detail access must not discard a successful availability/app sync.
+                connection.details_error = (
+                    "Google event details could not be refreshed. Saved events are shown."
+                )
         connection.last_synced_at = datetime.now(UTC)
         await db.commit()
 
@@ -286,6 +351,14 @@ def apply_calendar_event(
                 moved_count=int(str(payload.get("moved_count", 0))) + 1,
             )
         payload["calendar_all_day"] = all_day
+        payload["calendar_timezone"] = calendar_timezone or timezone
+        if all_day:
+            calendar_zone = ZoneInfo(calendar_timezone or timezone)
+            payload["calendar_start_date"] = start.astimezone(calendar_zone).date().isoformat()
+            payload["calendar_end_date"] = end.astimezone(calendar_zone).date().isoformat()
+        else:
+            payload.pop("calendar_start_date", None)
+            payload.pop("calendar_end_date", None)
         if payload.get("status") not in {"completed", "skipped"}:
             payload["status"] = "published"
     block.payload = payload
@@ -514,6 +587,7 @@ async def calendar_disconnect(db: DB, user: Owner) -> dict[str, str]:
         block.payload = payload
     await db.execute(delete(CalendarBusy).where(CalendarBusy.user_id == user.id))
     await db.execute(delete(CalendarState).where(CalendarState.user_id == user.id))
+    await db.execute(delete(GoogleEventCache).where(GoogleEventCache.user_id == user.id))
     await db.commit()
     return {"status": "disconnected"}
 
@@ -765,3 +839,90 @@ async def calendar_busy(db: DB, user: Owner) -> list[dict[str, str]]:
     return [
         {"start_at": row.start_at.isoformat(), "end_at": row.end_at.isoformat()} for row in rows
     ]
+
+
+async def clear_event_details(db: AsyncSession, connection: CalendarConnection) -> None:
+    connection.details_enabled = False
+    connection.details_from = None
+    connection.details_to = None
+    connection.details_timezone = None
+    connection.details_synced_at = None
+    connection.details_error = None
+    await db.execute(delete(GoogleEventCache).where(GoogleEventCache.user_id == connection.user_id))
+
+
+@calendar_router.delete("/details")
+async def disable_event_details(db: DB, user: Owner) -> dict[str, str]:
+    from app.routers.planning import lock_owner
+
+    await lock_owner(db, user)
+    connection = await db.scalar(
+        select(CalendarConnection).where(CalendarConnection.user_id == user.id).with_for_update()
+    )
+    if connection:
+        await clear_event_details(db, connection)
+    await db.commit()
+    return {"status": "disabled"}
+
+
+@agenda_router.get("/agenda", response_model=list[AgendaItem])
+async def unified_agenda(
+    start: date, end: date, response: Response, db: DB, user: Owner
+) -> list[AgendaItem]:
+    from app.routers.agenda import local_agenda
+    from app.routers.planning import lock_owner
+
+    try:
+        window_bounds(start, end, user.timezone)
+    except ValueError as exc:
+        raise HTTPException(422, detail=str(exc)) from exc
+    await lock_owner(db, user)
+    connection = await db.scalar(
+        select(CalendarConnection).where(CalendarConnection.user_id == user.id).with_for_update()
+    )
+    config = IntegrationSettings()
+    failed = False
+    google_rows: list[AgendaItem] = []
+    if details_allowed(connection) and connection is not None:
+        covered = bool(
+            connection.details_from
+            and connection.details_to
+            and connection.details_from <= start
+            and connection.details_to >= end
+            and connection.details_timezone == user.timezone
+        )
+        fresh = bool(
+            connection.details_synced_at
+            and datetime.now(UTC) - connection.details_synced_at < timedelta(minutes=10)
+        )
+        if config.calendar_configured and connection.status == "active" and not (covered and fresh):
+            try:
+                async with httpx.AsyncClient(timeout=20) as client:
+                    google = GoogleCalendar(config, client)
+                    access = await google.access_token(connection, db)
+                    await refresh_details(db, user, connection, google, access, start, end, config)
+            except CalendarReauth:
+                connection.status = "needs_reauth"
+                connection.details_error = "Reconnect Google Calendar to refresh event details."
+                failed = True
+            except (CalendarUnavailable, httpx.HTTPError, ValueError):
+                connection.details_error = (
+                    "Google event details could not be refreshed. Saved events are shown."
+                )
+                failed = True
+        elif not config.calendar_configured or connection.status != "active":
+            failed = True
+        try:
+            google_rows = await cached_details(db, user, start, end, config)
+        except (CalendarUnavailable, ValueError):
+            connection.details_error = "Saved Google event details could not be read."
+            failed = True
+    local_rows = [
+        AgendaItem.model_validate(item) for item in await local_agenda(db, user, start, end)
+    ]
+    result = local_rows + google_rows
+    result.sort(key=lambda item: (item.start_at, not item.all_day, item.id))
+    await db.commit()
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["X-Calendar-Status"] = "unavailable" if failed else "ready"
+    return result

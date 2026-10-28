@@ -2,7 +2,7 @@
 
 from datetime import UTC, date, datetime, time, timedelta
 from math import ceil
-from typing import Annotated, Any
+from typing import Annotated, Any, Literal
 from urllib.parse import urlsplit
 from uuid import uuid4
 from zoneinfo import ZoneInfo
@@ -36,6 +36,8 @@ from app.schemas.planning import (
     FocusStats,
     GoalInput,
     GoalResponse,
+    PlanChangeInput,
+    PlanChangeResponse,
     ReflectionInput,
     ReflectionResponse,
     SeasonInput,
@@ -235,6 +237,12 @@ async def delete_goal(identifier: str, db: DB, user: Owner) -> Response:
             "Delete this goal's blocks in Google Calendar, then sync before deleting the goal.",
             409,
         )
+    for task in await records(db, user, "task"):
+        if task.payload.get("goal_id") == identifier:
+            task.payload = {**task.payload, "goal_id": None}
+    for change in await records(db, user, "plan_change"):
+        if change.payload["before"]["goal_id"] == identifier:
+            await db.delete(change)
     for kind in ("checkin", "block", "focus"):
         for child in await records(db, user, kind):
             if child.payload.get("goal_id") == identifier:
@@ -373,11 +381,46 @@ async def week(db: DB, user: Owner, start: date) -> list[dict[str, Any]]:
     ]
 
 
+def pending_reservations(
+    changes: list[PlanningRecord], timezone: str
+) -> tuple[list[Interval], list[Interval]]:
+    """Reserve pending destinations without charging an unchanged same-day budget twice."""
+    occupied: list[Interval] = []
+    capacity: list[Interval] = []
+    zone = ZoneInfo(timezone)
+    for change in changes:
+        after, before = change.payload.get("after"), change.payload["before"]
+        if change.payload["status"] != "pending" or after is None:
+            continue
+        start, end = instant(after["start_at"]), instant(after["end_at"])
+        occupied.append(Interval(start, end))
+        same_day = (
+            start.astimezone(zone).date() == instant(before["start_at"]).astimezone(zone).date()
+        )
+        extra = (
+            max(0, after["planned_minutes"] - before["planned_minutes"])
+            if same_day
+            else after["planned_minutes"]
+        )
+        if extra:
+            capacity.append(Interval(start, start + timedelta(minutes=extra)))
+    return occupied, capacity
+
+
 @router.post("/plan/draft", response_model=DraftResponse)
 async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
+    if body.week_start > date.max - timedelta(days=7):
+        raise fail("invalid_week", "Choose a week within the supported calendar range")
     if body.week_start.weekday() != 0:
         raise fail("invalid_week", "Choose a Monday as the week start")
     await lock_owner(db, user)
+    today = datetime.now(UTC).astimezone(ZoneInfo(user.timezone)).date()
+    if body.week_start + timedelta(days=7) <= today:
+        return DraftResponse(
+            blocks=[],
+            message="This week has ended. Choose this week or a future week.",
+            empty_reason="past_week",
+        )
     focus_rows = await close_expired(db, user)
     all_blocks = await records(db, user, "block")
     for row in all_blocks:
@@ -411,6 +454,19 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
             db, user.id, window_start, window_start + timedelta(days=8)
         )
     )
+    from app.routers.agenda import local_event_intervals
+
+    occupied.extend(
+        Interval(start, end)
+        for start, end in await local_event_intervals(
+            db, user, window_start, window_start + timedelta(days=8)
+        )
+    )
+    pending_slots, pending_capacity = pending_reservations(
+        await records(db, user, "plan_change"), user.timezone
+    )
+    occupied.extend(pending_slots)
+    existing.extend(pending_capacity)
     calibration: dict[str, list[tuple[int, int]]] = {}
     for completed_block in all_blocks:
         if completed_block.payload["status"] != "completed":
@@ -448,9 +504,14 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
             samples + 1,
         )
     actions: list[Action] = []
-    for goal in await records(db, user, "goal"):
+    goal_rows = await records(db, user, "goal")
+    for goal in goal_rows:
         p = goal.payload
-        if p["status"] != "active":
+        if (
+            p["status"] != "active"
+            or date.fromisoformat(p["start_date"]) >= body.week_start + timedelta(days=7)
+            or date.fromisoformat(p["target_date"]) < max(body.week_start, today)
+        ):
             continue
         for a in p["actions"]:
             multiplier = duration_multiplier(calibration.get(a["id"], []))
@@ -525,9 +586,54 @@ async def draft(body: DraftInput, db: DB, user: Owner) -> DraftResponse:
             },
         )
         output.append(BlockResponse.model_validate(unpack(row)))
+    changes = await suggest_plan_changes(db, user, body.week_start, output)
     await db.commit()
+    empty_reason: (
+        Literal[
+            "no_goals", "no_actions", "outside_dates", "already_planned", "no_capacity", "past_week"
+        ]
+        | None
+    ) = None
+    if output:
+        message = (
+            f"{len(output)} proposed {'block' if len(output) == 1 else 'blocks'} ready to review."
+        )
+    elif changes:
+        message = f"{len(changes)} proposed changes ready to review."
+    elif not any(goal.payload["status"] == "active" for goal in goal_rows):
+        empty_reason = "no_goals"
+        message = "Add a goal and an action before drafting your week."
+    elif not any(
+        goal.payload["status"] == "active"
+        and date.fromisoformat(goal.payload["start_date"]) < body.week_start + timedelta(days=7)
+        and date.fromisoformat(goal.payload["target_date"]) >= max(body.week_start, today)
+        for goal in goal_rows
+    ):
+        empty_reason = "outside_dates"
+        message = "No active goals cover this week. Choose another week or update your goal dates."
+    elif not any(action.weekly_minutes >= action.minimum for action in actions):
+        already_planned = any(
+            row.payload["week_start"] == body.week_start.isoformat()
+            and row.payload["status"] in {"accepted", "published", "completed"}
+            for row in all_blocks
+        )
+        empty_reason = "already_planned" if already_planned else "no_actions"
+        message = (
+            "This week's action time is already planned."
+            if already_planned
+            else "Set enough weekly time on an action to fit its minimum block length."
+        )
+    else:
+        empty_reason = "no_capacity"
+        message = (
+            "No blocks fit the remaining availability. "
+            "Review events, work hours, and daily capacity."
+        )
     return DraftResponse(
         blocks=output,
+        changes=changes,
+        message=message,
+        empty_reason=empty_reason,
         dropped_minutes=result.dropped_minutes,
         capacity_warning=f"{result.dropped_minutes} minutes could not fit. Review availability."
         if result.dropped_minutes
@@ -590,6 +696,7 @@ async def add_block(body: BlockCreate, db: DB, user: Owner) -> dict[str, Any]:
         "week_start": (day - timedelta(days=day.weekday())).isoformat(),
         "moved_count": 0,
         "proposed_by": "user",
+        "notes": body.notes,
     }
     identifier = str(uuid4())
     await validate_placements(db, user, [(identifier, payload)])
@@ -650,9 +757,13 @@ async def validate_placements(
         if end <= start:
             raise fail("invalid_time", "End must follow start")
         padding = timedelta(minutes=10)
+        from app.routers.agenda import local_event_intervals
+
+        local_busy = await local_event_intervals(db, user, start - padding, end + padding)
         calendar_busy = await read_calendar_busy(db, user.id, start - padding, end + padding)
         if any(
-            start < right + padding and end > left - padding for left, right in busy + calendar_busy
+            start < right + padding and end > left - padding
+            for left, right in busy + calendar_busy + local_busy
         ):
             raise fail("busy_conflict", "This time overlaps busy time or its buffer", 409)
         if any(
@@ -744,6 +855,9 @@ async def delete_block(identifier: str, db: DB, user: Owner) -> Response:
         row.payload.get("google_event_id") and row.payload["status"] != "cancelled"
     ):
         raise fail("published_delete", "Delete this block in Google Calendar, then sync.", 409)
+    for change in await records(db, user, "plan_change"):
+        if change.payload["block_id"] == identifier:
+            await db.delete(change)
     for focus in await records(db, user, "focus"):
         if focus.payload.get("time_block_id") == identifier:
             focus.payload = {**focus.payload, "time_block_id": None}
@@ -1094,3 +1208,233 @@ async def save_reflection(
     row.payload = payload
     await db.commit()
     return unpack(row)
+
+
+def block_snapshot(row: PlanningRecord) -> dict[str, Any]:
+    return BlockResponse.model_validate(unpack(row)).model_dump(mode="json")
+
+
+async def save_plan_change(
+    db: AsyncSession, user: User, body: PlanChangeInput, block: PlanningRecord
+) -> PlanningRecord:
+    if block.payload["status"] != "accepted" or block.payload.get("google_event_id"):
+        raise fail("local_plan_only", "Only accepted local blocks can be changed here.", 409)
+    await require_no_active_focus(db, user, block_id=block.id)
+    before = block_snapshot(block)
+    after = None
+    if body.operation == "move":
+        assert body.start_at is not None and body.end_at is not None
+        start, end = body.start_at.astimezone(UTC), body.end_at.astimezone(UTC)
+        if start == instant(before["start_at"]) and end == instant(before["end_at"]):
+            raise fail("unchanged", "Choose a different time for this move.", 409)
+        local_date = start.astimezone(ZoneInfo(user.timezone)).date()
+        after = {
+            **before,
+            "start_at": start.isoformat(),
+            "end_at": end.isoformat(),
+            "week_start": (local_date - timedelta(days=local_date.weekday())).isoformat(),
+            "planned_minutes": int((end - start).total_seconds() / 60),
+            "moved_count": before["moved_count"] + 1,
+        }
+        await validate_placements(db, user, [(block.id, after)])
+    for prior in await records(db, user, "plan_change"):
+        if prior.payload["block_id"] == block.id and prior.payload["status"] == "pending":
+            if (
+                prior.payload["before"] == before
+                and prior.payload["after"] == after
+                and prior.payload["operation"] == body.operation
+            ):
+                return prior
+            raise fail(
+                "pending_change", "Review or dismiss the existing change for this block.", 409
+            )
+    return create(
+        db,
+        user,
+        "plan_change",
+        {
+            "block_id": block.id,
+            "operation": body.operation,
+            "status": "pending",
+            "before": before,
+            "after": after,
+            "reason": body.reason
+            or ("Move this block." if after else "Remove this block from the plan."),
+            "created_at": stamp(),
+            "applied_at": None,
+        },
+    )
+
+
+@router.get("/plan/changes", response_model=list[PlanChangeResponse])
+async def plan_changes(db: DB, user: Owner, start: date | None = None) -> list[dict[str, Any]]:
+    return [
+        unpack(row)
+        for row in await records(db, user, "plan_change")
+        if row.payload["status"] == "pending"
+        and (
+            start is None
+            or row.payload["before"]["week_start"] == start.isoformat()
+            or (row.payload["after"] and row.payload["after"]["week_start"] == start.isoformat())
+        )
+    ]
+
+
+@router.post("/plan/changes", response_model=PlanChangeResponse, status_code=201)
+async def propose_change(body: PlanChangeInput, db: DB, user: Owner) -> dict[str, Any]:
+    await lock_owner(db, user)
+    block = await owned(db, user, "block", body.block_id)
+    change = await save_plan_change(db, user, body, block)
+    await db.commit()
+    return unpack(change)
+
+
+@router.post("/plan/changes/{identifier}/accept", response_model=PlanChangeResponse)
+async def apply_change(identifier: str, db: DB, user: Owner) -> dict[str, Any]:
+    await lock_owner(db, user)
+    change = await owned(db, user, "plan_change", identifier)
+    if change.payload["status"] == "applied":
+        return unpack(change)
+    if change.payload["status"] != "pending":
+        raise fail("invalid_state", "This change has been dismissed.", 409)
+    block = await owned(db, user, "block", change.payload["block_id"])
+    await require_no_active_focus(db, user, block_id=block.id)
+    if block_snapshot(block) != change.payload["before"]:
+        raise fail(
+            "stale_change",
+            "This block has changed. Dismiss this proposal and review it again.",
+            409,
+        )
+    if block.payload["status"] != "accepted" or block.payload.get("google_event_id"):
+        raise fail("local_plan_only", "This block can no longer be changed locally.", 409)
+    if change.payload["operation"] == "move":
+        after = change.payload["after"]
+        await validate_placements(db, user, [(block.id, after)])
+        block.payload = {**block.payload, **{k: v for k, v in after.items() if k != "id"}}
+    else:
+        block.payload = {**block.payload, "status": "cancelled"}
+    change.payload = {**change.payload, "status": "applied", "applied_at": stamp()}
+    await db.commit()
+    return unpack(change)
+
+
+@router.post("/plan/changes/{identifier}/dismiss", response_model=PlanChangeResponse)
+async def dismiss_change(identifier: str, db: DB, user: Owner) -> dict[str, Any]:
+    await lock_owner(db, user)
+    row = await owned(db, user, "plan_change", identifier)
+    if row.payload["status"] == "applied":
+        raise fail("invalid_state", "This change has already been applied.", 409)
+    row.payload = {**row.payload, "status": "dismissed"}
+    await db.commit()
+    return unpack(row)
+
+
+async def suggest_plan_changes(
+    db: AsyncSession, user: User, week_start: date, additions: list[BlockResponse]
+) -> list[PlanChangeResponse]:
+    """Offer repairs to conflicting local reservations; never mutate accepted blocks."""
+    from app.routers.agenda import local_event_intervals
+
+    all_blocks = await records(db, user, "block")
+    pending = await records(db, user, "plan_change")
+    targets = {row.payload["block_id"] for row in pending if row.payload["status"] == "pending"}
+    now = datetime.now(UTC)
+    zone = ZoneInfo(user.timezone)
+    left = datetime.combine(week_start, time.min, zone).astimezone(UTC)
+    right = datetime.combine(week_start + timedelta(days=7), time.min, zone).astimezone(UTC)
+    busy = [
+        Interval(instant(row.payload["start_at"]), instant(row.payload["end_at"]))
+        for row in await records(db, user, "busy")
+    ]
+    busy += [Interval(a, b) for a, b in await read_calendar_busy(db, user.id, left, right)]
+    busy += [Interval(a, b) for a, b in await local_event_intervals(db, user, left, right)]
+    busy += [Interval(item.start_at, item.end_at) for item in additions]
+    pending_slots, pending_capacity = pending_reservations(pending, user.timezone)
+    busy.extend(pending_slots)
+    for row in all_blocks:
+        p = row.payload
+        if (
+            p["status"] != "accepted"
+            or p.get("google_event_id")
+            or row.id in targets
+            or p["week_start"] != week_start.isoformat()
+            or instant(p["start_at"]) <= now
+        ):
+            continue
+        try:
+            await require_no_active_focus(db, user, block_id=row.id)
+        except HTTPException:
+            continue
+        try:
+            await validate_placements(db, user, [(row.id, p)])
+            continue
+        except HTTPException as error:
+            if error.status_code not in {404, 409}:
+                raise
+        operation: Literal["move", "remove"] = "remove"
+        start_at = end_at = None
+        reason = "This block no longer fits the goal or available time."
+        try:
+            goal, action = await block_action(db, user, p["goal_id"], p["action_id"])
+            length = int(p["planned_minutes"])
+            fixed = [
+                Interval(instant(other.payload["start_at"]), instant(other.payload["end_at"]))
+                for other in all_blocks
+                if other.id != row.id
+                and other.payload["status"] in {"accepted", "published", "completed"}
+            ]
+            candidate = make_plan(
+                week_start,
+                user.timezone,
+                user.work_days,
+                user.work_start,
+                user.work_end,
+                user.daily_max_focus_minutes,
+                user.energy_peak,
+                [
+                    Action(
+                        action["id"],
+                        goal.id,
+                        action["title"],
+                        goal.payload["priority"],
+                        length,
+                        length,
+                        length,
+                        length,
+                        action["preferred_time_of_day"],
+                        action["requires_deep_focus"],
+                        False,
+                        date.fromisoformat(goal.payload["start_date"]),
+                        date.fromisoformat(goal.payload["target_date"]),
+                    )
+                ],
+                busy,
+                fixed
+                + pending_capacity
+                + [Interval(item.start_at, item.end_at) for item in additions],
+                multiplier=1,
+                earliest=now,
+            )
+            if candidate.blocks:
+                slot = candidate.blocks[0]
+                operation, start_at, end_at = "move", slot.start, slot.end
+                reason = "Move this block to avoid a conflict and keep its planned time."
+        except HTTPException:
+            pass
+        body = PlanChangeInput(
+            block_id=row.id, operation=operation, start_at=start_at, end_at=end_at, reason=reason
+        )
+        try:
+            change = await save_plan_change(db, user, body, row)
+        except HTTPException as error:
+            if error.status_code in {404, 409}:
+                continue
+            raise
+        if change.payload["after"]:
+            after = change.payload["after"]
+            busy.append(Interval(instant(after["start_at"]), instant(after["end_at"])))
+            _, extra_capacity = pending_reservations([change], user.timezone)
+            pending_capacity.extend(extra_capacity)
+    return [
+        PlanChangeResponse.model_validate(item) for item in await plan_changes(db, user, week_start)
+    ]

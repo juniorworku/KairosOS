@@ -5,6 +5,7 @@ import {
   type Page,
 } from "@playwright/test";
 import AxeBuilder from "@axe-core/playwright";
+import { DateTime } from "luxon";
 import { readFile, writeFile } from "node:fs/promises";
 type State = Awaited<ReturnType<BrowserContext["storageState"]>>;
 const test = base.extend<object, { signedIn: State }>({
@@ -248,6 +249,27 @@ test("mobile navigation and accessibility", async ({ page }) => {
   await expect(
     page.getByRole("heading", { name: "Goals", exact: true }),
   ).toBeVisible();
+  await page.goto("/plan");
+  await expect(
+    page.getByRole("heading", { name: "Plan", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".fc-col-header-cell")).toHaveCount(1);
+  expect(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= window.innerWidth,
+    ),
+  ).toBe(true);
+  const calendarAccessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(calendarAccessibility.violations).toEqual([]);
+  const timedScroller = page.locator(".fc-scroller-liquid-absolute");
+  await page.locator('.fc-timegrid-col[role="gridcell"]').first().focus();
+  const offset = await timedScroller.evaluate((element) => element.scrollTop);
+  await page.keyboard.press(offset > 0 ? "PageUp" : "PageDown");
+  await expect
+    .poll(() => timedScroller.evaluate((element) => element.scrollTop))
+    .not.toBe(offset);
 });
 
 test("installed shell reloads offline and replays a check-in once", async ({
@@ -259,13 +281,21 @@ test("installed shell reloads offline and replays a check-in once", async ({
   await expect(
     page.getByRole("heading", { name: "Today", exact: true }),
   ).toBeVisible();
-  const hasWorker = await page.evaluate(
-    async () => !!(await navigator.serviceWorker?.getRegistration()),
-  );
+  const workerAsset = await page.request.get("/sw.js");
   test.skip(
-    !hasWorker,
+    !workerAsset.ok() ||
+      !workerAsset.headers()["content-type"]?.includes("javascript"),
     "Offline reload requires the production build; dev mode has no service worker.",
   );
+  await expect
+    .poll(
+      async () =>
+        page.evaluate(
+          async () => !!(await navigator.serviceWorker?.getRegistration()),
+        ),
+      { timeout: 15000 },
+    )
+    .toBe(true);
   await page.evaluate(() => navigator.serviceWorker.ready.then(() => true));
   await page.reload();
   await page.waitForFunction(() => !!navigator.serviceWorker.controller);
@@ -305,5 +335,236 @@ test("installed shell reloads offline and replays a check-in once", async ({
   } finally {
     await context.setOffline(false);
     await write(page, `/goals/${goal.id}`, undefined, "DELETE");
+  }
+});
+
+test("tasks, recurring events, notes, and occurrence edits persist", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  const title = `E2E agenda ${Date.now()}`;
+  let taskId = "";
+  let eventId = "";
+  await page.goto("/plan");
+  const me = (await (await page.request.get("/api/v1/me")).json()) as {
+    timezone: string;
+  };
+  const monday = DateTime.now()
+    .setZone(me.timezone)
+    .startOf("week")
+    .plus({ weeks: 1 });
+  try {
+    await page.getByRole("button", { name: "Next week", exact: true }).click();
+    await page.getByRole("button", { name: "Add task", exact: true }).click();
+    let dialog = page.getByRole("dialog");
+    await dialog.getByLabel("Title", { exact: true }).fill(title);
+    await dialog
+      .getByLabel("Notes", { exact: true })
+      .fill("Take the notebook.");
+    await dialog
+      .getByRole("button", { name: "Save task", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    const tasks = (await (await page.request.get("/api/v1/tasks")).json()) as {
+      id: string;
+      title: string;
+    }[];
+    taskId = tasks.find((task) => task.title === title)!.id;
+    await page
+      .getByRole("button", { name: `Schedule task: ${title}`, exact: true })
+      .click();
+    dialog = page.getByRole("dialog");
+    await dialog
+      .getByLabel("Start", { exact: true })
+      .fill(monday.set({ hour: 14 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+    await dialog
+      .getByLabel("End", { exact: true })
+      .fill(monday.set({ hour: 15 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+    await dialog.getByLabel("Repeat", { exact: true }).check();
+    await dialog
+      .getByLabel("Frequency", { exact: true })
+      .selectOption("weekly");
+    for (const weekday of ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"])
+      await dialog
+        .getByLabel(weekday, { exact: true })
+        .setChecked(weekday === "Mon");
+    await dialog.getByLabel("Number of occurrences", { exact: true }).fill("3");
+    await dialog
+      .getByRole("button", { name: "Save event", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    const events = (await (
+      await page.request.get("/api/v1/events")
+    ).json()) as {
+      id: string;
+      title: string;
+      recurrence: { count: number };
+      notes: string;
+    }[];
+    const created = events.find((event) => event.title === title)!;
+    eventId = created.id;
+    expect(created.notes).toBe("Take the notebook.");
+    expect(created.recurrence.count).toBe(3);
+    await page.getByRole("button", { name: "List", exact: true }).click();
+    await page
+      .getByRole("button")
+      .filter({ hasText: title })
+      .filter({ has: page.locator(".status-label") })
+      .click();
+    dialog = page.getByRole("dialog");
+    await expect(
+      dialog.getByRole("button", { name: "This occurrence", exact: true }),
+    ).toHaveAttribute("aria-pressed", "true");
+    await dialog
+      .getByLabel("Notes", { exact: true })
+      .fill("Only this meeting needs the printed draft.");
+    await dialog
+      .getByRole("button", { name: "Save event", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    const end = monday.plus({ weeks: 3 }).toISODate();
+    const feed = (await (
+      await page.request.get(
+        `/api/v1/agenda?start=${monday.toISODate()}&end=${end}`,
+      )
+    ).json()) as { source_id: string; notes: string }[];
+    const occurrences = feed.filter((item) => item.source_id === eventId);
+    expect(occurrences).toHaveLength(3);
+    expect(
+      occurrences.filter(
+        (item) => item.notes === "Only this meeting needs the printed draft.",
+      ),
+    ).toHaveLength(1);
+    await page
+      .getByRole("button", { name: `Mark done: ${title}`, exact: true })
+      .click();
+    await expect(
+      page.getByRole("button", { name: `Mark done: ${title}`, exact: true }),
+    ).toHaveCount(0);
+    await page.reload();
+    await page.getByText("Completed tasks", { exact: true }).click();
+    await expect(
+      page.getByRole("button", { name: `Mark to do: ${title}`, exact: true }),
+    ).toBeVisible();
+  } finally {
+    if (eventId)
+      await write(page, `/events/${eventId}`, undefined, "DELETE").catch(
+        () => {},
+      );
+    if (taskId)
+      await write(page, `/tasks/${taskId}`, undefined, "DELETE").catch(
+        () => {},
+      );
+  }
+});
+
+test("manual action creation and proposed moves require explicit acceptance", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  const title = `E2E manual ${Date.now()}`;
+  let goalId = "";
+  await page.goto("/plan");
+  const me = (await (await page.request.get("/api/v1/me")).json()) as {
+    timezone: string;
+    work_days: number[];
+    work_start: string;
+    work_end: string;
+  };
+  const monday = DateTime.now()
+    .setZone(me.timezone)
+    .startOf("week")
+    .plus({ weeks: 1 });
+  const workday = monday.plus({ days: me.work_days[0] });
+  const [hour, minute] = me.work_start.split(":").map(Number);
+  const start = workday.set({ hour, minute });
+  const target = start.plus({ hours: 2 });
+  try {
+    const goal = (await write(page, "/goals", {
+      title,
+      outcome_statement: "Test manual scheduling",
+      start_date: DateTime.now().setZone(me.timezone).toISODate(),
+      target_date: monday.plus({ days: 60 }).toISODate(),
+      actions: [{ title, weekly_minutes_target: 60 }],
+    })) as { id: string; actions: { id: string }[] };
+    goalId = goal.id;
+    await page.reload();
+    await page.getByRole("button", { name: "Next week", exact: true }).click();
+    await page
+      .getByRole("button", { name: "Schedule action", exact: true })
+      .click();
+    let dialog = page.getByRole("dialog");
+    await dialog
+      .getByLabel("Choose a goal", { exact: true })
+      .selectOption(goal.id);
+    await dialog
+      .getByLabel("Choose an action", { exact: true })
+      .selectOption(goal.actions[0].id);
+    await dialog
+      .getByLabel("Start", { exact: true })
+      .fill(start.toFormat("yyyy-MM-dd'T'HH:mm"));
+    await dialog
+      .getByLabel("End", { exact: true })
+      .fill(start.plus({ hours: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+    await dialog
+      .getByLabel("Notes", { exact: true })
+      .fill("Manual block notes");
+    await dialog
+      .getByRole("button", { name: "Schedule action", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    await page.getByRole("button", { name: "List", exact: true }).click();
+    await page
+      .getByRole("button")
+      .filter({ hasText: title })
+      .filter({ has: page.locator(".status-label") })
+      .click();
+    dialog = page.getByRole("dialog");
+    await expect(dialog.getByLabel("Notes", { exact: true })).toHaveValue(
+      "Manual block notes",
+    );
+    await dialog
+      .getByLabel("Start", { exact: true })
+      .fill(target.toFormat("yyyy-MM-dd'T'HH:mm"));
+    await dialog
+      .getByLabel("End", { exact: true })
+      .fill(target.plus({ hours: 1 }).toFormat("yyyy-MM-dd'T'HH:mm"));
+    await dialog
+      .getByRole("button", { name: "Propose move", exact: true })
+      .click();
+    await expect(dialog).toHaveCount(0);
+    await expect(
+      page.getByRole("heading", { name: "Proposed changes", exact: true }),
+    ).toBeVisible();
+    let blocks = (await (
+      await page.request.get(`/api/v1/plan/week?start=${monday.toISODate()}`)
+    ).json()) as { goal_id: string; start_at: string; notes: string }[];
+    expect(
+      DateTime.fromISO(
+        blocks.find((block) => block.goal_id === goalId)!.start_at,
+      ).toMillis(),
+    ).toBe(start.toMillis());
+    await page
+      .getByRole("button", { name: "Apply change", exact: true })
+      .click();
+    await expect(
+      page.getByRole("heading", { name: "Proposed changes", exact: true }),
+    ).toHaveCount(0);
+    blocks = (await (
+      await page.request.get(`/api/v1/plan/week?start=${monday.toISODate()}`)
+    ).json()) as { goal_id: string; start_at: string; notes: string }[];
+    expect(
+      DateTime.fromISO(
+        blocks.find((block) => block.goal_id === goalId)!.start_at,
+      ).toMillis(),
+    ).toBe(target.toMillis());
+    expect(blocks.find((block) => block.goal_id === goalId)!.notes).toBe(
+      "Manual block notes",
+    );
+  } finally {
+    if (goalId)
+      await write(page, `/goals/${goalId}`, undefined, "DELETE").catch(
+        () => {},
+      );
   }
 });

@@ -355,7 +355,8 @@ async def export_me(user: SignedIn, db: DB, response: Response) -> dict[str, Any
         columns = [
             column
             for column in table.c
-            if not any(
+            if not column.name.endswith("_enc")
+            and not any(
                 private in column.name for private in ("token", "secret", "credential", "ip_hash")
             )
         ]

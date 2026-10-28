@@ -25,9 +25,11 @@ from app.config import Settings, get_settings
 from app.db import create_engine
 from app.integrations.coach import coach_router
 from app.integrations.config import IntegrationSettings
+from app.integrations.router import agenda_router as unified_agenda_router
 from app.integrations.router import calendar_router, disconnect_calendar_for_user, ext_router
 from app.models.auth import User
 from app.observability import configure_logging
+from app.routers.agenda import router as agenda_router
 from app.routers.planning import router as planning_router
 
 logger = logging.getLogger("kairos.health")
@@ -83,6 +85,8 @@ def create_app(
     app.state.before_account_delete = before_delete
     app.include_router(auth_router)
     app.include_router(planning_router)
+    app.include_router(agenda_router)
+    app.include_router(unified_agenda_router)
     app.include_router(calendar_router)
     app.include_router(ext_router)
     app.include_router(coach_router)
