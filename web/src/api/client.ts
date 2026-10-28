@@ -39,6 +39,7 @@ export async function api<T>(
   path: string,
   method = "GET",
   body?: unknown,
+  signal?: AbortSignal,
 ): Promise<T> {
   const requestAccount = accountId;
   const key = `${requestAccount}:${path}`;
@@ -65,6 +66,7 @@ export async function api<T>(
   try {
     response = await fetch(`/api/v1${path}`, {
       method,
+      signal,
       credentials: "include",
       headers: {
         "Content-Type": "application/json",
@@ -73,6 +75,7 @@ export async function api<T>(
       ...(body === undefined ? {} : { body: JSON.stringify(body) }),
     });
   } catch (error) {
+    if (signal?.aborted) throw error;
     if (cacheable) {
       const cached = (await (await db()).get("reads", key)) as T | undefined;
       if (cached !== undefined) return cached;
@@ -125,7 +128,8 @@ export async function api<T>(
     await transaction.done;
   }
   if (path === "/auth/magic/verify") csrf = "";
-  if (cacheable) await (await db()).put("reads", result, key);
+  if (cacheable && !signal?.aborted && accountId === requestAccount)
+    await (await db()).put("reads", result, key);
   if (method !== "GET" && /^\/focus\/(start|[^/]+\/end)$/.test(path))
     syncExtension();
   return result;

@@ -37,7 +37,7 @@ class TaskResponse(TaskInput):
 
 
 class RecurrenceInput(AgendaModel):
-    frequency: Literal["daily", "weekly"]
+    frequency: Literal["daily", "weekly", "monthly", "yearly"]
     interval: int = Field(default=1, ge=1, le=52)
     weekdays: list[int] = Field(default_factory=list, max_length=7)
     until: date | None = None

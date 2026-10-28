@@ -139,6 +139,20 @@ afterEach(() => {
 });
 
 describe("local agenda editing", () => {
+  it.each(["monthly", "yearly"])("wires %s repeats to the event API", async (frequency) => {
+    editor({ kind: "event", start: "2026-01-31T09:00:00Z", end: "2026-01-31T10:00:00Z" });
+    fireEvent.change(screen.getByLabelText(a.title), { target: { value: "Planning review" } });
+    fireEvent.click(screen.getByLabelText(a.repeats));
+    fireEvent.change(screen.getByLabelText(a.frequency), { target: { value: frequency } });
+    expect(screen.getByText(/Months or years without that date are skipped/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: a.saveEvent }));
+    await waitFor(() => expect(api).toHaveBeenCalledWith(
+      "/events", "POST", expect.objectContaining({ recurrence: expect.objectContaining({
+        frequency, weekdays: [], count: expect.any(Number),
+      }) }),
+    ));
+  });
+
   it("saves a one-day event using local midnight and an exclusive end", async () => {
     editor(
       { kind: "event", start: "2026-11-02", end: "2026-11-03", allDay: true },
@@ -306,7 +320,7 @@ describe("tasks and plan review", () => {
     expect(screen.getByText(a.before)).toBeVisible();
     expect(screen.getByText(a.after)).toBeVisible();
     expect(api).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: a.apply }));
+    fireEvent.click(screen.getByRole("button", { name: "Keep change" }));
     await waitFor(() =>
       expect(api).toHaveBeenCalledWith(
         "/plan/changes/change/accept",

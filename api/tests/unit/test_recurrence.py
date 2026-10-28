@@ -89,3 +89,69 @@ def test_event_validation_rejects_naive_or_non_midnight_all_day() -> None:
     ):
         with pytest.raises(ValidationError):
             EventInput.model_validate({"title": "Event", **body})
+
+
+def test_monthly_anchor_skips_missing_dates_without_drifting() -> None:
+    result = series_occurrences(
+        datetime(2026, 1, 31, 9, tzinfo=UTC),
+        datetime(2026, 1, 31, 10, tzinfo=UTC),
+        "UTC",
+        Rule("monthly", count=4),
+    )
+    assert [item.original_date.isoformat() for item in result] == [
+        "2026-01-31",
+        "2026-03-31",
+        "2026-05-31",
+        "2026-07-31",
+    ]
+
+
+def test_monthly_interval_until_and_dst_preserve_local_time() -> None:
+    zone = ZoneInfo("America/New_York")
+    result = series_occurrences(
+        datetime(2026, 1, 10, 9, tzinfo=zone),
+        datetime(2026, 1, 10, 10, tzinfo=zone),
+        zone.key,
+        Rule("monthly", interval=2, until=date(2026, 5, 10)),
+    )
+    assert [item.original_date.isoformat() for item in result] == [
+        "2026-01-10",
+        "2026-03-10",
+        "2026-05-10",
+    ]
+    assert [item.start.hour for item in result] == [14, 13, 13]
+
+
+def test_yearly_leap_day_skips_non_leap_years_and_honors_count() -> None:
+    result = series_occurrences(
+        datetime(2024, 2, 29, tzinfo=UTC),
+        datetime(2024, 3, 1, tzinfo=UTC),
+        "UTC",
+        Rule("yearly", count=3),
+    )
+    assert [item.original_date.isoformat() for item in result] == [
+        "2024-02-29",
+        "2028-02-29",
+        "2032-02-29",
+    ]
+    assert all((item.end - item.start).days == 1 for item in result)
+
+
+def test_yearly_interval_stops_at_calendar_limit_and_rejects_weekdays() -> None:
+    with pytest.raises(ValueError, match="supported calendar range"):
+        series_occurrences(
+            datetime(9998, 1, 1, 9, tzinfo=UTC),
+            datetime(9998, 1, 1, 10, tzinfo=UTC),
+            "UTC",
+            Rule("yearly", interval=2, count=2),
+        )
+    for frequency in ("monthly", "yearly"):
+        with pytest.raises(ValidationError, match="weekly repeats"):
+            EventInput.model_validate(
+                {
+                    "title": "Invalid",
+                    "start_at": "2026-01-05T09:00:00Z",
+                    "end_at": "2026-01-05T10:00:00Z",
+                    "recurrence": {"frequency": frequency, "count": 2, "weekdays": [0]},
+                }
+            )

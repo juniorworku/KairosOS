@@ -242,7 +242,7 @@ function EventForm({
     initial?.task_id || selection.task?.id || "",
   );
   const [repeats, setRepeats] = useState(!!initial?.recurrence);
-  const [frequency, setFrequency] = useState<"daily" | "weekly">(
+  const [frequency, setFrequency] = useState<Recurrence["frequency"]>(
     initial?.recurrence?.frequency || "weekly",
   );
   const [interval, setInterval] = useState(initial?.recurrence?.interval || 1);
@@ -429,11 +429,15 @@ function EventForm({
                           <NativeSelect
                             value={frequency}
                             onChange={(e) =>
-                              setFrequency(e.target.value as "daily" | "weekly")
+                              setFrequency(
+                                e.target.value as Recurrence["frequency"],
+                              )
                             }
                           >
                             <option value="daily">{a.daily}</option>
                             <option value="weekly">{a.weekly}</option>
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
                           </NativeSelect>
                         </Field>
                         <Field label={a.interval}>
@@ -449,6 +453,12 @@ function EventForm({
                           />
                         </Field>
                       </div>
+                      {["monthly", "yearly"].includes(frequency) && (
+                        <p className="form-hint">
+                          Repeats on the same date. Months or years without that
+                          date are skipped.
+                        </p>
+                      )}
                       {frequency === "weekly" && (
                         <fieldset className="agenda-weekdays">
                           <legend>{a.weekdays}</legend>

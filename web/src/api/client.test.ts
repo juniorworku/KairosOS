@@ -201,6 +201,29 @@ describe("durable offline updates", () => {
 });
 
 describe("private offline reads", () => {
+  it("does not persist a canceled pre-mutation snapshot over the refreshed week", async () => {
+    const path = "/plan/week?start=2026-10-26";
+    let release!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const controller = new AbortController();
+    const stale = api(path, "GET", undefined, controller.signal);
+    controller.abort();
+    fetchMock.mockResolvedValueOnce(json([{ id: "new-block" }]));
+    await api(path);
+    release(json([]));
+    await stale;
+    expect(fetchMock.mock.calls[0][1]?.signal).toBe(controller.signal);
+    online(false);
+    fetchMock.mockClear();
+    await expect(api(path)).resolves.toEqual([{ id: "new-block" }]);
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
   it("purges cached Google agenda details when details are turned off, preserving tasks", async () => {
     const path = "/agenda?start=2026-10-26&end=2026-11-02";
     fetchMock.mockImplementation(async () =>

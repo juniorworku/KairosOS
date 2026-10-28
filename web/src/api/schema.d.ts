@@ -2288,7 +2288,7 @@ export interface components {
              * Frequency
              * @enum {string}
              */
-            frequency: "daily" | "weekly";
+            frequency: "daily" | "weekly" | "monthly" | "yearly";
             /**
              * Interval
              * @default 1

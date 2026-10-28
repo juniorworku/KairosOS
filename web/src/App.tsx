@@ -43,6 +43,8 @@ const Plan = lazy(() =>
 import { FocusPage } from "./features/Focus";
 import { Review, Coach } from "./features/Review";
 import { Settings } from "./features/Settings";
+import { ActiveSessionBar } from "./components/ui/ActiveSessionBar";
+import "./components/ui/active-session.css";
 import { PwaPrompt } from "./pwa/Prompt";
 export type Theme = "light" | "dark" | "system";
 const navigation = [
@@ -172,6 +174,7 @@ export default function App() {
             </div>
           </div>
         ) : null}
+        <ActiveSessionBar />
         <Suspense
           fallback={
             <div role="status" aria-label={c.loading}>

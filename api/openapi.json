@@ -6263,7 +6263,9 @@
             "type": "string",
             "enum": [
               "daily",
-              "weekly"
+              "weekly",
+              "monthly",
+              "yearly"
             ],
             "title": "Frequency"
           },

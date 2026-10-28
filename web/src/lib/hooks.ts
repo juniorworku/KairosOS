@@ -11,7 +11,7 @@ export function useData<T>(path: string, enabled = true) {
   const { user } = useAuth();
   return useQuery({
     queryKey: [user?.id || "anonymous", path],
-    queryFn: () => api<T>(path),
+    queryFn: ({ signal }) => api<T>(path, "GET", undefined, signal),
     enabled,
     networkMode: "always",
     retry: false,

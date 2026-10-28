@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import FullCalendar from "@fullcalendar/react";
 import timeGridPlugin from "@fullcalendar/timegrid";
 import interactionPlugin from "@fullcalendar/interaction";
@@ -45,7 +45,23 @@ export interface CalendarStatus {
 export function Plan() {
   const { user } = useAuth();
   const timezone = user!.timezone;
-  const [day, setDay] = useState(dateKey(new Date(), timezone));
+  const [search, setSearch] = useSearchParams();
+  const requested = search.get("date") || search.get("week") || "";
+  const parsed = DateTime.fromISO(requested, { zone: timezone });
+  const day =
+    /^\d{4}-\d{2}-\d{2}$/.test(requested) && parsed.isValid
+      ? requested
+      : dateKey(new Date(), timezone);
+  function setDay(value: string) {
+    setSearch((previous) => {
+      const next = new URLSearchParams(previous);
+      next.set("date", value);
+      next.delete("week");
+      return next;
+    });
+    setDraftResult(null);
+    setNotice("");
+  }
   const week = weekStart(day);
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [mobile, setMobile] = useState(window.innerWidth < 700);
@@ -215,6 +231,9 @@ export function Plan() {
     classNames: [
       `agenda-source-${item.source}`,
       `event-${item.status}`,
+      ...(search.get("block") === item.source_id
+        ? ["agenda-selected-block"]
+        : []),
       ...(pendingRemoval.has(item.source_id) ? ["agenda-pending-removal"] : []),
     ],
     extendedProps: { item },
@@ -289,7 +308,8 @@ export function Plan() {
             <ChevronLeft size={16} />
           </Button>
           <span>
-            {week} — {addDays(week, 6)}
+            {DateTime.fromISO(week).toFormat("d MMM")} –{" "}
+            {DateTime.fromISO(addDays(week, 6)).toFormat("d MMM yyyy")}
           </span>
           <Button
             variant="outline"
@@ -351,25 +371,6 @@ export function Plan() {
           {draftResult.capacity_warning}
         </p>
       )}
-      {proposed.length > 0 && (
-        <div className="draft-toolbar">
-          <span>
-            {proposed.length} {c.plan.proposed.toLowerCase()}
-          </span>
-          <Button
-            variant="outline"
-            type="button"
-            disabled={!online || pending}
-            onClick={() =>
-              void mutate("/plan/accept", {
-                block_ids: proposed.map((block) => block.id),
-              })
-            }
-          >
-            {c.plan.accept}
-          </Button>
-        </div>
-      )}
       {accepted.length > 0 && calendar.data?.can_publish && (
         <div className="draft-toolbar">
           <p>{c.plan.approval}</p>
@@ -401,6 +402,92 @@ export function Plan() {
           </Button>
         </div>
       )}
+      <div className="agenda-work-frame">
+        <label className="agenda-date-control">
+          Selected date
+          <Input
+            type="date"
+            value={day}
+            onChange={(event) => {
+              if (event.target.value) setDay(event.target.value);
+            }}
+          />
+        </label>
+        <p>
+          <strong>Work hours</strong>{" "}
+          {(user!.work_days || [])
+            .map(
+              (value) =>
+                ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"][value],
+            )
+            .join(" · ") || "Not set"}{" "}
+          {user!.work_start && `${user!.work_start}–${user!.work_end}`}
+          <span>{timezone}</span>
+        </p>
+      </div>
+      {search.get("goal") &&
+        goals.data?.find((goal) => goal.id === search.get("goal")) && (
+          <div className="agenda-goal-context">
+            <span className="form-hint">Goal</span>
+            <strong>
+              {goals.data.find((goal) => goal.id === search.get("goal"))!.title}
+            </strong>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() =>
+                setSearch((previous) => {
+                  const next = new URLSearchParams(previous);
+                  next.delete("goal");
+                  next.delete("block");
+                  return next;
+                })
+              }
+            >
+              Clear context
+            </Button>
+          </div>
+        )}
+      <AgendaChanges
+        changes={changes}
+        additions={proposed}
+        timezone={timezone}
+        online={online}
+        onChange={refresh}
+      />
+      {(() => {
+        const next = (blocks.data || [])
+          .filter(
+            (block) =>
+              ["accepted", "published"].includes(block.status) &&
+              dateKey(new Date(block.start_at), timezone) === day &&
+              new Date(block.end_at).getTime() > Date.now(),
+          )
+          .sort((left, right) =>
+            left.start_at.localeCompare(right.start_at),
+          )[0];
+        return next ? (
+          <div className="agenda-next-action">
+            <div>
+              <span className="form-hint">
+                Next focus · {clock(next.start_at, timezone)}
+              </span>
+              <strong>{next.title}</strong>
+            </div>
+            <Button
+              disabled={!online || pending}
+              onClick={() => {
+                setPending(true);
+                void focus(next)
+                  .catch(setError)
+                  .finally(() => setPending(false));
+              }}
+            >
+              Start focus
+            </Button>
+          </div>
+        ) : null;
+      })()}
       <div className="agenda-layout">
         <Card
           ref={calendarContainer}
@@ -438,6 +525,11 @@ export function Plan() {
                   if (start !== day) setDay(start);
                 } else if (weekStart(start) !== week) setDay(start);
               }}
+              dayCellClassNames={(info) =>
+                dateKey(info.date, timezone) === day
+                  ? ["agenda-selected-day"]
+                  : []
+              }
               allDaySlot
               allDayText={a.allDay}
               slotMinTime="00:00:00"
@@ -445,6 +537,17 @@ export function Plan() {
               scrollTime="08:00:00"
               height={mobile ? 650 : 730}
               nowIndicator
+              businessHours={
+                user!.work_days?.length
+                  ? {
+                      daysOfWeek: user!.work_days.map(
+                        (value) => (value + 1) % 7,
+                      ),
+                      startTime: user!.work_start,
+                      endTime: user!.work_end,
+                    }
+                  : false
+              }
               weekends
               selectable={online}
               selectMirror
@@ -603,12 +706,6 @@ export function Plan() {
           onSchedule={(task) => setEditing({ kind: "event", task })}
         />
       </div>
-      <AgendaChanges
-        changes={changes}
-        timezone={timezone}
-        online={online}
-        onChange={refresh}
-      />
       <Card className="agenda-calendar-permissions p-5">
         <Notice error={calendar.error} />
         {(calendar.data?.details_enabled || calendar.data?.can_read_events) && (

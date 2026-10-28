@@ -11,7 +11,7 @@ MAX_OCCURRENCES = 500
 
 @dataclass(frozen=True)
 class Rule:
-    frequency: Literal["daily", "weekly"]
+    frequency: Literal["daily", "weekly", "monthly", "yearly"]
     interval: int = 1
     weekdays: tuple[int, ...] = ()
     until: date | None = None
@@ -26,8 +26,11 @@ class Occurrence:
 
 
 def _dates(start: date, rule: Rule) -> Iterator[date]:
-    if rule.frequency not in {"daily", "weekly"} or not 1 <= rule.interval <= 52:
-        raise ValueError("Choose a daily or weekly interval between 1 and 52")
+    if (
+        rule.frequency not in {"daily", "weekly", "monthly", "yearly"}
+        or not 1 <= rule.interval <= 52
+    ):
+        raise ValueError("Choose a repeat interval between 1 and 52")
     if rule.count is None and rule.until is None:
         raise ValueError("Repeating events need an end date or occurrence count")
     if rule.count is not None and not 1 <= rule.count <= MAX_OCCURRENCES:
@@ -40,15 +43,30 @@ def _dates(start: date, rule: Rule) -> Iterator[date]:
     if rule.frequency == "weekly" and start.weekday() not in weekdays:
         raise ValueError("Repeating weekdays must include the first event's weekday")
     anchor = start - timedelta(days=start.weekday())
-    # Every candidate can yield at least one occurrence except isolated DST gaps.
+    # Include skipped month-end dates, leap years and isolated DST gaps.
     # The explicit bound also protects callers from malformed persisted rules.
-    for index in range(MAX_OCCURRENCES * 2 + 2):
+    for index in range(MAX_OCCURRENCES * 8 + 2):
         try:
             if rule.frequency == "daily":
                 candidates = [start + timedelta(days=index * rule.interval)]
-            else:
+            elif rule.frequency == "weekly":
                 monday = anchor + timedelta(weeks=index * rule.interval)
                 candidates = [monday + timedelta(days=day) for day in weekdays]
+            else:
+                if rule.frequency == "monthly":
+                    offset = start.year * 12 + start.month - 1 + index * rule.interval
+                    year, zero_month = divmod(offset, 12)
+                    month = zero_month + 1
+                else:
+                    year, month = start.year + index * rule.interval, start.month
+                if year > 9999:
+                    return
+                # Anchor to the original day. Jan 31 skips February instead of drifting
+                # to Feb 28, and Feb 29 skips non-leap years instead of changing dates.
+                try:
+                    candidates = [date(year, month, start.day)]
+                except ValueError:
+                    continue
         except OverflowError:
             return
         for candidate in candidates:
@@ -83,7 +101,7 @@ def series_occurrences(
     local_start, local_end = start.astimezone(zone), end.astimezone(zone)
     if rule is None:
         return [Occurrence(local_start.date(), start.astimezone(UTC), end.astimezone(UTC))]
-    if rule.frequency == "daily" and rule.weekdays:
+    if rule.frequency != "weekly" and rule.weekdays:
         raise ValueError("Weekday selections are for weekly repeats")
     wall_start = local_start.replace(tzinfo=None)
     wall_duration = local_end.replace(tzinfo=None) - wall_start

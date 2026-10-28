@@ -290,3 +290,65 @@ def test_linked_google_all_day_block_uses_calendar_dates_and_remains_read_only(
     assert rows[0]["all_day"] is True
     assert rows[0]["start_at"] == "2026-11-01" and rows[0]["end_at"] == "2026-11-02"
     assert rows[0]["timezone"] == "America/New_York" and rows[0]["editable"] is False
+
+
+@pytest.mark.parametrize(
+    ("frequency", "start", "end", "second", "range_end"),
+    [
+        ("monthly", "2026-01-31T09:00:00Z", "2026-01-31T10:00:00Z", "2026-03-31", "2026-06-01"),
+        ("yearly", "2024-02-29T09:00:00Z", "2024-02-29T10:00:00Z", "2028-02-29", "2033-01-01"),
+    ],
+)
+def test_monthly_yearly_series_persist_and_keep_occurrence_overrides(
+    agenda_client: TestClient, frequency: str, start: str, end: str, second: str, range_end: str
+) -> None:
+    client = agenda_client
+    user_id = login(client)
+    response = client.post(
+        "/api/v1/events",
+        json=event_body()
+        | {
+            "start_at": start,
+            "end_at": end,
+            "recurrence": {"frequency": frequency, "count": 3},
+        },
+        headers=csrf(client),
+    )
+    assert response.status_code == 201, response.text
+    identifier = response.json()["id"]
+    assert client.get(f"/api/v1/events/{identifier}").json()["recurrence"]["frequency"] == frequency
+    rows = feed(client, user_id, date.fromisoformat(start[:10]), date.fromisoformat(range_end))
+    assert len(rows) == 3
+    assert rows[1]["occurrence_date"] == second
+    assert (
+        client.patch(
+            f"/api/v1/events/{identifier}/occurrences/{second}",
+            json={"notes": "Only this occurrence"},
+            headers=csrf(client),
+        ).status_code
+        == 200
+    )
+    assert (
+        client.patch(
+            f"/api/v1/events/{identifier}",
+            json={"title": "Renamed"},
+            headers=csrf(client),
+        ).status_code
+        == 200
+    )
+    rows = feed(client, user_id, date.fromisoformat(start[:10]), date.fromisoformat(range_end))
+    assert all(row["title"] == "Renamed" for row in rows)
+    assert [row["occurrence_date"] for row in rows if row["notes"] == "Only this occurrence"] == [
+        second
+    ]
+    assert (
+        client.delete(
+            f"/api/v1/events/{identifier}/occurrences/{second}",
+            headers=csrf(client),
+        ).status_code
+        == 204
+    )
+    assert (
+        len(feed(client, user_id, date.fromisoformat(start[:10]), date.fromisoformat(range_end)))
+        == 2
+    )
