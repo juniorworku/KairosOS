@@ -1,3 +1,5 @@
+import { Input } from "../components/primitives/input";
+import { Card } from "../components/primitives/card";
 import { useState, useEffect } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { api } from "../api/client";
@@ -28,7 +30,7 @@ export function Welcome() {
         <span className="brand-mark">k</span>
         {c.brand}
       </div>
-      <div className="auth-card">
+      <Card className="auth-card">
         <h1>{sent ? c.sent : c.welcome}</h1>
         {sent ? (
           <>
@@ -60,7 +62,7 @@ export function Welcome() {
               {(busy) => (
                 <>
                   <Field label={c.email}>
-                    <input
+                    <Input
                       type="email"
                       autoComplete="email"
                       value={email}
@@ -92,7 +94,7 @@ export function Welcome() {
           </div>
         )}
         {config.isError && <p role="alert">{c.authUnavailable}</p>}
-      </div>
+      </Card>
     </div>
   );
 }
@@ -107,7 +109,7 @@ export function Confirm() {
         <span className="brand-mark">k</span>
         {c.brand}
       </div>
-      <div className="auth-card">
+      <Card className="auth-card">
         <h1>{c.confirm}</h1>
         <p>{c.confirmBody}</p>
         {token ? (
@@ -130,7 +132,7 @@ export function Confirm() {
         <Link className="text-link" to="/welcome">
           {c.back}
         </Link>
-      </div>
+      </Card>
     </div>
   );
 }

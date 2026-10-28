@@ -407,9 +407,9 @@ test("tasks, recurring events, notes, and occurrence edits persist", async ({
     expect(created.recurrence.count).toBe(3);
     await page.getByRole("button", { name: "List", exact: true }).click();
     await page
+      .getByRole("region", { name: "Calendar", exact: true })
       .getByRole("button")
       .filter({ hasText: title })
-      .filter({ has: page.locator(".status-label") })
       .click();
     dialog = page.getByRole("dialog");
     await expect(
@@ -515,9 +515,9 @@ test("manual action creation and proposed moves require explicit acceptance", as
     await expect(dialog).toHaveCount(0);
     await page.getByRole("button", { name: "List", exact: true }).click();
     await page
+      .getByRole("region", { name: "Calendar", exact: true })
       .getByRole("button")
       .filter({ hasText: title })
-      .filter({ has: page.locator(".status-label") })
       .click();
     dialog = page.getByRole("dialog");
     await expect(dialog.getByLabel("Notes", { exact: true })).toHaveValue(

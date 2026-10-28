@@ -1,4 +1,6 @@
-import { useEffect, useRef, type ReactNode } from "react";
+import { Children, createElement, isValidElement, type ReactNode } from "react";
+import { Dialog, DialogContent, DialogTitle } from "../primitives/dialog";
+
 export function Modal({
   titleId,
   onClose,
@@ -8,27 +10,34 @@ export function Modal({
   onClose: () => void;
   children: ReactNode;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const dialog = ref.current;
-    const previous = document.activeElement as HTMLElement | null;
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      previous?.focus();
-    };
-  }, []);
+  let hasTitle = false;
+  const content = Children.map(children, (child) => {
+    if (isValidElement<{ id?: string }>(child) && child.props.id === titleId) {
+      hasTitle = true;
+      // Let Radix own the title ID and aria-labelledby so screen-reader naming stays intact.
+      const props = { ...child.props };
+      delete props.id;
+      return (
+        <DialogTitle asChild>{createElement(child.type, props)}</DialogTitle>
+      );
+    }
+    return child;
+  });
   return (
-    <dialog
-      ref={ref}
-      className="modal"
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
+    <Dialog
+      open
+      onOpenChange={(open) => {
+        if (!open) onClose();
       }}
     >
-      {children}
-    </dialog>
+      <DialogContent
+        className="modal max-h-[calc(100dvh-2rem)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto"
+        aria-describedby={undefined}
+        onInteractOutside={(event) => event.preventDefault()}
+      >
+        {!hasTitle && <DialogTitle className="sr-only">Details</DialogTitle>}
+        {content}
+      </DialogContent>
+    </Dialog>
   );
 }

@@ -5,6 +5,7 @@ import {
   fireEvent,
   cleanup,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
@@ -87,6 +88,39 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("functional shell", () => {
+  it("defaults to dark tokens and preserves an explicit light preference", async () => {
+    const first = mount();
+    await waitFor(() =>
+      expect(document.documentElement).toHaveAttribute("data-theme", "dark"),
+    );
+    expect(document.documentElement).toHaveClass("dark");
+    first.unmount();
+    localStorage.setItem("kairos.theme", "light");
+    mount();
+    await waitFor(() =>
+      expect(document.documentElement).toHaveAttribute("data-theme", "light"),
+    );
+    expect(document.documentElement).not.toHaveClass("dark");
+    expect(localStorage.getItem("kairos.theme")).toBe("light");
+  });
+  it("traps mobile navigation focus and restores the trigger after Escape", async () => {
+    mount();
+    const trigger = screen.getByRole("button", { name: "Open navigation" });
+    fireEvent.click(trigger);
+    const drawer = await screen.findByRole("dialog", { name: "Kairos" });
+    const close = within(drawer).getByRole("button", {
+      name: "Close navigation",
+    });
+    const last = within(drawer).getByRole("button", { name: "Sign out" });
+    last.focus();
+    fireEvent.keyDown(drawer, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(drawer, { key: "Escape", code: "Escape" });
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog")).not.toBeInTheDocument(),
+    );
+    expect(trigger).toHaveFocus();
+  });
   it("hides user administration and redirects its former route", async () => {
     mount("/admin");
     expect(await screen.findByRole("heading", { level: 1 })).toHaveTextContent(

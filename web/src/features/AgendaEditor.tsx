@@ -1,3 +1,6 @@
+import { Input } from "../components/primitives/input";
+import { Textarea } from "../components/primitives/textarea";
+import { NativeSelect } from "../components/primitives/native-select";
 import { useState } from "react";
 import { DateTime } from "luxon";
 import { Link } from "react-router-dom";
@@ -332,7 +335,7 @@ function EventForm({
           <>
             <fieldset disabled={!online || busy || deleting}>
               <Field label={a.title}>
-                <input
+                <Input
                   autoFocus
                   required
                   maxLength={200}
@@ -341,7 +344,7 @@ function EventForm({
                 />
               </Field>
               <Field label={a.notes}>
-                <textarea
+                <Textarea
                   rows={3}
                   maxLength={10000}
                   value={notes}
@@ -358,7 +361,7 @@ function EventForm({
               </label>
               <div className="form-grid">
                 <Field label={c.plan.start}>
-                  <input
+                  <Input
                     type={allDay ? "date" : "datetime-local"}
                     required
                     value={start}
@@ -377,7 +380,7 @@ function EventForm({
                   />
                 </Field>
                 <Field label={allDay ? a.endDate : c.plan.end}>
-                  <input
+                  <Input
                     type={allDay ? "date" : "datetime-local"}
                     required
                     min={allDay && start ? addDays(start, 1) : start}
@@ -389,14 +392,14 @@ function EventForm({
               {allDay && <p className="form-hint">{a.allDayHint}</p>}
               <div className="form-grid">
                 <Field label={a.timezone}>
-                  <input
+                  <Input
                     required
                     value={tz}
                     onChange={(e) => setTz(e.target.value)}
                   />
                 </Field>
                 <Field label={a.linkedTask}>
-                  <select
+                  <NativeSelect
                     value={taskId}
                     onChange={(e) => setTaskId(e.target.value)}
                   >
@@ -406,7 +409,7 @@ function EventForm({
                         {task.title}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </Field>
               </div>
               {!occurrence && (
@@ -423,7 +426,7 @@ function EventForm({
                     <div className="agenda-recurrence">
                       <div className="form-grid">
                         <Field label={a.frequency}>
-                          <select
+                          <NativeSelect
                             value={frequency}
                             onChange={(e) =>
                               setFrequency(e.target.value as "daily" | "weekly")
@@ -431,10 +434,10 @@ function EventForm({
                           >
                             <option value="daily">{a.daily}</option>
                             <option value="weekly">{a.weekly}</option>
-                          </select>
+                          </NativeSelect>
                         </Field>
                         <Field label={a.interval}>
-                          <input
+                          <Input
                             required
                             type="number"
                             min={1}
@@ -469,17 +472,17 @@ function EventForm({
                       )}
                       <div className="form-grid">
                         <Field label={a.recurrenceEnd}>
-                          <select
+                          <NativeSelect
                             value={endMode}
                             onChange={(e) => setEndMode(e.target.value)}
                           >
                             <option value="count">{a.afterCount}</option>
                             <option value="date">{a.onDate}</option>
-                          </select>
+                          </NativeSelect>
                         </Field>
                         {endMode === "count" ? (
                           <Field label={a.count}>
-                            <input
+                            <Input
                               required
                               type="number"
                               min={1}
@@ -490,7 +493,7 @@ function EventForm({
                           </Field>
                         ) : (
                           <Field label={a.until}>
-                            <input
+                            <Input
                               required
                               type="date"
                               min={start.slice(0, 10)}
@@ -647,7 +650,7 @@ function BlockEditor({
               {!block && (
                 <div className="form-grid">
                   <Field label={a.chooseGoal}>
-                    <select
+                    <NativeSelect
                       required
                       value={goalId}
                       onChange={(e) => {
@@ -661,10 +664,10 @@ function BlockEditor({
                           {item.title}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                   <Field label={a.chooseAction}>
-                    <select
+                    <NativeSelect
                       required
                       value={actionId}
                       onChange={(e) => setActionId(e.target.value)}
@@ -675,14 +678,14 @@ function BlockEditor({
                           {item.title}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                   </Field>
                 </div>
               )}
               <fieldset disabled={!online || changing || (!!block && !canMove)}>
                 <div className="form-grid">
                   <Field label={c.plan.start}>
-                    <input
+                    <Input
                       required
                       type="datetime-local"
                       value={start}
@@ -690,7 +693,7 @@ function BlockEditor({
                     />
                   </Field>
                   <Field label={c.plan.end}>
-                    <input
+                    <Input
                       required
                       type="datetime-local"
                       min={start}
@@ -701,7 +704,7 @@ function BlockEditor({
                 </div>
               </fieldset>
               <Field label={a.notes}>
-                <textarea
+                <Textarea
                   rows={4}
                   maxLength={10000}
                   disabled={!online}

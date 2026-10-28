@@ -24,6 +24,10 @@ import { MetricCard } from "../components/ui/MetricCard";
 import { Button } from "../components/ui/Button";
 import { Empty, Notice } from "../components/ui/Forms";
 import { useState } from "react";
+import { Card, CardContent, CardHeader } from "../components/primitives/card";
+import { Badge } from "../components/primitives/badge";
+import { Progress } from "../components/primitives/progress";
+import { Skeleton } from "../components/primitives/skeleton";
 export function Today() {
   const { user } = useAuth();
   const timezone = user!.timezone;
@@ -80,14 +84,23 @@ export function Today() {
           {c.today.newGoal}
         </Link>
       </header>
-      <Notice error={error || blocks.error || goals.error} />
+      <Notice
+        error={
+          error ||
+          blocks.error ||
+          goals.error ||
+          trajectories.error ||
+          stats.error ||
+          active.error
+        }
+      />
       {active.data && (
-        <div className="draft-toolbar">
+        <Card className="draft-toolbar">
           <span>{active.data.title || c.focus.title}</span>
           <Link className="button primary" to="/focus">
             {c.focus.resume}
           </Link>
-        </div>
+        </Card>
       )}
       <div className="stats-row today-metrics">
         <MetricCard
@@ -112,14 +125,14 @@ export function Today() {
           tone="peach"
         />
       </div>
-      <section className="week-overview" aria-label={c.today.week}>
-        <div className="panel-heading">
+      <Card className="week-overview" role="region" aria-label={c.today.week}>
+        <CardHeader className="panel-heading flex-row items-center justify-between space-y-0">
           <h2>{c.today.week}</h2>
           <span className="week-range">
             {weekStart(today)} — {addDays(weekStart(today), 6)}
           </span>
-        </div>
-        <div className="week-days">
+        </CardHeader>
+        <CardContent className="week-days">
           {Array.from({ length: 7 }, (_, i) => {
             const key = addDays(weekStart(today), i);
             const date = new Date(`${key}T12:00:00`);
@@ -148,93 +161,102 @@ export function Today() {
               </Link>
             );
           })}
-        </div>
-      </section>
+        </CardContent>
+      </Card>
       <div className="today-layout">
-        <section className="panel today-schedule">
-          <div className="panel-heading">
+        <Card className="today-schedule">
+          <CardHeader className="panel-heading flex-row items-center justify-between space-y-0">
             <h2>{c.today.upcoming}</h2>
             <Link to="/plan" className="text-link">
               {c.today.all}
               <ArrowRight size={15} />
             </Link>
-          </div>
-          {blocks.isPending ? (
-            <p role="status">{c.loading}</p>
-          ) : dayBlocks.length ? (
-            <div className="schedule-list">
-              {dayBlocks.map((block) => (
-                <div
-                  key={block.id}
-                  className={`schedule-row ${block.status === "completed" ? "complete" : ""}`}
-                >
-                  <div className="schedule-time">
-                    {clock(block.start_at, timezone)}
-                    <small>{clock(block.end_at, timezone)}</small>
+          </CardHeader>
+          <CardContent>
+            {blocks.isPending ? (
+              <div role="status" aria-label={c.loading} className="space-y-3">
+                <Skeleton className="h-14 w-full" />
+                <Skeleton className="h-14 w-full" />
+              </div>
+            ) : dayBlocks.length ? (
+              <div className="schedule-list">
+                {dayBlocks.map((block) => (
+                  <div
+                    key={block.id}
+                    className={`schedule-row ${block.status === "completed" ? "complete" : ""}`}
+                  >
+                    <div className="schedule-time">
+                      {clock(block.start_at, timezone)}
+                      <small>{clock(block.end_at, timezone)}</small>
+                    </div>
+                    <div className="block-line" />
+                    <div className="schedule-info">
+                      <strong>{block.title}</strong>
+                      <span>
+                        {goals.data?.find((g) => g.id === block.goal_id)?.title}
+                      </span>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge variant="outline">
+                          {c.plan[block.status as keyof typeof c.plan] ||
+                            block.status}
+                        </Badge>
+                        <small>{minutes(block.planned_minutes)}</small>
+                      </div>
+                    </div>
+                    {["accepted", "published"].includes(block.status) && (
+                      <Button
+                        onClick={() => void start(block)}
+                        disabled={busy || !online}
+                      >
+                        <Play size={14} />
+                        {c.today.start}
+                      </Button>
+                    )}
                   </div>
-                  <div className="block-line" />
-                  <div className="schedule-info">
-                    <strong>{block.title}</strong>
-                    <span>
-                      {goals.data?.find((g) => g.id === block.goal_id)?.title}
-                    </span>
-                    <small>
-                      {c.plan[block.status as keyof typeof c.plan] ||
-                        block.status}{" "}
-                      · {minutes(block.planned_minutes)}
-                    </small>
-                  </div>
-                  {["accepted", "published"].includes(block.status) && (
-                    <Button
-                      onClick={() => void start(block)}
-                      disabled={busy || !online}
-                    >
-                      <Play size={14} />
-                      {c.today.start}
-                    </Button>
-                  )}
-                </div>
-              ))}
-            </div>
-          ) : (
-            <Empty
-              title={c.today.empty}
-              icon={<CalendarDays size={29} strokeWidth={1.4} />}
-            >
-              <Link to="/plan" className="button primary">
-                {c.today.plan}
-                <ArrowRight size={15} />
-              </Link>
-            </Empty>
-          )}
-        </section>
-        <section className="panel today-goals">
-          <div className="panel-heading">
+                ))}
+              </div>
+            ) : (
+              <Empty
+                title={c.today.empty}
+                icon={<CalendarDays size={29} strokeWidth={1.4} />}
+              >
+                <Link to="/plan" className="button primary">
+                  {c.today.plan}
+                  <ArrowRight size={15} />
+                </Link>
+              </Empty>
+            )}
+          </CardContent>
+        </Card>
+        <Card className="today-goals">
+          <CardHeader className="panel-heading flex-row items-center justify-between space-y-0">
             <h2>{c.today.progress}</h2>
             <Link to="/goals" className="text-link">
               {c.goals.all}
               <ArrowRight size={15} />
             </Link>
-          </div>
-          {activeGoals.length ? (
-            <div className="goal-rows">
-              {activeGoals.map((goal) => (
-                <GoalRow
-                  key={goal.id}
-                  goal={goal}
-                  trajectory={trajectories.data?.find(
-                    (t) => t.goal_id === goal.id,
-                  )}
-                />
-              ))}
-            </div>
-          ) : (
-            <Empty
-              title={c.today.noGoals}
-              icon={<Target size={29} strokeWidth={1.4} />}
-            />
-          )}
-        </section>
+          </CardHeader>
+          <CardContent>
+            {activeGoals.length ? (
+              <div className="goal-rows">
+                {activeGoals.map((goal) => (
+                  <GoalRow
+                    key={goal.id}
+                    goal={goal}
+                    trajectory={trajectories.data?.find(
+                      (t) => t.goal_id === goal.id,
+                    )}
+                  />
+                ))}
+              </div>
+            ) : (
+              <Empty
+                title={c.today.noGoals}
+                icon={<Target size={29} strokeWidth={1.4} />}
+              />
+            )}
+          </CardContent>
+        </Card>
       </div>
     </>
   );
@@ -247,13 +269,10 @@ export function GoalRow({
   trajectory?: Trajectory;
 }) {
   const current = goal.checkins?.at(-1)?.metric_value ?? goal.metric_start;
-  const fraction = Math.max(
-    0,
-    Math.min(
-      1,
-      (current - goal.metric_start) / (goal.metric_target - goal.metric_start),
-    ),
-  );
+  const range = goal.metric_target - goal.metric_start;
+  const fraction = range
+    ? Math.max(0, Math.min(1, (current - goal.metric_start) / range))
+    : 0;
   return (
     <Link to={`/goals/${goal.id}`} className="goal-row">
       <div>
@@ -263,12 +282,14 @@ export function GoalRow({
         </span>
       </div>
       <div className="goal-progress">
-        <div className="progress-track">
-          <i style={{ width: `${fraction * 100}%` }} />
-        </div>
-        <small>
+        <Progress
+          value={fraction * 100}
+          aria-label={goal.title}
+          className="h-1.5"
+        />
+        <Badge variant="outline">
           {trajectory ? c.goals[trajectory.status] : c.goals[goal.status]}
-        </small>
+        </Badge>
       </div>
       <ArrowRight size={15} />
     </Link>

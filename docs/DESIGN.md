@@ -1,14 +1,11 @@
 # Interface design
 
-The October 2026 refresh follows the owner’s Framer reference direction while keeping Kairos’s own components and copy.
+Kairos uses a black, white and neutral-gray theme with [shadcn/ui](https://ui.shadcn.com/docs/components) components. Dark is the default; saved light/system preferences remain available. The earlier Framer-inspired glass treatment is replaced by flat surfaces, subtle borders and clear typography.
 
-References:
-- [Framer](https://www.framer.com/)
-- [Framer template marketplace](https://www.framer.com/marketplace/templates/)
-- [Glassy Style Layout](https://www.framer.com/marketplace/components/appleglassstack/) for layered surfaces, restrained blur, borders, and hover treatment.
+The official new-york component sources live in `web/src/components/primitives`, with their MIT license alongside them. `web/components.json` records the registry configuration. Radix supplies dialog and mobile-sheet focus management. Shared adapters preserve existing button variants, form labels, validation and modal callers. Native selects preserve browser selection behavior. FullCalendar remains the week/day calendar engine, styled with the same monochrome tokens.
 
-No template was purchased, no Framer account was created, and no third-party component source or imagery was copied. The implementation remains native React/CSS with reusable metric cards, week overview, empty-state symbols, a floating sidebar, and a focus dial driven by the actual server deadline.
+Semantic HSL tokens live in `web/src/styles.css`; layout and page treatments live in `web/src/design.css`, with calendar rules in `web/src/features/agenda.css`. Tailwind utilities use those tokens. Status is communicated through labels, icons and border treatment. Reduced-motion preferences are honored. Cards, alerts, progress, skeletons, inputs and dialogs share the component system across Today, Goals, Plan, Focus, Review, Coach, Settings and sign-in.
 
-Manrope Variable is self-hosted through the pinned Fontsource package under OFL-1.1. The style layer is `web/src/design.css`; structural component styles remain in `web/src/styles.css`. Light/dark themes have separate surface and metric-card color tokens. Reduced-motion preferences disable decorative motion. Values and progress always come from saved data; decorative rings do not represent activity.
+The mobile navigation uses a focus-trapping Sheet with keyboard dismissal and focus restoration. Metric cards use shrinkable columns and compact mobile spacing to prevent horizontal overflow. The icon and install surfaces use the same black-and-white identity.
 
-User administration is outside the current interface scope. The old `/admin` route redirects to Today, and the Users/invites UI is removed without deleting accounts or weakening authentication.
+Users and invitation screens remain outside the personal app scope. `/admin/*` redirects to Today without removing authentication or accounts. No deployment is part of this refresh.

@@ -59,3 +59,13 @@ Final results:
 Mobile checking caught unlabeled built-in calendar icons and an unfocusable empty timed scroller. Plain navigation labels and focusable existing grid cells resolved these without overriding grid roles or disabling audit rules. Earlier failing checks were rerun; only the final passing results above are acceptance evidence.
 
 Google provider tests use controlled responses. No live Google consent/event-data acceptance, remote calendar editing, multi-calendar selection, monthly/yearly recurrence, or new Lighthouse score is claimed. Deployment remains paused. The same two upstream Starlette/AnyIO deprecation warnings remain.
+
+## shadcn/ui monochrome refresh — 28 October 2026
+
+Migrated the app shell and page controls to the official shadcn/ui new-york component sources and Radix primitives, with neutral semantic tokens and dark default appearance. FullCalendar retains its scheduling behavior with matching monochrome styling. See [Interface design](DESIGN.md).
+
+Final verification: **34 frontend tests passed**, TypeScript and ESLint passed, the Docker production web build passed, and **all five Playwright workflows passed** against that build (29.1 seconds). Coverage includes goal/draft/focus/review/settings, mobile overflow and accessibility, offline replay, tasks/recurrence/notes, and manual scheduling/proposed-move acceptance. Browser checks also inspected the dashboard, calendar and event dialog.
+
+A deterministic regression reproduced an initial empty-week query being reused after drafting; canceling account-scoped pending reads before invalidation fixes the missing-proposals display. Mobile metric cards now fit a 390px viewport. Test selectors were updated to use the Calendar region after status labels became badges. Disposable records from interrupted local test runs were removed before the final passing suite.
+
+Runtime dependency audit reported zero advisories. The full dependency audit reports four low-severity development-tool advisories through the Workbox/Rollup dependency chain; no forced dependency downgrade was applied. Backend code is unchanged by this refresh; the 188-test backend result above was not rerun. Deployment remains paused.

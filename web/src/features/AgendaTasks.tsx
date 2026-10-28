@@ -1,3 +1,7 @@
+import { Input } from "../components/primitives/input";
+import { Textarea } from "../components/primitives/textarea";
+import { NativeSelect } from "../components/primitives/native-select";
+import { Card } from "../components/primitives/card";
 import { useState } from "react";
 import { CalendarPlus, Check, Pencil, Plus } from "lucide-react";
 import { api } from "../api/client";
@@ -94,44 +98,46 @@ export function AgendaTasks({
     );
   }
   return (
-    <aside className="panel agenda-tasks" aria-label={a.tasks}>
-      <div className="panel-heading">
-        <h2>{a.tasks}</h2>
-        <Button
-          type="button"
-          className="icon-button"
-          aria-label={a.addTask}
-          disabled={!online}
-          onClick={() => setEditing("new")}
-        >
-          <Plus size={18} />
-        </Button>
-      </div>
-      <Notice error={error || failure} />
-      {pending ? (
-        <p role="status">{c.loading}</p>
-      ) : todo.length ? (
-        <div className="agenda-task-list">{todo.map(row)}</div>
-      ) : (
-        <Empty title={a.noTasks} />
-      )}
-      {tasks.some((task) => task.status === "done") && (
-        <details className="agenda-completed">
-          <summary>{a.completedTasks}</summary>
-          {tasks.filter((task) => task.status === "done").map(row)}
-        </details>
-      )}
-      {editing && (
-        <TaskEditor
-          key={editing === "new" ? "new" : editing.id}
-          task={editing === "new" ? undefined : editing}
-          goals={goals}
-          online={online}
-          close={() => setEditing(null)}
-          onChange={onChange}
-        />
-      )}
-    </aside>
+    <Card asChild>
+      <aside className="panel agenda-tasks" aria-label={a.tasks}>
+        <div className="panel-heading">
+          <h2>{a.tasks}</h2>
+          <Button
+            type="button"
+            className="icon-button"
+            aria-label={a.addTask}
+            disabled={!online}
+            onClick={() => setEditing("new")}
+          >
+            <Plus size={18} />
+          </Button>
+        </div>
+        <Notice error={error || failure} />
+        {pending ? (
+          <p role="status">{c.loading}</p>
+        ) : todo.length ? (
+          <div className="agenda-task-list">{todo.map(row)}</div>
+        ) : (
+          <Empty title={a.noTasks} />
+        )}
+        {tasks.some((task) => task.status === "done") && (
+          <details className="agenda-completed">
+            <summary>{a.completedTasks}</summary>
+            {tasks.filter((task) => task.status === "done").map(row)}
+          </details>
+        )}
+        {editing && (
+          <TaskEditor
+            key={editing === "new" ? "new" : editing.id}
+            task={editing === "new" ? undefined : editing}
+            goals={goals}
+            online={online}
+            close={() => setEditing(null)}
+            onChange={onChange}
+          />
+        )}
+      </aside>
+    </Card>
   );
 }
 function TaskEditor({
@@ -192,7 +198,7 @@ function TaskEditor({
         {(busy) => (
           <>
             <Field label={a.title}>
-              <input
+              <Input
                 autoFocus
                 disabled={!online}
                 required
@@ -202,7 +208,7 @@ function TaskEditor({
               />
             </Field>
             <Field label={a.notes}>
-              <textarea
+              <Textarea
                 rows={4}
                 disabled={!online}
                 maxLength={10000}
@@ -212,7 +218,7 @@ function TaskEditor({
             </Field>
             <div className="form-grid">
               <Field label={a.due}>
-                <input
+                <Input
                   type="date"
                   disabled={!online}
                   value={due}
@@ -220,7 +226,7 @@ function TaskEditor({
                 />
               </Field>
               <Field label={a.estimate}>
-                <input
+                <Input
                   type="number"
                   disabled={!online}
                   min={5}
@@ -233,7 +239,7 @@ function TaskEditor({
               </Field>
             </div>
             <Field label={a.linkedGoal}>
-              <select
+              <NativeSelect
                 disabled={!online}
                 value={goal}
                 onChange={(e) => setGoal(e.target.value)}
@@ -244,7 +250,7 @@ function TaskEditor({
                     {item.title}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </Field>
             <div className="modal-actions">
               {task && (

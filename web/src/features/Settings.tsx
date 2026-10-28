@@ -1,3 +1,7 @@
+import { Input } from "../components/primitives/input";
+import { Textarea } from "../components/primitives/textarea";
+import { NativeSelect } from "../components/primitives/native-select";
+import { Card } from "../components/primitives/card";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import { copy as c } from "../copy/en";
@@ -92,7 +96,7 @@ export function Settings({
               <>
                 <h2>{c.settings.profile}</h2>
                 <Field label={c.settings.name}>
-                  <input
+                  <Input
                     value={profile.name}
                     onChange={(e) => set("name", e.target.value)}
                     maxLength={120}
@@ -100,7 +104,7 @@ export function Settings({
                   />
                 </Field>
                 <Field label={c.settings.timezone}>
-                  <input
+                  <Input
                     list="timezones"
                     value={profile.timezone}
                     onChange={(e) => set("timezone", e.target.value)}
@@ -139,7 +143,7 @@ export function Settings({
                 </div>
                 <div className="form-grid">
                   <Field label={c.settings.start}>
-                    <input
+                    <Input
                       type="time"
                       required
                       value={profile.work_start}
@@ -148,7 +152,7 @@ export function Settings({
                     />
                   </Field>
                   <Field label={c.settings.end}>
-                    <input
+                    <Input
                       type="time"
                       required
                       value={profile.work_end}
@@ -158,7 +162,7 @@ export function Settings({
                   </Field>
                 </div>
                 <Field label={c.settings.cap}>
-                  <input
+                  <Input
                     type="number"
                     min={30}
                     max={720}
@@ -172,7 +176,7 @@ export function Settings({
                   />
                 </Field>
                 <Field label={c.settings.peak}>
-                  <select
+                  <NativeSelect
                     value={profile.energy_peak}
                     onChange={(e) =>
                       set("energy_peak", e.target.value as User["energy_peak"])
@@ -184,7 +188,7 @@ export function Settings({
                         {c.goals.form[t]}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </Field>
                 <h2 className="form-section">{c.settings.ai}</h2>
                 <label className="checkbox">
@@ -209,221 +213,235 @@ export function Settings({
               </>
             )}
           </SubmitForm>
-          <section className="panel">
-            <h2>{c.settings.appearance}</h2>
-            <Field label={c.settings.theme}>
-              <select
-                value={theme}
-                onChange={(e) => setTheme(e.target.value as Theme)}
-              >
-                {(["system", "light", "dark"] as const).map((t) => (
-                  <option value={t} key={t}>
-                    {c.settings[t]}
-                  </option>
-                ))}
-              </select>
-            </Field>
-          </section>
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.settings.appearance}</h2>
+              <Field label={c.settings.theme}>
+                <NativeSelect
+                  value={theme}
+                  onChange={(e) => setTheme(e.target.value as Theme)}
+                >
+                  {(["system", "light", "dark"] as const).map((t) => (
+                    <option value={t} key={t}>
+                      {c.settings[t]}
+                    </option>
+                  ))}
+                </NativeSelect>
+              </Field>
+            </section>
+          </Card>
           <SeasonSettings />
         </div>
         <div>
-          <section className="panel">
-            <h2>{c.settings.calendar}</h2>
-            <div className="connection-row">
-              <span className="status-label">
-                {calendar.data?.connected
-                  ? calendar.data.status === "needs_reauth"
-                    ? c.settings.reauth
-                    : c.settings.connected
-                  : c.settings.notConnected}
-              </span>
-              {calendar.data?.configured && online && (
-                <a className="button" href="/api/v1/calendar/connect">
-                  {calendar.data.connected
-                    ? c.settings.reauth
-                    : c.settings.connect}
-                </a>
-              )}
-            </div>
-            <p className="form-hint">
-              {calendar.data?.configured
-                ? c.settings.calendarHint
-                : c.settings.unconfigured}
-            </p>
-            {calendar.data?.connected && (
-              <p className="form-hint">{c.settings.disconnectHint}</p>
-            )}
-            {calendar.data?.connected && (
-              <div className="button-row">
-                <Button
-                  disabled={!online}
-                  onClick={() => void action("/calendar/sync").catch(() => {})}
-                >
-                  {c.settings.sync}
-                </Button>
-                {!calendar.data.can_publish && online && (
-                  <a
-                    className="button"
-                    href="/api/v1/calendar/connect?write=true"
-                  >
-                    {c.settings.write}
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.settings.calendar}</h2>
+              <div className="connection-row">
+                <span className="status-label">
+                  {calendar.data?.connected
+                    ? calendar.data.status === "needs_reauth"
+                      ? c.settings.reauth
+                      : c.settings.connected
+                    : c.settings.notConnected}
+                </span>
+                {calendar.data?.configured && online && (
+                  <a className="button" href="/api/v1/calendar/connect">
+                    {calendar.data.connected
+                      ? c.settings.reauth
+                      : c.settings.connect}
                   </a>
                 )}
-                <Button
-                  disabled={!online}
-                  onClick={() =>
-                    void action("/calendar/disconnect").catch(() => {})
-                  }
-                >
-                  {c.settings.disconnect}
-                </Button>
               </div>
-            )}
-          </section>
-          <section className="panel">
-            <h2>{c.settings.extension}</h2>
-            <p className="form-hint">{c.settings.pairHint}</p>
-            <Button
-              onClick={() =>
-                void api<{ code: string }>("/ext/pair", "POST")
-                  .then((data) => setCode(data.code))
-                  .catch(setError)
-              }
-              disabled={!online}
-            >
-              {c.settings.pair}
-            </Button>
-            {code && (
-              <p role="status" className="pair-code">
-                <span>{c.settings.pairCode}</span>
-                {code}
+              <p className="form-hint">
+                {calendar.data?.configured
+                  ? c.settings.calendarHint
+                  : c.settings.unconfigured}
               </p>
-            )}
-            {tokens.data?.map((t) => (
-              <div className="device-row" key={t.id}>
-                <span>{t.label || c.settings.extension}</span>
-                <Button
-                  disabled={!online}
-                  onClick={() =>
-                    void action(
-                      `/ext/tokens/${t.id}`,
-                      undefined,
-                      "DELETE",
-                    ).catch(() => {})
-                  }
-                >
-                  {c.settings.revoke}
-                </Button>
-              </div>
-            ))}
-          </section>
-          <BlocklistSettings />
-          <section className="panel">
-            <h2>{c.settings.sessions}</h2>
-            {sessions.data?.map((s) => (
-              <div className="device-row" key={s.id}>
-                <div>
-                  <strong>
-                    {s.current ? c.settings.profile : c.settings.sessions}
-                  </strong>
-                  <small>{s.user_agent.slice(0, 85)}</small>
-                  <time>{new Date(s.last_used_at).toLocaleDateString()}</time>
+              {calendar.data?.connected && (
+                <p className="form-hint">{c.settings.disconnectHint}</p>
+              )}
+              {calendar.data?.connected && (
+                <div className="button-row">
+                  <Button
+                    disabled={!online}
+                    onClick={() =>
+                      void action("/calendar/sync").catch(() => {})
+                    }
+                  >
+                    {c.settings.sync}
+                  </Button>
+                  {!calendar.data.can_publish && online && (
+                    <a
+                      className="button"
+                      href="/api/v1/calendar/connect?write=true"
+                    >
+                      {c.settings.write}
+                    </a>
+                  )}
+                  <Button
+                    disabled={!online}
+                    onClick={() =>
+                      void action("/calendar/disconnect").catch(() => {})
+                    }
+                  >
+                    {c.settings.disconnect}
+                  </Button>
                 </div>
-                <Button
-                  disabled={!online}
-                  onClick={() =>
-                    void action(
-                      `/me/sessions/${s.id}`,
-                      undefined,
-                      "DELETE",
-                    ).then(() => {
-                      if (s.current) window.location.assign("/welcome");
-                    })
-                  }
-                >
-                  {c.settings.revoke}
-                </Button>
-              </div>
-            ))}
-            <Button
-              disabled={!online}
-              onClick={() =>
-                void action("/me/sessions/revoke-all").then(() =>
-                  window.location.assign("/welcome"),
-                )
-              }
-            >
-              {c.settings.revokeAll}
-            </Button>
-          </section>
-          {usage.data && (
-            <section className="panel">
-              <h2>{c.settings.usage}</h2>
-              <div className="metric-line">
-                <span>{c.coach.calls}</span>
-                <strong>
-                  {usage.data.calls_used} / {usage.data.calls_limit}
-                </strong>
-              </div>
-              <div className="metric-line">
-                <span>{c.coach.resets}</span>
-                <strong>
-                  {new Date(usage.data.resets_at).toLocaleString(undefined, {
-                    timeZone: user.timezone,
-                    month: "short",
-                    day: "numeric",
-                    hour: "numeric",
-                    minute: "2-digit",
-                  })}
-                </strong>
-              </div>
+              )}
             </section>
-          )}
-          <section className="panel">
-            <h2>{c.settings.data}</h2>
-            <div className="button-row">
+          </Card>
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.settings.extension}</h2>
+              <p className="form-hint">{c.settings.pairHint}</p>
+              <Button
+                onClick={() =>
+                  void api<{ code: string }>("/ext/pair", "POST")
+                    .then((data) => setCode(data.code))
+                    .catch(setError)
+                }
+                disabled={!online}
+              >
+                {c.settings.pair}
+              </Button>
+              {code && (
+                <p role="status" className="pair-code">
+                  <span>{c.settings.pairCode}</span>
+                  {code}
+                </p>
+              )}
+              {tokens.data?.map((t) => (
+                <div className="device-row" key={t.id}>
+                  <span>{t.label || c.settings.extension}</span>
+                  <Button
+                    disabled={!online}
+                    onClick={() =>
+                      void action(
+                        `/ext/tokens/${t.id}`,
+                        undefined,
+                        "DELETE",
+                      ).catch(() => {})
+                    }
+                  >
+                    {c.settings.revoke}
+                  </Button>
+                </div>
+              ))}
+            </section>
+          </Card>
+          <BlocklistSettings />
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.settings.sessions}</h2>
+              {sessions.data?.map((s) => (
+                <div className="device-row" key={s.id}>
+                  <div>
+                    <strong>
+                      {s.current ? c.settings.profile : c.settings.sessions}
+                    </strong>
+                    <small>{s.user_agent.slice(0, 85)}</small>
+                    <time>{new Date(s.last_used_at).toLocaleDateString()}</time>
+                  </div>
+                  <Button
+                    disabled={!online}
+                    onClick={() =>
+                      void action(
+                        `/me/sessions/${s.id}`,
+                        undefined,
+                        "DELETE",
+                      ).then(() => {
+                        if (s.current) window.location.assign("/welcome");
+                      })
+                    }
+                  >
+                    {c.settings.revoke}
+                  </Button>
+                </div>
+              ))}
               <Button
                 disabled={!online}
                 onClick={() =>
-                  void api("/me/export")
-                    .then((data) => {
-                      const url = URL.createObjectURL(
-                        new Blob([JSON.stringify(data, null, 2)], {
-                          type: "application/json",
-                        }),
-                      );
-                      const anchor = document.createElement("a");
-                      anchor.href = url;
-                      anchor.download = "kairos-data.json";
-                      anchor.click();
-                      URL.revokeObjectURL(url);
-                    })
-                    .catch(setError)
+                  void action("/me/sessions/revoke-all").then(() =>
+                    window.location.assign("/welcome"),
+                  )
                 }
               >
-                {c.settings.export}
+                {c.settings.revokeAll}
               </Button>
-              <Button
-                className="danger"
-                disabled={!online}
-                onClick={() => {
-                  if (
-                    window.confirm(c.settings.deleteWarning) &&
-                    window.prompt(c.settings.deleteConfirm) === "DELETE"
-                  )
-                    void api("/me", "DELETE")
-                      .then(async () => {
-                        await clearPrivateData();
-                        client.clear();
-                        window.location.assign("/welcome");
+            </section>
+          </Card>
+          {usage.data && (
+            <Card asChild>
+              <section className="panel">
+                <h2>{c.settings.usage}</h2>
+                <div className="metric-line">
+                  <span>{c.coach.calls}</span>
+                  <strong>
+                    {usage.data.calls_used} / {usage.data.calls_limit}
+                  </strong>
+                </div>
+                <div className="metric-line">
+                  <span>{c.coach.resets}</span>
+                  <strong>
+                    {new Date(usage.data.resets_at).toLocaleString(undefined, {
+                      timeZone: user.timezone,
+                      month: "short",
+                      day: "numeric",
+                      hour: "numeric",
+                      minute: "2-digit",
+                    })}
+                  </strong>
+                </div>
+              </section>
+            </Card>
+          )}
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.settings.data}</h2>
+              <div className="button-row">
+                <Button
+                  disabled={!online}
+                  onClick={() =>
+                    void api("/me/export")
+                      .then((data) => {
+                        const url = URL.createObjectURL(
+                          new Blob([JSON.stringify(data, null, 2)], {
+                            type: "application/json",
+                          }),
+                        );
+                        const anchor = document.createElement("a");
+                        anchor.href = url;
+                        anchor.download = "kairos-data.json";
+                        anchor.click();
+                        URL.revokeObjectURL(url);
                       })
-                      .catch(setError);
-                }}
-              >
-                {c.settings.delete}
-              </Button>
-            </div>
-          </section>
+                      .catch(setError)
+                  }
+                >
+                  {c.settings.export}
+                </Button>
+                <Button
+                  className="danger"
+                  disabled={!online}
+                  onClick={() => {
+                    if (
+                      window.confirm(c.settings.deleteWarning) &&
+                      window.prompt(c.settings.deleteConfirm) === "DELETE"
+                    )
+                      void api("/me", "DELETE")
+                        .then(async () => {
+                          await clearPrivateData();
+                          client.clear();
+                          window.location.assign("/welcome");
+                        })
+                        .catch(setError);
+                  }}
+                >
+                  {c.settings.delete}
+                </Button>
+              </div>
+            </section>
+          </Card>
         </div>
       </div>
     </>
@@ -437,67 +455,69 @@ function SeasonSettings() {
   const [start, setStart] = useState(dateKey());
   const [end, setEnd] = useState(addDays(dateKey(), 83));
   return (
-    <section className="panel">
-      <h2>{c.goals.form.season}</h2>
-      {seasons.data?.map((s) => (
-        <div className="metric-line" key={s.id}>
-          <strong>{s.name}</strong>
-          <span>
-            {s.start_date} — {s.end_date}
-          </span>
-        </div>
-      ))}
-      <details className="settings-details">
-        <summary>{c.goals.form.newSeason}</summary>
-        <SubmitForm
-          onSubmit={async () => {
-            await api("/seasons", "POST", {
-              name,
-              start_date: start,
-              end_date: end,
-              status: "active",
-            });
-            await client.invalidateQueries();
-            setName("");
-          }}
-        >
-          {(busy) => (
-            <>
-              <Field label={c.goals.form.seasonName}>
-                <input
-                  value={name}
-                  required
-                  onChange={(e) => setName(e.target.value)}
-                  disabled={!online}
-                />
-              </Field>
-              <div className="form-grid">
-                <Field label={c.goals.form.seasonStart}>
-                  <input
-                    type="date"
-                    value={start}
+    <Card asChild>
+      <section className="panel">
+        <h2>{c.goals.form.season}</h2>
+        {seasons.data?.map((s) => (
+          <div className="metric-line" key={s.id}>
+            <strong>{s.name}</strong>
+            <span>
+              {s.start_date} — {s.end_date}
+            </span>
+          </div>
+        ))}
+        <details className="settings-details">
+          <summary>{c.goals.form.newSeason}</summary>
+          <SubmitForm
+            onSubmit={async () => {
+              await api("/seasons", "POST", {
+                name,
+                start_date: start,
+                end_date: end,
+                status: "active",
+              });
+              await client.invalidateQueries();
+              setName("");
+            }}
+          >
+            {(busy) => (
+              <>
+                <Field label={c.goals.form.seasonName}>
+                  <Input
+                    value={name}
                     required
-                    onChange={(e) => setStart(e.target.value)}
+                    onChange={(e) => setName(e.target.value)}
                     disabled={!online}
                   />
                 </Field>
-                <Field label={c.goals.form.seasonEnd}>
-                  <input
-                    type="date"
-                    value={end}
-                    min={start}
-                    required
-                    onChange={(e) => setEnd(e.target.value)}
-                    disabled={!online}
-                  />
-                </Field>
-              </div>
-              <Button disabled={busy || !online}>{c.add}</Button>
-            </>
-          )}
-        </SubmitForm>
-      </details>
-    </section>
+                <div className="form-grid">
+                  <Field label={c.goals.form.seasonStart}>
+                    <Input
+                      type="date"
+                      value={start}
+                      required
+                      onChange={(e) => setStart(e.target.value)}
+                      disabled={!online}
+                    />
+                  </Field>
+                  <Field label={c.goals.form.seasonEnd}>
+                    <Input
+                      type="date"
+                      value={end}
+                      min={start}
+                      required
+                      onChange={(e) => setEnd(e.target.value)}
+                      disabled={!online}
+                    />
+                  </Field>
+                </div>
+                <Button disabled={busy || !online}>{c.add}</Button>
+              </>
+            )}
+          </SubmitForm>
+        </details>
+      </section>
+    </Card>
   );
 }
 function BlocklistSettings() {
@@ -511,48 +531,50 @@ function BlocklistSettings() {
   const [saved, setSaved] = useState(false);
   const list = lists.data?.find((b) => b.is_default) || lists.data?.[0];
   return (
-    <section className="panel">
-      <h2>{c.focus.blocklist}</h2>
-      <SubmitForm
-        onSubmit={async () => {
-          await api(
-            list ? `/blocklists/${list.id}` : "/blocklists",
-            list ? "PATCH" : "POST",
-            {
-              name: c.focus.blocklist,
-              domains: (text ?? list?.domains.join("\n") ?? "")
-                .split("\n")
-                .map((s) => s.trim())
-                .filter(Boolean),
-              is_default: true,
-            },
-          );
-          await client.invalidateQueries();
-          setSaved(true);
-        }}
-      >
-        {(busy) => (
-          <>
-            <Field label={c.focus.blocklist} hint={c.focus.blocklistHint}>
-              <textarea
-                rows={4}
-                value={text ?? list?.domains.join("\n") ?? ""}
-                onChange={(e) => {
-                  setText(e.target.value);
-                  setSaved(false);
-                }}
-                disabled={!online}
-              />
-            </Field>
-            <Button disabled={busy || !online}>{c.save}</Button>
-            {saved && (
-              <span role="status" className="save-note">
-                {c.saved}
-              </span>
-            )}
-          </>
-        )}
-      </SubmitForm>
-    </section>
+    <Card asChild>
+      <section className="panel">
+        <h2>{c.focus.blocklist}</h2>
+        <SubmitForm
+          onSubmit={async () => {
+            await api(
+              list ? `/blocklists/${list.id}` : "/blocklists",
+              list ? "PATCH" : "POST",
+              {
+                name: c.focus.blocklist,
+                domains: (text ?? list?.domains.join("\n") ?? "")
+                  .split("\n")
+                  .map((s) => s.trim())
+                  .filter(Boolean),
+                is_default: true,
+              },
+            );
+            await client.invalidateQueries();
+            setSaved(true);
+          }}
+        >
+          {(busy) => (
+            <>
+              <Field label={c.focus.blocklist} hint={c.focus.blocklistHint}>
+                <Textarea
+                  rows={4}
+                  value={text ?? list?.domains.join("\n") ?? ""}
+                  onChange={(e) => {
+                    setText(e.target.value);
+                    setSaved(false);
+                  }}
+                  disabled={!online}
+                />
+              </Field>
+              <Button disabled={busy || !online}>{c.save}</Button>
+              {saved && (
+                <span role="status" className="save-note">
+                  {c.saved}
+                </span>
+              )}
+            </>
+          )}
+        </SubmitForm>
+      </section>
+    </Card>
   );
 }

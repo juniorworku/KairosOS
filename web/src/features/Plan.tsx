@@ -20,7 +20,10 @@ import type {
   Task,
 } from "../api/agenda";
 import { addDays, clock, dateKey, weekStart } from "../lib/time";
-import { Button } from "../components/ui/Button";
+import { Button } from "../components/primitives/button";
+import { Card } from "../components/primitives/card";
+import { Badge } from "../components/primitives/badge";
+import { Input } from "../components/primitives/input";
 import { Empty, Field, Notice, SubmitForm } from "../components/ui/Forms";
 import { AgendaEditor, type AgendaEditorSelection } from "./AgendaEditor";
 import { AgendaTasks } from "./AgendaTasks";
@@ -47,7 +50,7 @@ export function Plan() {
   const [view, setView] = useState<"calendar" | "list">("calendar");
   const [mobile, setMobile] = useState(window.innerWidth < 700);
   const calendarRef = useRef<FullCalendar>(null);
-  const calendarContainer = useRef<HTMLElement>(null);
+  const calendarContainer = useRef<HTMLDivElement>(null);
   useEffect(() => {
     const resize = () => setMobile(window.innerWidth < 700);
     window.addEventListener("resize", resize);
@@ -89,6 +92,11 @@ export function Plan() {
     (block) => block.status === "accepted",
   );
   async function refresh() {
+    // Invalidation reuses an initial in-flight read when it has no cached data.
+    // Cancel that snapshot first so a pre-write empty week cannot hide saved blocks.
+    await client.cancelQueries({
+      predicate: (query) => query.queryKey[0] === user!.id,
+    });
     await client.invalidateQueries();
   }
   async function mutate(path: string, body?: unknown, method = "POST") {
@@ -238,6 +246,7 @@ export function Plan() {
         <h1>{c.plan.title}</h1>
         <div className="header-actions agenda-header-actions">
           <Button
+            variant="outline"
             type="button"
             disabled={!online || pending}
             onClick={() => setEditing({ kind: "event" })}
@@ -246,6 +255,7 @@ export function Plan() {
             {a.addEvent}
           </Button>
           <Button
+            variant="outline"
             type="button"
             disabled={!online || pending}
             onClick={() => setEditing({ kind: "block" })}
@@ -253,8 +263,9 @@ export function Plan() {
             {a.scheduleAction}
           </Button>
           <Button
+            variant="default"
             type="button"
-            className="primary"
+
             disabled={!online || pending}
             onClick={() => void draft()}
           >
@@ -265,6 +276,8 @@ export function Plan() {
       <div className="plan-toolbar">
         <div className="week-nav">
           <Button
+            variant="outline"
+            size="icon"
             type="button"
             aria-label={c.plan.previous}
             onClick={() => {
@@ -279,6 +292,8 @@ export function Plan() {
             {week} — {addDays(week, 6)}
           </span>
           <Button
+            variant="outline"
+            size="icon"
             type="button"
             aria-label={c.plan.next}
             onClick={() => {
@@ -290,6 +305,7 @@ export function Plan() {
             <ChevronRight size={16} />
           </Button>
           <Button
+            variant="outline"
             type="button"
             onClick={() => setDay(dateKey(new Date(), timezone))}
           >
@@ -298,6 +314,7 @@ export function Plan() {
         </div>
         <div className="segmented">
           <Button
+            variant={view === "calendar" ? "secondary" : "ghost"}
             type="button"
             aria-pressed={view === "calendar"}
             onClick={() => setView("calendar")}
@@ -305,6 +322,7 @@ export function Plan() {
             {c.plan.calendar}
           </Button>
           <Button
+            variant={view === "list" ? "secondary" : "ghost"}
             type="button"
             aria-pressed={view === "list"}
             onClick={() => setView("list")}
@@ -322,9 +340,9 @@ export function Plan() {
         <div className="save-note agenda-outcome" role="status">
           <p>{notice}</p>
           {draftResult?.empty_reason === "no_goals" && (
-            <Link className="button" to="/goals/new">
-              {c.goals.new}
-            </Link>
+            <Button variant="outline" asChild>
+              <Link to="/goals/new">{c.goals.new}</Link>
+            </Button>
           )}
         </div>
       )}
@@ -339,6 +357,7 @@ export function Plan() {
             {proposed.length} {c.plan.proposed.toLowerCase()}
           </span>
           <Button
+            variant="outline"
             type="button"
             disabled={!online || pending}
             onClick={() =>
@@ -355,6 +374,7 @@ export function Plan() {
         <div className="draft-toolbar">
           <p>{c.plan.approval}</p>
           <Button
+            variant="outline"
             type="button"
             disabled={!online || pending}
             onClick={() => {
@@ -382,9 +402,10 @@ export function Plan() {
         </div>
       )}
       <div className="agenda-layout">
-        <section
+        <Card
           ref={calendarContainer}
-          className="calendar-panel agenda-calendar"
+          role="region"
+          className="calendar-panel agenda-calendar p-0"
           aria-label={c.plan.calendar}
         >
           {feed.isPending && (
@@ -436,6 +457,29 @@ export function Plan() {
                 return item?.source !== "block" || !drop.allDay;
               }}
               events={[...events, ...ghosts, ...unavailable]}
+              eventContent={(info) => {
+                const item = info.event.extendedProps.item as
+                  AgendaItem | undefined;
+                return (
+                  <div className="agenda-event-content">
+                    {info.timeText && (
+                      <span className="agenda-event-time">{info.timeText}</span>
+                    )}
+                    <strong>{info.event.title}</strong>
+                    {item && (
+                      <small>
+                        {item.source === "block"
+                          ? c.plan[item.status as keyof typeof c.plan] ||
+                            item.status
+                          : item.source === "google"
+                            ? a.google
+                            : a.event}
+                        {item.recurring ? ` · ${a.recurring}` : ""}
+                      </small>
+                    )}
+                  </div>
+                );
+              }}
               select={(info) => {
                 if (online)
                   setEditing({
@@ -531,7 +575,7 @@ export function Plan() {
                       </small>
                     </span>
                     <strong>{item.title}</strong>
-                    <span className="status-label">
+                    <Badge variant="outline" className="agenda-list-status">
                       {item.source === "google"
                         ? a.google
                         : item.source === "local"
@@ -539,7 +583,7 @@ export function Plan() {
                           : c.plan[item.status as keyof typeof c.plan] ||
                             item.status}
                       {item.recurring ? ` · ${a.recurring}` : ""}
-                    </span>
+                    </Badge>
                   </button>
                 ))}
             </div>
@@ -548,7 +592,7 @@ export function Plan() {
               <p>{a.emptyWeekHint}</p>
             </Empty>
           ) : null}
-        </section>
+        </Card>
         <AgendaTasks
           tasks={tasks.data || []}
           goals={goals.data || []}
@@ -565,10 +609,11 @@ export function Plan() {
         online={online}
         onChange={refresh}
       />
-      <section className="panel agenda-calendar-permissions">
+      <Card className="agenda-calendar-permissions p-5">
         <Notice error={calendar.error} />
         {(calendar.data?.details_enabled || calendar.data?.can_read_events) && (
           <Button
+            variant="outline"
             type="button"
             disabled={!online || pending}
             onClick={() =>
@@ -587,22 +632,26 @@ export function Plan() {
           !(calendar.data.details_enabled || calendar.data.can_read_events) && (
             <>
               <p className="form-hint">{a.detailsHint}</p>
-              <a
-                className={`button ${online ? "" : "disabled-link"}`}
-                aria-disabled={!online}
-                href={
-                  online ? "/api/v1/calendar/connect?details=true" : undefined
-                }
-              >
-                {a.detailsConsent}
-              </a>
+              <Button variant="outline" asChild>
+                <a
+                  className={!online ? "disabled-link" : undefined}
+                  aria-disabled={!online}
+                  tabIndex={!online ? -1 : undefined}
+                  href={
+                    online ? "/api/v1/calendar/connect?details=true" : undefined
+                  }
+                >
+                  {a.detailsConsent}
+                </a>
+              </Button>
             </>
           )}
-      </section>
-      <section className="panel agenda-busy">
+      </Card>
+      <Card className="agenda-busy p-5">
         <div className="panel-heading">
           <h2>{a.busy}</h2>
           <Button
+            variant="outline"
             type="button"
             disabled={!online}
             onClick={() => setShowBusy(!showBusy)}
@@ -640,8 +689,9 @@ export function Plan() {
                 {clock(item.start_at, timezone)}–{clock(item.end_at, timezone)}
               </span>
               <Button
+                variant="outline"
                 type="button"
-                className="icon-button"
+                size="icon"
                 disabled={!online || pending}
                 aria-label={c.plan.clearBusy}
                 onClick={() =>
@@ -652,7 +702,7 @@ export function Plan() {
               </Button>
             </div>
           ))}
-      </section>
+      </Card>
       {editing && (
         <AgendaEditor
           selection={editing}
@@ -696,7 +746,7 @@ function BusyForm({
       {(pending) => (
         <>
           <Field label={c.plan.start}>
-            <input
+            <Input
               type="datetime-local"
               required
               value={start}
@@ -705,7 +755,7 @@ function BusyForm({
             />
           </Field>
           <Field label={c.plan.end}>
-            <input
+            <Input
               type="datetime-local"
               min={start}
               required
@@ -714,7 +764,7 @@ function BusyForm({
               onChange={(e) => setEnd(e.target.value)}
             />
           </Field>
-          <Button className="primary" disabled={!online || pending}>
+          <Button variant="default" disabled={!online || pending}>
             {c.add}
           </Button>
         </>

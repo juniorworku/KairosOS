@@ -1,3 +1,7 @@
+import { Input } from "../components/primitives/input";
+import { Textarea } from "../components/primitives/textarea";
+import { NativeSelect } from "../components/primitives/native-select";
+import { Card } from "../components/primitives/card";
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
@@ -51,17 +55,21 @@ export function Goals() {
         <p role="status">{c.loading}</p>
       ) : goals.data?.filter((g) => filter === "all" || g.status === filter)
           .length ? (
-        <section className="panel goal-rows">
-          {goals.data
-            .filter((g) => filter === "all" || g.status === filter)
-            .map((goal) => (
-              <GoalRow
-                key={goal.id}
-                goal={goal}
-                trajectory={trajectory.data?.find((t) => t.goal_id === goal.id)}
-              />
-            ))}
-        </section>
+        <Card asChild>
+          <section className="panel goal-rows">
+            {goals.data
+              .filter((g) => filter === "all" || g.status === filter)
+              .map((goal) => (
+                <GoalRow
+                  key={goal.id}
+                  goal={goal}
+                  trajectory={trajectory.data?.find(
+                    (t) => t.goal_id === goal.id,
+                  )}
+                />
+              ))}
+          </section>
+        </Card>
       ) : (
         <Empty title={c.goals.empty} />
       )}
@@ -135,149 +143,163 @@ export function GoalDetail() {
       )}
       <div className="detail-columns">
         <div>
-          <section className="panel">
-            <h2>{c.goals.actions}</h2>
-            {g.actions.map((a) => (
-              <div className="action-row" key={a.id}>
-                <div>
-                  <strong>{a.title}</strong>
-                  <small>
-                    {a.kind === "project" && a.total_minutes_estimate
-                      ? `${minutes(a.total_minutes_estimate)} · ${c.goals.form.project}`
-                      : `${minutes(a.weekly_minutes_target)} / ${c.goals.form.weekly.toLowerCase().replace("minutes per ", "")}`}
-                  </small>
-                </div>
-                <span>{minutes(a.preferred_block_minutes)}</span>
-              </div>
-            ))}
-          </section>
-          <section className="panel">
-            <h2>{c.goals.why}</h2>
-            {[g.why_facts, g.why_feelings, g.why_function]
-              .filter(Boolean)
-              .map((text, i) => (
-                <p key={i} className="body-text">
-                  {text}
-                </p>
-              ))}
-            {g.anti_goals.length > 0 && (
-              <>
-                <h3>{c.goals.form.protect}</h3>
-                <ul className="plain-list">
-                  {g.anti_goals.map((text, i) => (
-                    <li key={i}>{text}</li>
-                  ))}
-                </ul>
-              </>
-            )}
-          </section>
-          {g.obstacles.length > 0 && (
+          <Card asChild>
             <section className="panel">
-              <h2>{c.goals.obstacles}</h2>
-              {g.obstacles.map((o, i) => (
-                <div key={i} className="obstacle-row">
-                  <strong>{o.risk_text}</strong>
-                  <p>
-                    <span>{c.goals.if}</span> {o.if_cue}
-                  </p>
-                  <p>
-                    <span>{c.goals.then}</span> {o.then_response}
-                  </p>
+              <h2>{c.goals.actions}</h2>
+              {g.actions.map((a) => (
+                <div className="action-row" key={a.id}>
+                  <div>
+                    <strong>{a.title}</strong>
+                    <small>
+                      {a.kind === "project" && a.total_minutes_estimate
+                        ? `${minutes(a.total_minutes_estimate)} · ${c.goals.form.project}`
+                        : `${minutes(a.weekly_minutes_target)} / ${c.goals.form.weekly.toLowerCase().replace("minutes per ", "")}`}
+                    </small>
+                  </div>
+                  <span>{minutes(a.preferred_block_minutes)}</span>
                 </div>
               ))}
             </section>
+          </Card>
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.goals.why}</h2>
+              {[g.why_facts, g.why_feelings, g.why_function]
+                .filter(Boolean)
+                .map((text, i) => (
+                  <p key={i} className="body-text">
+                    {text}
+                  </p>
+                ))}
+              {g.anti_goals.length > 0 && (
+                <>
+                  <h3>{c.goals.form.protect}</h3>
+                  <ul className="plain-list">
+                    {g.anti_goals.map((text, i) => (
+                      <li key={i}>{text}</li>
+                    ))}
+                  </ul>
+                </>
+              )}
+            </section>
+          </Card>
+          {g.obstacles.length > 0 && (
+            <Card asChild>
+              <section className="panel">
+                <h2>{c.goals.obstacles}</h2>
+                {g.obstacles.map((o, i) => (
+                  <div key={i} className="obstacle-row">
+                    <strong>{o.risk_text}</strong>
+                    <p>
+                      <span>{c.goals.if}</span> {o.if_cue}
+                    </p>
+                    <p>
+                      <span>{c.goals.then}</span> {o.then_response}
+                    </p>
+                  </div>
+                ))}
+              </section>
+            </Card>
           )}
         </div>
         <div>
-          <section className="panel">
-            <h2>{c.goals.checkin}</h2>
-            <SubmitForm
-              onSubmit={async () => {
-                const body = { metric_value: Number(value), note };
-                if (online) {
-                  await api(`/goals/${id}/checkins`, "POST", body);
-                  await client.invalidateQueries();
-                  setNotice(c.saved);
-                } else {
-                  await queueWrite(`/goals/${id}/checkins`, body);
-                  setNotice(c.queued);
-                }
-                setNote("");
-              }}
-            >
-              {(busy) => (
-                <>
-                  <Field label={c.goals.value}>
-                    <input
-                      type="number"
-                      step="any"
-                      required
-                      value={value}
-                      onChange={(e) => setValue(e.target.value)}
-                    />
-                  </Field>
-                  <Field label={c.goals.note}>
-                    <textarea
-                      rows={2}
-                      value={note}
-                      onChange={(e) => setNote(e.target.value)}
-                    />
-                  </Field>
-                  <Button className="primary" disabled={busy}>
-                    {busy ? c.saving : c.save}
-                  </Button>
-                  <p className="save-note" role="status">
-                    {notice}
-                  </p>
-                </>
-              )}
-            </SubmitForm>
-          </section>
-          {trajectory && (
+          <Card asChild>
             <section className="panel">
-              <h2>{c.today.progress}</h2>
-              <div className="metric-line">
-                <span>{c.goals.expected}</span>
-                <strong>
-                  {Math.round(trajectory.expected_fraction * 100)}%
-                </strong>
-              </div>
-              <div className="metric-line">
-                <span>{c.goals.actual}</span>
-                <strong>{Math.round(trajectory.actual_fraction * 100)}%</strong>
-              </div>
-              {trajectory.projected_finish && (
-                <div className="metric-line">
-                  <span>{c.goals.projected}</span>
-                  <strong>{trajectory.projected_finish}</strong>
-                </div>
-              )}
-              <ul className="plain-list">
-                {trajectory.reasons.map((r, i) => (
-                  <li key={i}>{r}</li>
-                ))}
-              </ul>
+              <h2>{c.goals.checkin}</h2>
+              <SubmitForm
+                onSubmit={async () => {
+                  const body = { metric_value: Number(value), note };
+                  if (online) {
+                    await api(`/goals/${id}/checkins`, "POST", body);
+                    await client.invalidateQueries();
+                    setNotice(c.saved);
+                  } else {
+                    await queueWrite(`/goals/${id}/checkins`, body);
+                    setNotice(c.queued);
+                  }
+                  setNote("");
+                }}
+              >
+                {(busy) => (
+                  <>
+                    <Field label={c.goals.value}>
+                      <Input
+                        type="number"
+                        step="any"
+                        required
+                        value={value}
+                        onChange={(e) => setValue(e.target.value)}
+                      />
+                    </Field>
+                    <Field label={c.goals.note}>
+                      <Textarea
+                        rows={2}
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                      />
+                    </Field>
+                    <Button className="primary" disabled={busy}>
+                      {busy ? c.saving : c.save}
+                    </Button>
+                    <p className="save-note" role="status">
+                      {notice}
+                    </p>
+                  </>
+                )}
+              </SubmitForm>
             </section>
-          )}
-          <section className="panel">
-            <h2>{c.goals.checkins}</h2>
-            {g.checkins?.length ? (
-              g.checkins
-                .slice()
-                .reverse()
-                .map((item) => (
-                  <div className="checkin-row" key={item.id}>
-                    <strong>
-                      {item.metric_value} {g.metric_unit}
-                    </strong>
-                    <time>{item.recorded_at.slice(0, 10)}</time>
-                    {item.note && <p>{item.note}</p>}
+          </Card>
+          {trajectory && (
+            <Card asChild>
+              <section className="panel">
+                <h2>{c.today.progress}</h2>
+                <div className="metric-line">
+                  <span>{c.goals.expected}</span>
+                  <strong>
+                    {Math.round(trajectory.expected_fraction * 100)}%
+                  </strong>
+                </div>
+                <div className="metric-line">
+                  <span>{c.goals.actual}</span>
+                  <strong>
+                    {Math.round(trajectory.actual_fraction * 100)}%
+                  </strong>
+                </div>
+                {trajectory.projected_finish && (
+                  <div className="metric-line">
+                    <span>{c.goals.projected}</span>
+                    <strong>{trajectory.projected_finish}</strong>
                   </div>
-                ))
-            ) : (
-              <p className="muted">{c.goals.noCheckins}</p>
-            )}
-          </section>
+                )}
+                <ul className="plain-list">
+                  {trajectory.reasons.map((r, i) => (
+                    <li key={i}>{r}</li>
+                  ))}
+                </ul>
+              </section>
+            </Card>
+          )}
+          <Card asChild>
+            <section className="panel">
+              <h2>{c.goals.checkins}</h2>
+              {g.checkins?.length ? (
+                g.checkins
+                  .slice()
+                  .reverse()
+                  .map((item) => (
+                    <div className="checkin-row" key={item.id}>
+                      <strong>
+                        {item.metric_value} {g.metric_unit}
+                      </strong>
+                      <time>{item.recorded_at.slice(0, 10)}</time>
+                      {item.note && <p>{item.note}</p>}
+                    </div>
+                  ))
+              ) : (
+                <p className="muted">{c.goals.noCheckins}</p>
+              )}
+            </section>
+          </Card>
           {online && (
             <div className="goal-controls">
               <Button
@@ -449,471 +471,486 @@ function Editor({ existing }: { existing?: Goal }) {
             </li>
           ))}
         </ol>
-        <form
-          className="panel wizard-panel"
-          onSubmit={(e) => {
-            e.preventDefault();
-            void submit();
-          }}
-        >
-          <h2>{c.goals.form.steps[step]}</h2>
-          <Notice error={error} />
-          <fieldset disabled={!online || busy}>
-            <legend className="sr-only">{c.goals.form.steps[step]}</legend>
-            {step === 0 && (
-              <>
-                <Field label={c.goals.form.title}>
-                  <input
-                    value={draft.title}
-                    onChange={(e) => set("title", e.target.value)}
-                    required
-                    maxLength={200}
-                  />
-                </Field>
-                <Field label={c.goals.form.outcome}>
-                  <textarea
-                    rows={2}
-                    value={draft.outcome_statement}
-                    onChange={(e) => set("outcome_statement", e.target.value)}
-                  />
-                </Field>
-                <div className="form-grid">
-                  <Field label={c.goals.form.metric}>
-                    <input
-                      value={draft.metric_name}
-                      onChange={(e) => set("metric_name", e.target.value)}
+        <Card asChild>
+          <form
+            className="panel wizard-panel"
+            onSubmit={(e) => {
+              e.preventDefault();
+              void submit();
+            }}
+          >
+            <h2>{c.goals.form.steps[step]}</h2>
+            <Notice error={error} />
+            <fieldset disabled={!online || busy}>
+              <legend className="sr-only">{c.goals.form.steps[step]}</legend>
+              {step === 0 && (
+                <>
+                  <Field label={c.goals.form.title}>
+                    <Input
+                      value={draft.title}
+                      onChange={(e) => set("title", e.target.value)}
                       required
+                      maxLength={200}
                     />
                   </Field>
-                  <Field label={c.goals.form.unit}>
-                    <input
-                      value={draft.metric_unit}
-                      onChange={(e) => set("metric_unit", e.target.value)}
-                      required
+                  <Field label={c.goals.form.outcome}>
+                    <Textarea
+                      rows={2}
+                      value={draft.outcome_statement}
+                      onChange={(e) => set("outcome_statement", e.target.value)}
                     />
                   </Field>
-                  <Field label={c.goals.form.start}>
-                    <input
-                      type="number"
-                      step="any"
-                      value={draft.metric_start}
-                      onChange={(e) =>
-                        set("metric_start", Number(e.target.value))
-                      }
-                      required
-                    />
-                  </Field>
-                  <Field label={c.goals.form.target}>
-                    <input
-                      type="number"
-                      step="any"
-                      value={draft.metric_target}
-                      onChange={(e) =>
-                        set("metric_target", Number(e.target.value))
-                      }
-                      required
-                    />
-                  </Field>
-                  <Field label={c.goals.form.startDate}>
-                    <input
-                      type="date"
-                      value={draft.start_date}
-                      onChange={(e) => set("start_date", e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <Field label={c.goals.form.due}>
-                    <input
-                      type="date"
-                      min={addDays(draft.start_date, 1)}
-                      value={draft.target_date}
-                      onChange={(e) => set("target_date", e.target.value)}
-                      required
-                    />
-                  </Field>
-                  <Field label={c.goals.form.priority}>
-                    <select
-                      value={draft.priority}
-                      onChange={(e) => set("priority", Number(e.target.value))}
-                    >
-                      {[5, 4, 3, 2, 1].map((n) => (
-                        <option key={n} value={n}>
-                          {n}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                  <Field label={c.goals.form.season}>
-                    <select
-                      value={draft.season_id || ""}
-                      onChange={(e) => set("season_id", e.target.value || null)}
-                    >
-                      <option value="">{c.goals.form.noSeason}</option>
-                      {seasons.data?.map((s) => (
-                        <option value={s.id} key={s.id}>
-                          {s.name}
-                        </option>
-                      ))}
-                    </select>
-                  </Field>
-                </div>
-              </>
-            )}
-            {step === 1 && (
-              <>
-                {(["why_facts", "why_feelings", "why_function"] as const).map(
-                  (key, i) => (
-                    <Field
-                      key={key}
-                      label={
-                        [
-                          c.goals.form.facts,
-                          c.goals.form.feelings,
-                          c.goals.form.function,
-                        ][i]
-                      }
-                    >
-                      <textarea
-                        rows={3}
-                        value={draft[key]}
-                        onChange={(e) => set(key, e.target.value)}
+                  <div className="form-grid">
+                    <Field label={c.goals.form.metric}>
+                      <Input
+                        value={draft.metric_name}
+                        onChange={(e) => set("metric_name", e.target.value)}
+                        required
                       />
                     </Field>
-                  ),
-                )}
-              </>
-            )}
-            {step === 2 && (
-              <Field
-                label={c.goals.form.protect}
-                hint={c.goals.form.protectHint}
-              >
-                <textarea
-                  rows={6}
-                  value={draft.anti_goals.join("\n")}
-                  onChange={(e) =>
-                    set("anti_goals", e.target.value.split("\n"))
-                  }
-                />
-              </Field>
-            )}
-            {step === 3 && (
-              <>
-                <p className="form-hint">
-                  {c.goals.form.actionCap} ·{" "}
-                  {minutes(
-                    draft.actions.reduce(
-                      (n, a) => n + a.weekly_minutes_target,
-                      0,
+                    <Field label={c.goals.form.unit}>
+                      <Input
+                        value={draft.metric_unit}
+                        onChange={(e) => set("metric_unit", e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Field label={c.goals.form.start}>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={draft.metric_start}
+                        onChange={(e) =>
+                          set("metric_start", Number(e.target.value))
+                        }
+                        required
+                      />
+                    </Field>
+                    <Field label={c.goals.form.target}>
+                      <Input
+                        type="number"
+                        step="any"
+                        value={draft.metric_target}
+                        onChange={(e) =>
+                          set("metric_target", Number(e.target.value))
+                        }
+                        required
+                      />
+                    </Field>
+                    <Field label={c.goals.form.startDate}>
+                      <Input
+                        type="date"
+                        value={draft.start_date}
+                        onChange={(e) => set("start_date", e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Field label={c.goals.form.due}>
+                      <Input
+                        type="date"
+                        min={addDays(draft.start_date, 1)}
+                        value={draft.target_date}
+                        onChange={(e) => set("target_date", e.target.value)}
+                        required
+                      />
+                    </Field>
+                    <Field label={c.goals.form.priority}>
+                      <NativeSelect
+                        value={draft.priority}
+                        onChange={(e) =>
+                          set("priority", Number(e.target.value))
+                        }
+                      >
+                        {[5, 4, 3, 2, 1].map((n) => (
+                          <option key={n} value={n}>
+                            {n}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                    <Field label={c.goals.form.season}>
+                      <NativeSelect
+                        value={draft.season_id || ""}
+                        onChange={(e) =>
+                          set("season_id", e.target.value || null)
+                        }
+                      >
+                        <option value="">{c.goals.form.noSeason}</option>
+                        {seasons.data?.map((s) => (
+                          <option value={s.id} key={s.id}>
+                            {s.name}
+                          </option>
+                        ))}
+                      </NativeSelect>
+                    </Field>
+                  </div>
+                </>
+              )}
+              {step === 1 && (
+                <>
+                  {(["why_facts", "why_feelings", "why_function"] as const).map(
+                    (key, i) => (
+                      <Field
+                        key={key}
+                        label={
+                          [
+                            c.goals.form.facts,
+                            c.goals.form.feelings,
+                            c.goals.form.function,
+                          ][i]
+                        }
+                      >
+                        <Textarea
+                          rows={3}
+                          value={draft[key]}
+                          onChange={(e) => set(key, e.target.value)}
+                        />
+                      </Field>
                     ),
-                  )}{" "}
-                  /{" "}
-                  {c.goals.form.weekly
-                    .toLowerCase()
-                    .replace("minutes per ", "")}
-                </p>
-                {draft.actions.map((a, i) => (
-                  <div className="action-form" key={i}>
-                    <div className="subform-heading">
-                      <h3>
-                        {c.goals.form.action} {i + 1}
-                      </h3>
-                      {draft.actions.length > 1 && (
+                  )}
+                </>
+              )}
+              {step === 2 && (
+                <Field
+                  label={c.goals.form.protect}
+                  hint={c.goals.form.protectHint}
+                >
+                  <Textarea
+                    rows={6}
+                    value={draft.anti_goals.join("\n")}
+                    onChange={(e) =>
+                      set("anti_goals", e.target.value.split("\n"))
+                    }
+                  />
+                </Field>
+              )}
+              {step === 3 && (
+                <>
+                  <p className="form-hint">
+                    {c.goals.form.actionCap} ·{" "}
+                    {minutes(
+                      draft.actions.reduce(
+                        (n, a) => n + a.weekly_minutes_target,
+                        0,
+                      ),
+                    )}{" "}
+                    /{" "}
+                    {c.goals.form.weekly
+                      .toLowerCase()
+                      .replace("minutes per ", "")}
+                  </p>
+                  {draft.actions.map((a, i) => (
+                    <div className="action-form" key={i}>
+                      <div className="subform-heading">
+                        <h3>
+                          {c.goals.form.action} {i + 1}
+                        </h3>
+                        {draft.actions.length > 1 && (
+                          <Button
+                            type="button"
+                            aria-label={`${c.remove} ${c.goals.form.action} ${i + 1}`}
+                            className="icon-button"
+                            onClick={() =>
+                              set(
+                                "actions",
+                                draft.actions.filter((_, index) => i !== index),
+                              )
+                            }
+                          >
+                            <Trash2 size={16} />
+                          </Button>
+                        )}
+                      </div>
+                      <Field label={c.goals.form.actionTitle}>
+                        <Input
+                          required
+                          value={a.title}
+                          onChange={(e) => action(i, { title: e.target.value })}
+                        />
+                      </Field>
+                      <div className="form-grid">
+                        <Field label={c.goals.form.kind}>
+                          <NativeSelect
+                            value={a.kind}
+                            onChange={(e) =>
+                              action(i, {
+                                kind: e.target.value as Action["kind"],
+                                total_minutes_estimate:
+                                  e.target.value === "project"
+                                    ? a.total_minutes_estimate || 120
+                                    : null,
+                              })
+                            }
+                          >
+                            <option value="habit">{c.goals.form.habit}</option>
+                            <option value="project">
+                              {c.goals.form.project}
+                            </option>
+                          </NativeSelect>
+                        </Field>
+                        <Field
+                          label={
+                            a.total_minutes_estimate === null
+                              ? c.goals.form.weekly
+                              : c.goals.form.estimate
+                          }
+                        >
+                          <Input
+                            type="number"
+                            min={1}
+                            max={
+                              a.total_minutes_estimate === null
+                                ? 10080
+                                : undefined
+                            }
+                            step={1}
+                            required
+                            value={
+                              a.total_minutes_estimate === null
+                                ? a.weekly_minutes_target
+                                : (a.total_minutes_estimate ?? 120)
+                            }
+                            onChange={(e) =>
+                              action(
+                                i,
+                                a.total_minutes_estimate === null
+                                  ? {
+                                      weekly_minutes_target: Number(
+                                        e.target.value,
+                                      ),
+                                    }
+                                  : {
+                                      total_minutes_estimate: Number(
+                                        e.target.value,
+                                      ),
+                                    },
+                              )
+                            }
+                          />
+                        </Field>
+                        {a.kind === "project" && (
+                          <label className="checkbox project-estimate-toggle">
+                            <input
+                              type="checkbox"
+                              checked={a.total_minutes_estimate !== null}
+                              onChange={(e) =>
+                                action(i, {
+                                  total_minutes_estimate: e.target.checked
+                                    ? 120
+                                    : null,
+                                })
+                              }
+                            />
+                            {c.goals.form.finite}
+                          </label>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      set("actions", [...draft.actions, actionDefault()])
+                    }
+                    disabled={draft.actions.length >= 5}
+                  >
+                    <Plus size={15} />
+                    {c.goals.form.addAction}
+                  </Button>
+                </>
+              )}
+              {step === 4 && (
+                <>
+                  {(["confidence_pct", "follow_through_pct"] as const).map(
+                    (key, i) => (
+                      <Field
+                        key={key}
+                        label={`${i === 0 ? c.goals.form.confidence : c.goals.form.follow}: ${draft[key]}%`}
+                      >
+                        <input
+                          type="range"
+                          min={0}
+                          max={100}
+                          step={5}
+                          value={draft[key]}
+                          onChange={(e) => set(key, Number(e.target.value))}
+                        />
+                      </Field>
+                    ),
+                  )}
+                  {(draft.confidence_pct < 80 ||
+                    draft.follow_through_pct < 80) && (
+                    <p className="warning-note">{c.goals.form.simplify}</p>
+                  )}
+                </>
+              )}
+              {step === 5 && (
+                <>
+                  {draft.obstacles.map((o, i) => (
+                    <div className="action-form" key={i}>
+                      <div className="subform-heading">
+                        <h3>
+                          {c.goals.form.risk} {i + 1}
+                        </h3>
                         <Button
                           type="button"
-                          aria-label={`${c.remove} ${c.goals.form.action} ${i + 1}`}
                           className="icon-button"
+                          aria-label={`${c.remove} ${c.goals.form.risk} ${i + 1}`}
                           onClick={() =>
                             set(
-                              "actions",
-                              draft.actions.filter((_, index) => i !== index),
+                              "obstacles",
+                              draft.obstacles.filter((_, index) => index !== i),
                             )
                           }
                         >
                           <Trash2 size={16} />
                         </Button>
+                      </div>
+                      {(["risk_text", "if_cue", "then_response"] as const).map(
+                        (key, j) => (
+                          <Field
+                            key={key}
+                            label={
+                              [
+                                c.goals.form.risk,
+                                c.goals.form.cue,
+                                c.goals.form.response,
+                              ][j]
+                            }
+                          >
+                            <Input
+                              value={o[key]}
+                              onChange={(e) =>
+                                set(
+                                  "obstacles",
+                                  draft.obstacles.map((o, index) =>
+                                    index === i
+                                      ? { ...o, [key]: e.target.value }
+                                      : o,
+                                  ),
+                                )
+                              }
+                              required
+                            />
+                          </Field>
+                        ),
                       )}
                     </div>
-                    <Field label={c.goals.form.actionTitle}>
-                      <input
-                        required
-                        value={a.title}
-                        onChange={(e) => action(i, { title: e.target.value })}
-                      />
-                    </Field>
-                    <div className="form-grid">
-                      <Field label={c.goals.form.kind}>
-                        <select
-                          value={a.kind}
-                          onChange={(e) =>
-                            action(i, {
-                              kind: e.target.value as Action["kind"],
-                              total_minutes_estimate:
-                                e.target.value === "project"
-                                  ? a.total_minutes_estimate || 120
-                                  : null,
-                            })
-                          }
-                        >
-                          <option value="habit">{c.goals.form.habit}</option>
-                          <option value="project">
-                            {c.goals.form.project}
-                          </option>
-                        </select>
-                      </Field>
-                      <Field
-                        label={
-                          a.total_minutes_estimate === null
-                            ? c.goals.form.weekly
-                            : c.goals.form.estimate
-                        }
-                      >
-                        <input
-                          type="number"
-                          min={1}
-                          max={a.total_minutes_estimate === null ? 10080 : undefined}
-                          step={1}
-                          required
-                          value={
-                            a.total_minutes_estimate === null
-                              ? a.weekly_minutes_target
-                              : (a.total_minutes_estimate ?? 120)
-                          }
-                          onChange={(e) =>
-                            action(
-                              i,
-                              a.total_minutes_estimate === null
-                                ? {
-                                    weekly_minutes_target: Number(
-                                      e.target.value,
-                                    ),
-                                  }
-                                : {
-                                    total_minutes_estimate: Number(
-                                      e.target.value,
-                                    ),
-                                  },
-                            )
-                          }
-                        />
-                      </Field>
-                      {a.kind === "project" && (
-                        <label className="checkbox project-estimate-toggle">
-                          <input
-                            type="checkbox"
-                            checked={a.total_minutes_estimate !== null}
+                  ))}
+                  <Button
+                    type="button"
+                    onClick={() =>
+                      set("obstacles", [
+                        ...draft.obstacles,
+                        { risk_text: "", if_cue: "", then_response: "" },
+                      ])
+                    }
+                    disabled={draft.obstacles.length >= 5}
+                  >
+                    <Plus size={15} />
+                    {c.goals.form.addObstacle}
+                  </Button>
+                </>
+              )}
+              {step === 6 && (
+                <>
+                  <p className="form-hint">{c.goals.form.system}</p>
+                  {draft.actions.map((a, i) => (
+                    <div key={i} className="action-form">
+                      <h3>{a.title}</h3>
+                      <div className="form-grid">
+                        <Field label={c.goals.form.block}>
+                          <NativeSelect
+                            value={a.preferred_block_minutes}
                             onChange={(e) =>
                               action(i, {
-                                total_minutes_estimate: e.target.checked
-                                  ? 120
-                                  : null,
+                                preferred_block_minutes: Number(e.target.value),
+                                min_block_minutes: Math.min(
+                                  30,
+                                  Number(e.target.value),
+                                ),
+                                max_block_minutes: Math.max(
+                                  120,
+                                  Number(e.target.value),
+                                ),
                               })
                             }
-                          />
-                          {c.goals.form.finite}
-                        </label>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  onClick={() =>
-                    set("actions", [...draft.actions, actionDefault()])
-                  }
-                  disabled={draft.actions.length >= 5}
-                >
-                  <Plus size={15} />
-                  {c.goals.form.addAction}
-                </Button>
-              </>
-            )}
-            {step === 4 && (
-              <>
-                {(["confidence_pct", "follow_through_pct"] as const).map(
-                  (key, i) => (
-                    <Field
-                      key={key}
-                      label={`${i === 0 ? c.goals.form.confidence : c.goals.form.follow}: ${draft[key]}%`}
-                    >
-                      <input
-                        type="range"
-                        min={0}
-                        max={100}
-                        step={5}
-                        value={draft[key]}
-                        onChange={(e) => set(key, Number(e.target.value))}
-                      />
-                    </Field>
-                  ),
-                )}
-                {(draft.confidence_pct < 80 ||
-                  draft.follow_through_pct < 80) && (
-                  <p className="warning-note">{c.goals.form.simplify}</p>
-                )}
-              </>
-            )}
-            {step === 5 && (
-              <>
-                {draft.obstacles.map((o, i) => (
-                  <div className="action-form" key={i}>
-                    <div className="subform-heading">
-                      <h3>
-                        {c.goals.form.risk} {i + 1}
-                      </h3>
-                      <Button
-                        type="button"
-                        className="icon-button"
-                        aria-label={`${c.remove} ${c.goals.form.risk} ${i + 1}`}
-                        onClick={() =>
-                          set(
-                            "obstacles",
-                            draft.obstacles.filter((_, index) => index !== i),
-                          )
-                        }
-                      >
-                        <Trash2 size={16} />
-                      </Button>
-                    </div>
-                    {(["risk_text", "if_cue", "then_response"] as const).map(
-                      (key, j) => (
-                        <Field
-                          key={key}
-                          label={
-                            [
-                              c.goals.form.risk,
-                              c.goals.form.cue,
-                              c.goals.form.response,
-                            ][j]
-                          }
-                        >
-                          <input
-                            value={o[key]}
-                            onChange={(e) =>
-                              set(
-                                "obstacles",
-                                draft.obstacles.map((o, index) =>
-                                  index === i
-                                    ? { ...o, [key]: e.target.value }
-                                    : o,
-                                ),
-                              )
-                            }
-                            required
-                          />
+                          >
+                            {[30, 45, 60, 90, 120].map((n) => (
+                              <option value={n} key={n}>
+                                {n}
+                              </option>
+                            ))}
+                          </NativeSelect>
                         </Field>
-                      ),
-                    )}
-                  </div>
-                ))}
-                <Button
-                  type="button"
-                  onClick={() =>
-                    set("obstacles", [
-                      ...draft.obstacles,
-                      { risk_text: "", if_cue: "", then_response: "" },
-                    ])
-                  }
-                  disabled={draft.obstacles.length >= 5}
-                >
-                  <Plus size={15} />
-                  {c.goals.form.addObstacle}
-                </Button>
-              </>
-            )}
-            {step === 6 && (
-              <>
-                <p className="form-hint">{c.goals.form.system}</p>
-                {draft.actions.map((a, i) => (
-                  <div key={i} className="action-form">
-                    <h3>{a.title}</h3>
-                    <div className="form-grid">
-                      <Field label={c.goals.form.block}>
-                        <select
-                          value={a.preferred_block_minutes}
+                        <Field label={c.goals.form.preference}>
+                          <NativeSelect
+                            value={a.preferred_time_of_day}
+                            onChange={(e) =>
+                              action(i, {
+                                preferred_time_of_day: e.target
+                                  .value as Action["preferred_time_of_day"],
+                              })
+                            }
+                          >
+                            {(
+                              [
+                                "any",
+                                "morning",
+                                "afternoon",
+                                "evening",
+                              ] as const
+                            ).map((t) => (
+                              <option key={t} value={t}>
+                                {c.goals.form[t]}
+                              </option>
+                            ))}
+                          </NativeSelect>
+                        </Field>
+                      </div>
+                      <label className="checkbox">
+                        <input
+                          type="checkbox"
+                          checked={a.requires_deep_focus}
                           onChange={(e) =>
-                            action(i, {
-                              preferred_block_minutes: Number(e.target.value),
-                              min_block_minutes: Math.min(
-                                30,
-                                Number(e.target.value),
-                              ),
-                              max_block_minutes: Math.max(
-                                120,
-                                Number(e.target.value),
-                              ),
-                            })
+                            action(i, { requires_deep_focus: e.target.checked })
                           }
-                        >
-                          {[30, 45, 60, 90, 120].map((n) => (
-                            <option value={n} key={n}>
-                              {n}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
-                      <Field label={c.goals.form.preference}>
-                        <select
-                          value={a.preferred_time_of_day}
-                          onChange={(e) =>
-                            action(i, {
-                              preferred_time_of_day: e.target
-                                .value as Action["preferred_time_of_day"],
-                            })
-                          }
-                        >
-                          {(
-                            ["any", "morning", "afternoon", "evening"] as const
-                          ).map((t) => (
-                            <option key={t} value={t}>
-                              {c.goals.form[t]}
-                            </option>
-                          ))}
-                        </select>
-                      </Field>
+                        />
+                        {c.goals.form.deep}
+                      </label>
                     </div>
-                    <label className="checkbox">
-                      <input
-                        type="checkbox"
-                        checked={a.requires_deep_focus}
-                        onChange={(e) =>
-                          action(i, { requires_deep_focus: e.target.checked })
-                        }
-                      />
-                      {c.goals.form.deep}
-                    </label>
-                  </div>
-                ))}
-              </>
-            )}
-            {(step === 0 || step === 3 || step === 5) && (
-              <Suggestions
-                kind={
-                  step === 0 ? "goal" : step === 3 ? "actions" : "obstacles"
-                }
-                goal={draft}
-                onUse={(patch) => setDraft((d) => ({ ...d, ...patch }))}
-              />
-            )}
-          </fieldset>
-          <div className="wizard-actions">
-            <Button
-              type="button"
-              onClick={() => (step ? setStep(step - 1) : navigate("/goals"))}
-            >
-              <ArrowLeft size={14} />
-              {step ? c.back : c.cancel}
-            </Button>
-            <Button
-              className="primary"
-              disabled={busy || !online}
-              type="submit"
-            >
-              {busy ? c.saving : step === 6 ? c.goals.form.review : c.next}
-              <ArrowRight size={14} />
-            </Button>
-          </div>
-        </form>
+                  ))}
+                </>
+              )}
+              {(step === 0 || step === 3 || step === 5) && (
+                <Suggestions
+                  kind={
+                    step === 0 ? "goal" : step === 3 ? "actions" : "obstacles"
+                  }
+                  goal={draft}
+                  onUse={(patch) => setDraft((d) => ({ ...d, ...patch }))}
+                />
+              )}
+            </fieldset>
+            <div className="wizard-actions">
+              <Button
+                type="button"
+                onClick={() => (step ? setStep(step - 1) : navigate("/goals"))}
+              >
+                <ArrowLeft size={14} />
+                {step ? c.back : c.cancel}
+              </Button>
+              <Button
+                className="primary"
+                disabled={busy || !online}
+                type="submit"
+              >
+                {busy ? c.saving : step === 6 ? c.goals.form.review : c.next}
+                <ArrowRight size={14} />
+              </Button>
+            </div>
+          </form>
+        </Card>
       </div>
     </>
   );

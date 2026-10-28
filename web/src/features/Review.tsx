@@ -1,6 +1,13 @@
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronLeft, ChevronRight, Send } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Send,
+  Clock3,
+  ListChecks,
+  Star,
+} from "lucide-react";
 import { copy as c } from "../copy/en";
 import { useAuth } from "../lib/auth";
 import { useData, useOnline } from "../lib/hooks";
@@ -10,6 +17,11 @@ import { addDays, dateKey, minutes, weekStart } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Field, Notice, SubmitForm } from "../components/ui/Forms";
 import { GoalRow } from "./Today";
+import { MetricCard } from "../components/ui/MetricCard";
+import { Card, CardContent, CardHeader } from "../components/primitives/card";
+import { Badge } from "../components/primitives/badge";
+import { Skeleton } from "../components/primitives/skeleton";
+import { Textarea } from "../components/primitives/textarea";
 export function Review() {
   const { user } = useAuth();
   const [week, setWeek] = useState(
@@ -41,47 +53,61 @@ export function Review() {
           </Button>
         </div>
       </header>
-      <Notice error={review.error} />
+      <Notice
+        error={review.error || stats.error || goals.error || trajectory.error}
+      />
       <div className="stats-row">
-        <div>
-          <span>{c.review.minutes}</span>
-          <strong>
-            {stats.data ? minutes(stats.data.total_minutes) : "—"}
-          </strong>
-        </div>
-        <div>
-          <span>{c.review.sessions}</span>
-          <strong>{stats.data?.completed_sessions ?? "—"}</strong>
-        </div>
-        <div>
-          <span>{c.focus.rating}</span>
-          <strong>
-            {stats.data?.average_rating
+        <MetricCard
+          label={c.review.minutes}
+          value={stats.data ? minutes(stats.data.total_minutes) : "—"}
+          icon={<Clock3 size={20} />}
+        />
+        <MetricCard
+          label={c.review.sessions}
+          value={stats.data?.completed_sessions ?? "—"}
+          icon={<ListChecks size={20} />}
+        />
+        <MetricCard
+          label={c.focus.rating}
+          value={
+            stats.data?.average_rating
               ? `${stats.data.average_rating.toFixed(1)} / 5`
-              : "—"}
-          </strong>
-        </div>
+              : "—"
+          }
+          icon={<Star size={20} />}
+        />
       </div>
       <div className="detail-columns">
-        <section className="panel">
-          {review.isPending ? (
-            <p>{c.loading}</p>
-          ) : (
-            <ReflectionForm key={week} week={week} initial={review.data} />
-          )}
-        </section>
-        <section className="panel">
-          <h2>{c.review.trajectories}</h2>
-          {goals.data
-            ?.filter((g) => g.status === "active")
-            .map((goal) => (
-              <GoalRow
-                key={goal.id}
-                goal={goal}
-                trajectory={trajectory.data?.find((t) => t.goal_id === goal.id)}
-              />
-            ))}
-        </section>
+        <Card>
+          <CardContent className="pt-6">
+            {review.isPending ? (
+              <div role="status" aria-label={c.loading} className="space-y-4">
+                <Skeleton className="h-24 w-full" />
+                <Skeleton className="h-24 w-full" />
+              </div>
+            ) : (
+              <ReflectionForm key={week} week={week} initial={review.data} />
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <h2>{c.review.trajectories}</h2>
+          </CardHeader>
+          <CardContent>
+            {goals.data
+              ?.filter((g) => g.status === "active")
+              .map((goal) => (
+                <GoalRow
+                  key={goal.id}
+                  goal={goal}
+                  trajectory={trajectory.data?.find(
+                    (t) => t.goal_id === goal.id,
+                  )}
+                />
+              ))}
+          </CardContent>
+        </Card>
       </div>
     </>
   );
@@ -111,7 +137,7 @@ function ReflectionForm({
         <>
           {(["wins", "misses", "adjustments"] as const).map((key) => (
             <Field key={key} label={c.review[key]}>
-              <textarea
+              <Textarea
                 rows={4}
                 value={values[key]}
                 onChange={(e) => {
@@ -127,9 +153,9 @@ function ReflectionForm({
               {busy ? c.saving : c.review.save}
             </Button>
             {saved && (
-              <span role="status" className="save-note">
+              <Badge variant="outline" role="status">
                 {c.saved}
-              </span>
+              </Badge>
             )}
           </div>
         </>
@@ -203,68 +229,72 @@ export function Coach() {
         <h1>{c.coach.title}</h1>
       </header>
       <div className="coach-layout">
-        <section className="panel conversation">
-          <Notice error={error || status.error} />
-          {status.data && !status.data.enabled ? (
-            <p className="muted">{c.coach.disabled}</p>
-          ) : status.data && !status.data.configured ? (
-            <p className="muted">{c.coach.unconfigured}</p>
-          ) : null}
-          <div className="messages" aria-live="polite">
-            {messages.map((m, i) => (
-              <div key={i} className={`message ${m.role}`}>
-                <span>{m.role === "user" ? c.coach.you : c.coach.title}</span>
-                <p>{m.content || c.loading}</p>
-              </div>
-            ))}
-          </div>
-          <form
-            onSubmit={(e) => {
-              e.preventDefault();
-              void send();
-            }}
-          >
-            <Field label={c.coach.prompt}>
-              <textarea
-                rows={3}
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                required
-                maxLength={4000}
-                placeholder={c.coach.placeholder}
+        <Card className="conversation">
+          <CardContent className="pt-6">
+            <Notice error={error || status.error} />
+            {status.data && !status.data.enabled ? (
+              <p className="muted">{c.coach.disabled}</p>
+            ) : status.data && !status.data.configured ? (
+              <p className="muted">{c.coach.unconfigured}</p>
+            ) : null}
+            <div className="messages" aria-live="polite">
+              {messages.map((m, i) => (
+                <div key={i} className={`message ${m.role}`}>
+                  <span>{m.role === "user" ? c.coach.you : c.coach.title}</span>
+                  <p>{m.content || c.loading}</p>
+                </div>
+              ))}
+            </div>
+            <form
+              onSubmit={(e) => {
+                e.preventDefault();
+                void send();
+              }}
+            >
+              <Field label={c.coach.prompt}>
+                <Textarea
+                  rows={3}
+                  value={text}
+                  onChange={(e) => setText(e.target.value)}
+                  required
+                  maxLength={4000}
+                  placeholder={c.coach.placeholder}
+                  disabled={
+                    pending ||
+                    !online ||
+                    !status.data?.configured ||
+                    !status.data?.enabled
+                  }
+                />
+              </Field>
+              <Button
+                className="primary"
                 disabled={
                   pending ||
                   !online ||
                   !status.data?.configured ||
                   !status.data?.enabled
                 }
+              >
+                <Send size={15} />
+                {c.coach.send}
+              </Button>
+            </form>
+          </CardContent>
+        </Card>
+        <Card className="coach-privacy" role="complementary">
+          <CardContent className="pt-6">
+            <p>{c.coach.disclosure}</p>
+            <label className="checkbox">
+              <input
+                type="checkbox"
+                checked={consent}
+                onChange={(e) => setConsent(e.target.checked)}
               />
-            </Field>
-            <Button
-              className="primary"
-              disabled={
-                pending ||
-                !online ||
-                !status.data?.configured ||
-                !status.data?.enabled
-              }
-            >
-              <Send size={15} />
-              {c.coach.send}
-            </Button>
-          </form>
-        </section>
-        <aside className="panel coach-privacy">
-          <p>{c.coach.disclosure}</p>
-          <label className="checkbox">
-            <input
-              type="checkbox"
-              checked={consent}
-              onChange={(e) => setConsent(e.target.checked)}
-            />
-            {c.coach.consent}
-          </label>
-        </aside>
+              {c.coach.consent}
+            </label>
+          </CardContent>
+        </Card>
       </div>
     </>
   );

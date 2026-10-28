@@ -15,7 +15,6 @@ import {
   Menu,
   MessageCircle,
   Settings as SettingsIcon,
-  X,
   LogOut,
   ClipboardList,
   ArrowUpRight,
@@ -24,6 +23,16 @@ import { copy as c } from "./copy/en";
 import { useAuth } from "./lib/auth";
 import { useOnline, useReplay } from "./lib/hooks";
 import { Button } from "./components/ui/Button";
+import { Skeleton } from "./components/primitives/skeleton";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "./components/primitives/sheet";
+import { Separator } from "./components/primitives/separator";
+import type { User } from "./api/types";
 import { Notice } from "./components/ui/Forms";
 import { Welcome, Confirm } from "./features/Auth";
 import { Today } from "./features/Today";
@@ -47,9 +56,11 @@ const navigation = [
 function initialTheme(): Theme {
   try {
     const value = localStorage.getItem("kairos.theme");
-    return value === "light" || value === "dark" ? value : "system";
+    return value === "light" || value === "dark" || value === "system"
+      ? value
+      : "dark";
   } catch {
-    return "system";
+    return "dark";
   }
 }
 export default function App() {
@@ -64,8 +75,10 @@ export default function App() {
   useEffect(() => {
     const media = window.matchMedia("(prefers-color-scheme: dark)");
     const apply = () => {
-      document.documentElement.dataset.theme =
+      const resolved =
         theme === "system" ? (media.matches ? "dark" : "light") : theme;
+      document.documentElement.dataset.theme = resolved;
+      document.documentElement.classList.toggle("dark", resolved === "dark");
     };
     apply();
     media.addEventListener("change", apply);
@@ -81,7 +94,8 @@ export default function App() {
   if (auth.loading)
     return (
       <div className="center-state" role="status">
-        {c.loading}
+        <span className="sr-only">{c.loading}</span>
+        <Skeleton className="h-6 w-32" />
       </div>
     );
   if (auth.error)
@@ -98,75 +112,43 @@ export default function App() {
       <a className="skip" href="#content">
         {c.skip}
       </a>
-      <div className="mobile-bar">
-        <Link to="/today" className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            k
-          </span>
-          {c.brand}
-        </Link>
-        <Button
-          aria-label={open ? c.closeMenu : c.menu}
-          aria-expanded={open}
-          onClick={() => setOpen(!open)}
-        >
-          {open ? <X size={20} /> : <Menu size={20} />}
-        </Button>
-      </div>
-      <aside className={`sidebar ${open ? "open" : ""}`}>
-        <Link to="/today" className="brand">
-          <span className="brand-mark" aria-hidden="true">
-            k
-          </span>
-          {c.brand}
-        </Link>
-        <nav aria-label={c.brand}>
-          {navigation.map(([key, Icon]) => (
-            <NavLink
-              key={key}
-              to={`/${key}`}
-              className={({ isActive }) =>
-                `nav-item ${isActive ? "active" : ""}`
-              }
-            >
-              <Icon size={18} strokeWidth={1.6} />
-              {c.nav[key]}
-            </NavLink>
-          ))}
-        </nav>
-        <div className="sidebar-bottom">
-          <Link to="/focus" className="sidebar-focus-card">
-            <span className="sidebar-focus-icon" aria-hidden="true">
-              <Focus size={21} />
+      <Sheet open={open} onOpenChange={setOpen}>
+        <div className="mobile-bar">
+          <Link to="/today" className="brand">
+            <span className="brand-mark" aria-hidden="true">
+              k
             </span>
-            <span>{c.focus.start}</span>
-            <ArrowUpRight size={16} aria-hidden="true" />
+            {c.brand}
           </Link>
-          <NavLink
-            to="/settings"
-            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
-          >
-            <SettingsIcon size={18} />
-            {c.nav.settings}
-          </NavLink>
-          <div className="local-user">
-            <span className="user-avatar">
-              {(user.name || user.email).slice(0, 1).toUpperCase()}
-            </span>
-            <div>
-              {user.name || user.email.split("@")[0]}
-              <small>{user.email}</small>
-            </div>
-            <Button
-              className="icon-button"
-              aria-label={c.signOut}
-              onClick={() => void auth.logout().catch(setActionError)}
-              disabled={!online}
-            >
-              <LogOut size={15} />
+          <SheetTrigger asChild>
+            <Button aria-label={c.menu} aria-expanded={open}>
+              <Menu size={20} />
             </Button>
-          </div>
+          </SheetTrigger>
         </div>
+        <SheetContent
+          side="left"
+          closeLabel={c.closeMenu}
+          className="mobile-nav-sheet"
+          aria-describedby={undefined}
+        >
+          <SheetHeader>
+            <SheetTitle className="sr-only">{c.brand}</SheetTitle>
+          </SheetHeader>
+          <Navigation
+            user={user}
+            online={online}
+            onNavigate={() => setOpen(false)}
+            onLogout={() => void auth.logout().catch(setActionError)}
+          />
+        </SheetContent>
+      </Sheet>
+      <aside className="sidebar">
+        <Navigation
+          user={user}
+          online={online}
+          onLogout={() => void auth.logout().catch(setActionError)}
+        />
       </aside>
       <main id="content" className="main" tabIndex={-1}>
         {!online && (
@@ -190,7 +172,13 @@ export default function App() {
             </div>
           </div>
         ) : null}
-        <Suspense fallback={<p role="status">{c.loading}</p>}>
+        <Suspense
+          fallback={
+            <div role="status" aria-label={c.loading}>
+              <Skeleton className="mt-8 h-40 w-full" />
+            </div>
+          }
+        >
           <Routes>
             <Route path="/today" element={<Today />} />
             <Route path="/goals" element={<Goals />} />
@@ -213,5 +201,76 @@ export default function App() {
         <PwaPrompt />
       </main>
     </div>
+  );
+}
+
+function Navigation({
+  user,
+  online,
+  onLogout,
+  onNavigate,
+}: {
+  user: User;
+  online: boolean;
+  onLogout: () => void;
+  onNavigate?: () => void;
+}) {
+  return (
+    <>
+      <Link to="/today" className="brand" onClick={onNavigate}>
+        <span className="brand-mark" aria-hidden="true">
+          k
+        </span>
+        {c.brand}
+      </Link>
+      <nav aria-label={c.brand}>
+        {navigation.map(([key, Icon]) => (
+          <NavLink
+            key={key}
+            to={`/${key}`}
+            onClick={onNavigate}
+            className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+          >
+            <Icon size={18} strokeWidth={1.6} />
+            {c.nav[key]}
+          </NavLink>
+        ))}
+      </nav>
+      <div className="sidebar-bottom">
+        <Link to="/focus" className="sidebar-focus-card" onClick={onNavigate}>
+          <span className="sidebar-focus-icon" aria-hidden="true">
+            <Focus size={21} />
+          </span>
+          <span>{c.focus.start}</span>
+          <ArrowUpRight size={16} aria-hidden="true" />
+        </Link>
+        <NavLink
+          to="/settings"
+          onClick={onNavigate}
+          className={({ isActive }) => `nav-item ${isActive ? "active" : ""}`}
+        >
+          <SettingsIcon size={18} />
+          {c.nav.settings}
+        </NavLink>
+        <Separator className="mt-5" />
+        <div className="local-user">
+          <span className="user-avatar">
+            {(user.name || user.email).slice(0, 1).toUpperCase()}
+          </span>
+          <div>
+            {user.name || user.email.split("@")[0]}
+            <small>{user.email}</small>
+          </div>
+          <Button
+            className="icon-button"
+            aria-label={c.signOut}
+            onClick={onLogout}
+            disabled={!online}
+          >
+            <LogOut size={15} />
+          </Button>
+        </div>
+      </div>
+    </>
   );
 }

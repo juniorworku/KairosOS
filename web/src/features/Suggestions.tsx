@@ -1,3 +1,4 @@
+import { Card } from "../components/primitives/card";
 import { useState } from "react";
 import { api } from "../api/client";
 import type { components } from "../api/schema";
@@ -138,61 +139,63 @@ export function Suggestions({ kind, goal, onUse }: Props) {
       </Button>
       <Notice error={error} />
       {proposal && (
-        <section className="panel" aria-label={c.coach.suggestions}>
-          <h3>{c.coach.suggestions}</h3>
-          {proposal.kind === "goal" ? (
-            <>
-              <p className="body-text">{proposal.value.outcome_statement}</p>
-              <p>
-                {proposal.value.metric_name}: {proposal.value.suggested_target}{" "}
-                {proposal.value.metric_unit}
-              </p>
-              {proposal.value.clarifying_questions.length > 0 && (
-                <ul className="plain-list">
-                  {proposal.value.clarifying_questions.map(
-                    (question, index) => (
-                      <li key={index}>{question}</li>
-                    ),
-                  )}
-                </ul>
-              )}
-            </>
-          ) : proposal.kind === "actions" ? (
-            <ul className="plain-list">
-              {proposal.value.actions.map((action, index) => (
-                <li key={index}>
-                  <strong>{action.title}</strong>
-                  <p>
-                    {c.goals.form.weekly}: {action.weekly_minutes}
-                  </p>
-                  <p className="body-text">{action.rationale}</p>
-                </li>
-              ))}
-            </ul>
-          ) : (
-            <ul className="plain-list">
-              {proposal.value.obstacles.map((obstacle, index) => (
-                <li key={index}>
-                  <strong>{obstacle.risk}</strong>
-                  <p>
-                    {c.goals.if} {obstacle.if_cue}
-                  </p>
-                  <p>
-                    {c.goals.then} {obstacle.then_response}
-                  </p>
-                </li>
-              ))}
-            </ul>
-          )}
-          <div className="button-row">
-            <Button type="button" onClick={() => setProposal(null)}>
-              {c.cancel}
-            </Button>
-            <Button type="button" className="primary" onClick={useProposal}>
-              {c.coach.useSuggestions}
-            </Button>
-          </div>
-        </section>
+        <Card asChild>
+          <section className="panel" aria-label={c.coach.suggestions}>
+            <h3>{c.coach.suggestions}</h3>
+            {proposal.kind === "goal" ? (
+              <>
+                <p className="body-text">{proposal.value.outcome_statement}</p>
+                <p>
+                  {proposal.value.metric_name}:{" "}
+                  {proposal.value.suggested_target} {proposal.value.metric_unit}
+                </p>
+                {proposal.value.clarifying_questions.length > 0 && (
+                  <ul className="plain-list">
+                    {proposal.value.clarifying_questions.map(
+                      (question, index) => (
+                        <li key={index}>{question}</li>
+                      ),
+                    )}
+                  </ul>
+                )}
+              </>
+            ) : proposal.kind === "actions" ? (
+              <ul className="plain-list">
+                {proposal.value.actions.map((action, index) => (
+                  <li key={index}>
+                    <strong>{action.title}</strong>
+                    <p>
+                      {c.goals.form.weekly}: {action.weekly_minutes}
+                    </p>
+                    <p className="body-text">{action.rationale}</p>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <ul className="plain-list">
+                {proposal.value.obstacles.map((obstacle, index) => (
+                  <li key={index}>
+                    <strong>{obstacle.risk}</strong>
+                    <p>
+                      {c.goals.if} {obstacle.if_cue}
+                    </p>
+                    <p>
+                      {c.goals.then} {obstacle.then_response}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+            <div className="button-row">
+              <Button type="button" onClick={() => setProposal(null)}>
+                {c.cancel}
+              </Button>
+              <Button type="button" className="primary" onClick={useProposal}>
+                {c.coach.useSuggestions}
+              </Button>
+            </div>
+          </section>
+        </Card>
       )}
     </div>
   );

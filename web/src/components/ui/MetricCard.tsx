@@ -1,9 +1,15 @@
 import type { ReactNode } from "react";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+} from "../primitives/card";
+
 export function MetricCard({
   label,
   value,
   icon,
-  tone = "violet",
 }: {
   label: string;
   value: ReactNode;
@@ -11,15 +17,23 @@ export function MetricCard({
   tone?: "violet" | "mint" | "peach";
 }) {
   return (
-    <div className={`metric-card metric-${tone}`}>
-      <div className="metric-top">
-        <span>{label}</span>
-        <span className="metric-icon" aria-hidden="true">
+    <Card className="metric-card min-w-0 p-0">
+      <CardHeader className="metric-top min-w-0 flex-row items-center justify-between space-y-0 px-3 pb-2 pt-4 sm:px-5 sm:pt-5">
+        <CardDescription className="metric-label min-w-0">
+          {label}
+        </CardDescription>
+        <span
+          className="metric-icon shrink-0 text-muted-foreground"
+          aria-hidden="true"
+        >
           {icon}
         </span>
-      </div>
-      <strong>{value}</strong>
-      <span className="metric-orbit" aria-hidden="true" />
-    </div>
+      </CardHeader>
+      <CardContent className="metric-content min-w-0 px-3 pb-4 pt-0 sm:px-5 sm:pb-5">
+        <strong className="metric-value block break-words font-semibold tracking-tight tabular-nums">
+          {value}
+        </strong>
+      </CardContent>
+    </Card>
   );
 }

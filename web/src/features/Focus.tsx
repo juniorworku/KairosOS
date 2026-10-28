@@ -1,4 +1,4 @@
-import { useEffect, useState, useRef, type CSSProperties } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Play, Square } from "lucide-react";
 import { copy as c } from "../copy/en";
@@ -10,6 +10,11 @@ import { clock, minutes } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Modal } from "../components/ui/Modal";
 import { Empty, Field, Notice, SubmitForm } from "../components/ui/Forms";
+import { Card, CardContent, CardHeader } from "../components/primitives/card";
+import { Badge } from "../components/primitives/badge";
+import { Progress } from "../components/primitives/progress";
+import { Input } from "../components/primitives/input";
+import { NativeSelect } from "../components/primitives/native-select";
 export function FocusPage() {
   const { user } = useAuth();
   const online = useOnline();
@@ -104,137 +109,149 @@ export function FocusPage() {
           : ""}
       </div>
       <div className="focus-layout">
-        <section className="panel timer-panel">
-          <div className="timer-context">
-            {session
-              ? session.title ||
-                goals.data
-                  ?.flatMap((g) => g.actions)
-                  .find((a) => a.id === session.action_id)?.title ||
-                c.focus.unlinked
-              : c.focus.title}
-          </div>
-          <div
-            className="timer-dial"
-            style={
-              {
-                "--session-progress": `${session ? Math.max(0, Math.min(360, (1 - remaining / (session.planned_minutes * 60)) * 360)) : 0}deg`,
-              } as CSSProperties
-            }
-          >
-            <span className="timer-ticks" aria-hidden="true" />
-            <div
-              className={`timer ${session ? "running" : ""}`}
-              role="timer"
-              aria-label={c.focus.remaining}
-            >
-              {time}
+        <Card className="timer-panel">
+          <CardContent className="flex flex-col items-center gap-6 pt-6">
+            <div className="timer-context">
+              {session
+                ? session.title ||
+                  goals.data
+                    ?.flatMap((g) => g.actions)
+                    .find((a) => a.id === session.action_id)?.title ||
+                  c.focus.unlinked
+                : c.focus.title}
             </div>
-            <span className="timer-dial-label">{c.focus.remaining}</span>
-          </div>
-          {session ? (
-            <Button
-              className="primary"
-              onClick={() => void stop(session)}
-              disabled={stopping}
-            >
-              <Square size={14} />
-              {c.focus.end}
-            </Button>
-          ) : (
-            <SubmitForm
-              onSubmit={async () => {
-                await api("/focus/start", "POST", {
-                  action_id: action || null,
-                  planned_minutes: duration,
-                });
-                setQueued(false);
-                await client.invalidateQueries();
-              }}
-            >
-              {(busy) => (
-                <>
-                  <div className="form-grid">
-                    <Field label={c.focus.action}>
-                      <select
-                        value={action}
-                        onChange={(e) => setAction(e.target.value)}
-                      >
-                        <option value="">{c.focus.unlinked}</option>
-                        {goals.data
-                          ?.filter((g) => g.status === "active")
-                          .map((g) => (
-                            <optgroup label={g.title} key={g.id}>
-                              {g.actions.map((a) => (
-                                <option value={a.id} key={a.id}>
-                                  {a.title}
-                                </option>
-                              ))}
-                            </optgroup>
-                          ))}
-                      </select>
-                    </Field>
-                    <Field label={c.focus.duration}>
-                      <input
-                        type="number"
-                        required
-                        min={1}
-                        max={240}
-                        value={duration}
-                        onChange={(e) => setDuration(Number(e.target.value))}
-                      />
-                    </Field>
-                  </div>
-                  <Button
-                    className="primary"
-                    disabled={busy || !online || active.isPending}
-                  >
-                    <Play size={14} />
-                    {c.focus.start}
-                  </Button>
-                </>
-              )}
-            </SubmitForm>
-          )}
-          {queued && (
-            <p role="status" className="save-note">
-              {c.queued}
-            </p>
-          )}
-        </section>
-        <section className="panel">
-          <h2>{c.focus.history}</h2>
-          {history.data?.items.length ? (
-            <div className="session-history">
-              {history.data.items.map((s) => (
-                <div key={s.id} className="session-row">
-                  <div>
-                    <strong>{s.title || c.focus.unlinked}</strong>
-                    <small>
-                      {new Date(s.started_at).toLocaleDateString(undefined, {
-                        timeZone: user!.timezone,
-                      })}{" "}
-                      · {clock(s.started_at, user!.timezone)}
-                    </small>
-                  </div>
-                  <span>{minutes(s.actual_minutes ?? 0)}</span>
-                  <Button
-                    onClick={() => {
-                      setEnding(s);
-                      setStopTime(s.ended_at || s.ends_at);
-                      setRating(s.self_rating || 0);
-                    }}
-                    className="rating-button"
-                  >
-                    {s.self_rating ? `${s.self_rating} / 5` : c.focus.noRating}
-                  </Button>
-                </div>
-              ))}
+            <div className="timer-dial">
+              <div
+                className={`timer ${session ? "running" : ""}`}
+                role="timer"
+                aria-label={c.focus.remaining}
+              >
+                {time}
+              </div>
+              <span className="timer-dial-label">{c.focus.remaining}</span>
             </div>
-          ) : (
-            <Empty title={c.focus.none} />
-          )}
-        </section>
+            {session && (
+              <Progress
+                value={Math.min(
+                  100,
+                  (remaining / (session.planned_minutes * 60)) * 100,
+                )}
+                aria-label={c.focus.remaining}
+                className="h-1.5 w-full max-w-xs"
+              />
+            )}
+            {session ? (
+              <Button
+                className="primary"
+                onClick={() => void stop(session)}
+                disabled={stopping}
+              >
+                <Square size={14} />
+                {c.focus.end}
+              </Button>
+            ) : (
+              <SubmitForm
+                onSubmit={async () => {
+                  await api("/focus/start", "POST", {
+                    action_id: action || null,
+                    planned_minutes: duration,
+                  });
+                  setQueued(false);
+                  await client.invalidateQueries();
+                }}
+              >
+                {(busy) => (
+                  <>
+                    <div className="form-grid">
+                      <Field label={c.focus.action}>
+                        <NativeSelect
+                          value={action}
+                          onChange={(e) => setAction(e.target.value)}
+                        >
+                          <option value="">{c.focus.unlinked}</option>
+                          {goals.data
+                            ?.filter((g) => g.status === "active")
+                            .map((g) => (
+                              <optgroup label={g.title} key={g.id}>
+                                {g.actions.map((a) => (
+                                  <option value={a.id} key={a.id}>
+                                    {a.title}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            ))}
+                        </NativeSelect>
+                      </Field>
+                      <Field label={c.focus.duration}>
+                        <Input
+                          type="number"
+                          required
+                          min={1}
+                          max={240}
+                          value={duration}
+                          onChange={(e) => setDuration(Number(e.target.value))}
+                        />
+                      </Field>
+                    </div>
+                    <Button
+                      className="primary"
+                      disabled={busy || !online || active.isPending}
+                    >
+                      <Play size={14} />
+                      {c.focus.start}
+                    </Button>
+                  </>
+                )}
+              </SubmitForm>
+            )}
+            {queued && (
+              <p role="status" className="save-note">
+                {c.queued}
+              </p>
+            )}
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader>
+            <h2>{c.focus.history}</h2>
+          </CardHeader>
+          <CardContent>
+            {history.data?.items.length ? (
+              <div className="session-history">
+                {history.data.items.map((s) => (
+                  <div key={s.id} className="session-row">
+                    <div>
+                      <strong>{s.title || c.focus.unlinked}</strong>
+                      <small>
+                        {new Date(s.started_at).toLocaleDateString(undefined, {
+                          timeZone: user!.timezone,
+                        })}{" "}
+                        · {clock(s.started_at, user!.timezone)}
+                      </small>
+                    </div>
+                    <span>{minutes(s.actual_minutes ?? 0)}</span>
+                    <Button
+                      onClick={() => {
+                        setEnding(s);
+                        setStopTime(s.ended_at || s.ends_at);
+                        setRating(s.self_rating || 0);
+                      }}
+                      className="rating-button"
+                    >
+                      <Badge variant="outline">
+                        {s.self_rating
+                          ? `${s.self_rating} / 5`
+                          : c.focus.noRating}
+                      </Badge>
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <Empty title={c.focus.none} />
+            )}
+          </CardContent>
+        </Card>
       </div>
       {ending && (
         <Modal

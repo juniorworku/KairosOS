@@ -7,7 +7,9 @@ import {
   type ReactNode,
   type FormEvent,
 } from "react";
-import { CircleDashed } from "lucide-react";
+import { CircleDashed, AlertCircle } from "lucide-react";
+import { Label } from "../primitives/label";
+import { Alert, AlertDescription } from "../primitives/alert";
 import { copy as c } from "../../copy/en";
 export function Field({
   label,
@@ -23,19 +25,19 @@ export function Field({
   const control = controls.find(
     (child) =>
       isValidElement<{ id?: string }>(child) &&
-      typeof child.type === "string" &&
-      ["input", "select", "textarea"].includes(child.type),
+      (typeof child.type !== "string" ||
+        ["input", "select", "textarea"].includes(child.type)),
   );
   const id = isValidElement<{ id?: string }>(control)
     ? control.props.id || generated
     : generated;
   return (
     <div className="field">
-      <label htmlFor={id}>{label}</label>
+      <Label htmlFor={id}>{label}</Label>
       {Children.map(children, (child) =>
         isValidElement<{ id?: string; "aria-describedby"?: string }>(child) &&
-        typeof child.type === "string" &&
-        ["input", "select", "textarea"].includes(child.type)
+        (typeof child.type !== "string" ||
+          ["input", "select", "textarea"].includes(child.type))
           ? cloneElement(child, {
               id: child.props.id || id,
               "aria-describedby": hint
@@ -51,9 +53,12 @@ export function Field({
 
 export function Notice({ error }: { error: unknown }) {
   return error ? (
-    <p role="alert" className="error-note">
-      {error instanceof Error ? error.message : c.requestFailed}
-    </p>
+    <Alert variant="destructive" className="error-note">
+      <AlertCircle className="size-4" aria-hidden="true" />
+      <AlertDescription>
+        {error instanceof Error ? error.message : c.requestFailed}
+      </AlertDescription>
+    </Alert>
   ) : null;
 }
 export function Empty({
