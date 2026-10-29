@@ -4,9 +4,13 @@ Current scope is a personal productivity app. The Users, invites, and administra
 
 ## Current feature pass
 
-The initial reliability pass is followed by the [events/tasks/calendar implementation](AGENDA.md): unified agenda, independent tasks, local notes and daily/weekly recurrence, single-occurrence edits, explicit Google-details consent, manual block creation in the UI, and move/removal previews with acceptance. Draft week now explains empty results and avoids local recurring commitments.
+The initial reliability pass is followed by the [events/tasks/calendar implementation](AGENDA.md): unified agenda, independent tasks, local notes and daily/weekly/monthly/yearly recurrence, single-occurrence edits, explicit Google-details consent, manual block creation in the UI, and move/removal previews with acceptance. Draft week now explains empty results and avoids local recurring commitments.
 
-The Plan UI exposes these workflows; they are no longer API-only. Final checks are recorded in [Verification](VERIFICATION.md). Remaining calendar work is a Google calendar picker/remote editing, monthly/yearly recurrence, and broader device/live-provider acceptance. Deployment remains paused.
+The Plan UI exposes these workflows; they are no longer API-only. Final checks are recorded in [Verification](VERIFICATION.md). Owned Google calendar selection/editing and the opt-in Linux companion are implemented. Remaining calendar work includes shared-calendar detail/edit scope expansion, whole-series Google changes, ordinal weekday recurrence and broader device/live-provider acceptance. Deployment remains paused.
+
+## Connected workflow pass
+
+The [Superfocus comparison](SUPERFOCUS_GAPS.md) now tracks implemented connections and remaining boundaries. Today leads to accepted work and a unified agenda; seasons show recorded versus expected pace; calendar links retain date/goal/block/task context; draft additions/moves/removals share explicit review; focus completion offers an outcome check-in and the correct review week. Monthly/yearly local recurrence is wired through API and UI. Coaching uses visible evidence and explicit sharing consent. Final checks: 194 backend tests, 64 frontend tests and all seven browser workflows passed; see [Verification](VERIFICATION.md).
 
 ## External setup and later work
 
@@ -39,3 +43,7 @@ The core local app now has implementation across M0–M9. Code being present is 
 | D1/D2 | Deployment is explicitly deferred | Staging/production domains, provider verification, email authentication, backups/restore, monitoring and release approval |
 
 Do not mark M8 complete based only on a manifest or claim Chrome timing/restart behavior from rule-unit tests. Manual core planning remains available without Google or AI keys. No staging, production or Chrome Web Store release runs from CI.
+
+## Calendar, native blocking and appearance pass
+
+Owned-calendar selection and version-checked remote event editing now have API/UI implementations with separate consent. Shared calendars intentionally contribute availability only; recurring remote writes target single instances. `native/` provides an opt-in Linux companion with explicit executable configuration, authenticated pairing, independent recovery watchdog and expiring status reports. It has been exercised against the real local Kairos API with a disposable copied process; actual desktop applications and other operating systems remain device acceptance work. This does not complete the broader M10–M17 Personal Mode scope. Warm light is now the default, with persistent light/dark controls on desktop and mobile. AI coaching was left unchanged; deployment remains paused.

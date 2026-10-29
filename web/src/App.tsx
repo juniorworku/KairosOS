@@ -45,6 +45,8 @@ import { Review, Coach } from "./features/Review";
 import { Settings } from "./features/Settings";
 import { ActiveSessionBar } from "./components/ui/ActiveSessionBar";
 import "./components/ui/active-session.css";
+import { ThemeToggle } from "./components/ui/ThemeToggle";
+import "./components/ui/theme-toggle.css";
 import { PwaPrompt } from "./pwa/Prompt";
 export type Theme = "light" | "dark" | "system";
 const navigation = [
@@ -60,15 +62,18 @@ function initialTheme(): Theme {
     const value = localStorage.getItem("kairos.theme");
     return value === "light" || value === "dark" || value === "system"
       ? value
-      : "dark";
+      : "light";
   } catch {
-    return "dark";
+    return "light";
   }
 }
 export default function App() {
   const auth = useAuth();
   const [open, setOpen] = useState(false);
   const [theme, setTheme] = useState<Theme>(initialTheme);
+  const [resolvedTheme, setResolvedTheme] = useState<"light" | "dark">(
+    theme === "dark" ? "dark" : "light",
+  );
   const online = useOnline();
   const replay = useReplay();
   const [actionError, setActionError] = useState<unknown>();
@@ -79,6 +84,10 @@ export default function App() {
     const apply = () => {
       const resolved =
         theme === "system" ? (media.matches ? "dark" : "light") : theme;
+      setResolvedTheme(resolved);
+      document
+        .querySelector('meta[name="theme-color"]')
+        ?.setAttribute("content", resolved === "dark" ? "#161512" : "#f7f4ef");
       document.documentElement.dataset.theme = resolved;
       document.documentElement.classList.toggle("dark", resolved === "dark");
     };
@@ -122,11 +131,14 @@ export default function App() {
             </span>
             {c.brand}
           </Link>
-          <SheetTrigger asChild>
-            <Button aria-label={c.menu} aria-expanded={open}>
-              <Menu size={20} />
-            </Button>
-          </SheetTrigger>
+          <div className="mobile-bar-actions">
+            <ThemeToggle compact resolved={resolvedTheme} onChange={setTheme} />
+            <SheetTrigger asChild>
+              <Button aria-label={c.menu} aria-expanded={open}>
+                <Menu size={20} />
+              </Button>
+            </SheetTrigger>
+          </div>
         </div>
         <SheetContent
           side="left"
@@ -139,6 +151,8 @@ export default function App() {
           </SheetHeader>
           <Navigation
             user={user}
+            resolvedTheme={resolvedTheme}
+            onThemeChange={setTheme}
             online={online}
             onNavigate={() => setOpen(false)}
             onLogout={() => void auth.logout().catch(setActionError)}
@@ -148,6 +162,8 @@ export default function App() {
       <aside className="sidebar">
         <Navigation
           user={user}
+          resolvedTheme={resolvedTheme}
+          onThemeChange={setTheme}
           online={online}
           onLogout={() => void auth.logout().catch(setActionError)}
         />
@@ -212,11 +228,15 @@ function Navigation({
   online,
   onLogout,
   onNavigate,
+  resolvedTheme,
+  onThemeChange,
 }: {
   user: User;
   online: boolean;
   onLogout: () => void;
   onNavigate?: () => void;
+  resolvedTheme: "light" | "dark";
+  onThemeChange: (theme: Theme) => void;
 }) {
   return (
     <>
@@ -247,6 +267,7 @@ function Navigation({
           <span>{c.focus.start}</span>
           <ArrowUpRight size={16} aria-hidden="true" />
         </Link>
+        <ThemeToggle resolved={resolvedTheme} onChange={onThemeChange} />
         <NavLink
           to="/settings"
           onClick={onNavigate}

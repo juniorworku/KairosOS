@@ -1,0 +1,58 @@
+.theme-toggle {
+  display: flex;
+  gap: 3px;
+  padding: 3px;
+  border: 1px solid hsl(var(--border));
+  border-radius: var(--radius);
+  background: hsl(var(--muted));
+}
+.theme-toggle > button {
+  flex: 1;
+  min-width: 0;
+  gap: 7px;
+  color: hsl(var(--muted-foreground));
+}
+.theme-toggle > button[aria-pressed="true"] {
+  background: hsl(var(--card));
+  color: hsl(var(--foreground));
+  box-shadow: 0 1px 2px hsl(var(--foreground) / 0.06);
+}
+.sidebar-bottom > .theme-toggle {
+  margin: 14px 0 8px;
+}
+.mobile-bar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.theme-toggle.is-compact {
+  gap: 0;
+  padding: 2px;
+}
+.theme-toggle.is-compact > button {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+}
+
+.native-setup {
+  margin-top: 18px;
+  font-size: 13px;
+  line-height: 1.8;
+}
+.native-setup summary {
+  cursor: pointer;
+  font-weight: 600;
+}
+.native-setup li {
+  margin: 12px 0;
+  overflow-wrap: anywhere;
+}
+.native-setup code {
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+.native-device-report {
+  padding-top: 10px;
+  font-size: 12px;
+}

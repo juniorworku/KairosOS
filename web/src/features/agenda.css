@@ -114,21 +114,21 @@
   font-weight: 500;
 }
 .agenda-source-local {
-  --fc-event-bg-color: hsl(var(--secondary));
-  --fc-event-border-color: hsl(var(--muted-foreground));
-  --fc-event-text-color: hsl(var(--foreground));
+  --fc-event-bg-color: hsl(var(--local-soft));
+  --fc-event-border-color: hsl(var(--local-foreground) / 0.6);
+  --fc-event-text-color: hsl(var(--local-foreground));
 }
 .agenda-source-google {
-  --fc-event-bg-color: hsl(var(--muted));
-  --fc-event-border-color: hsl(var(--border));
-  --fc-event-text-color: hsl(var(--foreground));
+  --fc-event-bg-color: hsl(var(--external-soft));
+  --fc-event-border-color: hsl(var(--external-foreground) / 0.6);
+  --fc-event-text-color: hsl(var(--external-foreground));
   cursor: default;
   border-left-width: 3px;
 }
 .agenda-proposed-move {
-  background: hsl(var(--card)) !important;
-  border: 1px dashed hsl(var(--foreground)) !important;
-  color: hsl(var(--foreground)) !important;
+  background: hsl(var(--proposal-soft)) !important;
+  border: 1px dashed hsl(var(--planned)) !important;
+  color: hsl(var(--planned-foreground)) !important;
 }
 .agenda-pending-removal {
   text-decoration: line-through;
@@ -456,4 +456,34 @@
 .agenda-calendar .fc-col-header-cell.agenda-selected-day,
 .agenda-calendar .fc-daygrid-day.agenda-selected-day {
   box-shadow: inset 0 -2px hsl(var(--foreground));
+}
+
+.agenda-source-block.event-completed {
+  opacity: 1;
+  --fc-event-bg-color: hsl(var(--success-soft));
+  --fc-event-border-color: hsl(var(--success));
+  --fc-event-text-color: hsl(var(--success-foreground));
+  background: hsl(var(--success-soft));
+  border-color: hsl(var(--success));
+  color: hsl(var(--success-foreground));
+}
+.agenda-change-move {
+  color: hsl(var(--planned-foreground));
+  background: hsl(var(--planned-soft));
+  border-color: hsl(var(--planned));
+}
+.agenda-change-remove {
+  background: hsl(var(--muted));
+  border-style: dashed;
+}
+
+.agenda-task.is-context-task {
+  background: hsl(var(--accent));
+  outline: 1px solid hsl(var(--ring));
+  outline-offset: 3px;
+  border-radius: var(--radius);
+}
+.agenda-task:focus-visible {
+  outline: 2px solid hsl(var(--ring));
+  outline-offset: 3px;
 }

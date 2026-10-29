@@ -19,6 +19,8 @@ const db = () =>
   });
 let accountId = "";
 let csrf = "";
+let privateGeneration = 0;
+const agendaGenerations = new Map<string, number>();
 export function setAccount(id: string) {
   accountId = id;
 }
@@ -30,6 +32,7 @@ export async function offlineUser(): Promise<User | undefined> {
   return (await db()).get("reads", "profile");
 }
 export async function clearPrivateData() {
+  privateGeneration += 1;
   accountId = "";
   csrf = "";
   const database = await db();
@@ -42,6 +45,9 @@ export async function api<T>(
   signal?: AbortSignal,
 ): Promise<T> {
   const requestAccount = accountId;
+  const requestGeneration = privateGeneration;
+  const agendaGeneration = agendaGenerations.get(requestAccount) || 0;
+  const isAgenda = /^\/agenda(?:\?|$)/.test(path);
   const key = `${requestAccount}:${path}`;
   const cacheable =
     method === "GET" &&
@@ -115,7 +121,15 @@ export async function api<T>(
   }
   if (response.status === 204) return undefined as T;
   const result = (await response.json()) as T;
-  if (path === "/calendar/details" && method === "DELETE" && requestAccount) {
+  if (
+    requestAccount &&
+    ((path === "/calendar/details" && method === "DELETE") ||
+      (path === "/calendar/calendars" && method === "PUT"))
+  ) {
+    agendaGenerations.set(
+      requestAccount,
+      (agendaGenerations.get(requestAccount) || 0) + 1,
+    );
     const database = await db();
     const transaction = database.transaction("reads", "readwrite");
     for (const savedKey of await transaction.store.getAllKeys()) {
@@ -128,8 +142,17 @@ export async function api<T>(
     await transaction.done;
   }
   if (path === "/auth/magic/verify") csrf = "";
-  if (cacheable && !signal?.aborted && accountId === requestAccount)
-    await (await db()).put("reads", result, key);
+  if (cacheable) {
+    const database = await db();
+    if (
+      !signal?.aborted &&
+      accountId === requestAccount &&
+      requestGeneration === privateGeneration &&
+      (!isAgenda ||
+        agendaGeneration === (agendaGenerations.get(requestAccount) || 0))
+    )
+      await database.put("reads", result, key);
+  }
   if (method !== "GET" && /^\/focus\/(start|[^/]+\/end)$/.test(path))
     syncExtension();
   return result;

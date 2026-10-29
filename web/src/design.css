@@ -362,7 +362,13 @@ h4 {
   background: hsl(var(--muted));
 }
 .progress-track i {
-  background: hsl(var(--foreground));
+  background: hsl(var(--success));
+}
+[role="progressbar"] {
+  background: hsl(var(--success-soft));
+}
+[role="progressbar"] > div {
+  background: hsl(var(--success));
 }
 .goal-progress small {
   font-size: 10px;
@@ -453,8 +459,9 @@ h4 {
   font-weight: 500;
 }
 .status-proposed {
-  border: 1px dashed hsl(var(--foreground));
-  background: transparent;
+  border: 1px dashed hsl(var(--planned));
+  background: hsl(var(--proposal-soft));
+  color: hsl(var(--planned-foreground));
 }
 .status-skipped,
 .status-cancelled {
@@ -493,9 +500,9 @@ h4 {
   --fc-page-bg-color: hsl(var(--card));
   --fc-neutral-bg-color: hsl(var(--muted));
   --fc-today-bg-color: hsl(var(--muted) / 0.45);
-  --fc-event-bg-color: hsl(var(--secondary));
-  --fc-event-border-color: hsl(var(--muted-foreground));
-  --fc-event-text-color: hsl(var(--foreground));
+  --fc-event-bg-color: hsl(var(--planned-soft));
+  --fc-event-border-color: hsl(var(--planned));
+  --fc-event-text-color: hsl(var(--planned-foreground));
   --fc-button-bg-color: hsl(var(--primary));
   --fc-button-border-color: hsl(var(--primary));
   --fc-button-text-color: hsl(var(--primary-foreground));
@@ -519,17 +526,19 @@ h4 {
   font-size: 11px;
 }
 .fc-event.event-proposed {
-  background: hsl(var(--card));
-  border: 1px dashed hsl(var(--foreground));
-  color: hsl(var(--foreground));
+  opacity: 1;
+  background: hsl(var(--proposal-soft));
+  border: 1px dashed hsl(var(--planned));
+  color: hsl(var(--planned-foreground));
 }
 .fc-event.event-published {
-  background: hsl(var(--secondary));
-  border-color: hsl(var(--foreground));
+  background: hsl(var(--planned-soft));
+  border-color: hsl(var(--planned));
   border-left-width: 3px;
-  color: hsl(var(--foreground));
+  color: hsl(var(--planned-foreground));
 }
 .fc-event.event-skipped {
+  opacity: 1;
   background: hsl(var(--muted));
   border-color: hsl(var(--border));
   color: hsl(var(--muted-foreground));

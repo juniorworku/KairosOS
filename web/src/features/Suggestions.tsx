@@ -1,3 +1,5 @@
+import { workflowCopy as w } from "./workflow-copy";
+import "./workflow.css";
 import { Card } from "../components/primitives/card";
 import { useState } from "react";
 import { api } from "../api/client";
@@ -30,11 +32,13 @@ export function Suggestions({ kind, goal, onUse }: Props) {
   const online = useOnline();
   const [proposal, setProposal] = useState<Proposal | null>(null);
   const [pending, setPending] = useState(false);
+  const [source, setSource] = useState("");
   const [error, setError] = useState<unknown>();
 
   if (!status.data?.configured || !status.data.enabled) return null;
 
   async function request() {
+    setSource(JSON.stringify(goal));
     setPending(true);
     setError(undefined);
     setProposal(null);
@@ -87,7 +91,7 @@ export function Suggestions({ kind, goal, onUse }: Props) {
   }
 
   function useProposal() {
-    if (!proposal) return;
+    if (!proposal || source !== JSON.stringify(goal)) return;
     if (proposal.kind === "goal") {
       onUse({
         outcome_statement: proposal.value.outcome_statement,
@@ -100,13 +104,17 @@ export function Suggestions({ kind, goal, onUse }: Props) {
         id: "",
         title: action.title,
         kind: action.kind,
-        weekly_minutes_target: action.weekly_minutes,
         total_minutes_estimate: null,
         preferred_block_minutes: 60,
         min_block_minutes: 30,
         max_block_minutes: 120,
         preferred_time_of_day: "any",
         requires_deep_focus: true,
+        ...goal.actions.find(
+          (existing) =>
+            existing.title === action.title && existing.kind === action.kind,
+        ),
+        weekly_minutes_target: action.weekly_minutes,
       }));
       onUse({ actions });
     } else {
@@ -142,8 +150,44 @@ export function Suggestions({ kind, goal, onUse }: Props) {
         <Card asChild>
           <section className="panel" aria-label={c.coach.suggestions}>
             <h3>{c.coach.suggestions}</h3>
+            <details>
+              <summary>{w.suggestionEvidence}</summary>
+              <p>{goal.title}</p>
+              <p>{goal.outcome_statement}</p>
+              <p>
+                {goal.metric_name}: {goal.metric_start} → {goal.metric_target}{" "}
+                {goal.metric_unit}
+              </p>
+              <p>
+                {goal.start_date} – {goal.target_date}
+              </p>
+              {goal.actions.map((action) => (
+                <p key={action.id || action.title}>
+                  {action.title}: {action.weekly_minutes_target} min/week
+                </p>
+              ))}
+            </details>
+            <p className="workflow-muted">
+              {source !== JSON.stringify(goal)
+                ? "The form changed. Request a new suggestion before using it."
+                : w.localDraft}
+            </p>
+            {proposal.kind === "actions" && <p>{w.replacesActions}</p>}
+            {proposal.kind === "obstacles" && <p>{w.replacesObstacles}</p>}
+            {proposal.kind === "goal" && (
+              <div className="suggestion-diff">
+                <section>
+                  <h4>{w.before}</h4>
+                  <p>{goal.outcome_statement}</p>
+                  <p>
+                    {goal.metric_name}: {goal.metric_target} {goal.metric_unit}
+                  </p>
+                </section>
+              </div>
+            )}
             {proposal.kind === "goal" ? (
               <>
+                <h4>{w.after}</h4>
                 <p className="body-text">{proposal.value.outcome_statement}</p>
                 <p>
                   {proposal.value.metric_name}:{" "}
@@ -190,7 +234,12 @@ export function Suggestions({ kind, goal, onUse }: Props) {
               <Button type="button" onClick={() => setProposal(null)}>
                 {c.cancel}
               </Button>
-              <Button type="button" className="primary" onClick={useProposal}>
+              <Button
+                type="button"
+                className="primary"
+                onClick={useProposal}
+                disabled={source !== JSON.stringify(goal)}
+              >
                 {c.coach.useSuggestions}
               </Button>
             </div>

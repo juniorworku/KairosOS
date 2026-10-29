@@ -1,3 +1,5 @@
+import { CalendarSettings } from "./CalendarSettings";
+import { NativeBlockingSettings } from "./NativeBlocking";
 import { Input } from "../components/primitives/input";
 import { Textarea } from "../components/primitives/textarea";
 import { NativeSelect } from "../components/primitives/native-select";
@@ -288,6 +290,7 @@ export function Settings({
                   </Button>
                 </div>
               )}
+              <CalendarSettings />
             </section>
           </Card>
           <Card asChild>
@@ -330,6 +333,7 @@ export function Settings({
             </section>
           </Card>
           <BlocklistSettings />
+          <NativeBlockingSettings />
           <Card asChild>
             <section className="panel">
               <h2>{c.settings.sessions}</h2>

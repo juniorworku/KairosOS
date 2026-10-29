@@ -13,7 +13,12 @@ export type LocalEvent = Omit<
 };
 export type AgendaItem = Required<
   Schema["app__integrations__event_feed__AgendaItem"]
->;
+> & {
+  calendar_id?: string | null;
+  calendar_name?: string | null;
+  etag?: string | null;
+  recurring_event_id?: string | null;
+};
 export type NotedBlock = Block;
 export type PlanChange = Omit<
   Required<Schema["PlanChangeResponse"]>,

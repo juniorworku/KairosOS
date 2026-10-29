@@ -2801,6 +2801,26 @@
               "default": false,
               "title": "Details"
             }
+          },
+          {
+            "name": "calendars",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Calendars"
+            }
+          },
+          {
+            "name": "edit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Edit"
+            }
           }
         ],
         "responses": {
@@ -3030,6 +3050,269 @@
                   },
                   "type": "object",
                   "title": "Response Disable Event Details Api V1 Calendar Details Delete"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar/calendars": {
+      "get": {
+        "tags": [
+          "Calendar",
+          "Calendar"
+        ],
+        "summary": "Calendar List",
+        "operationId": "calendar_list_api_v1_calendar_calendars_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Calendar List Api V1 Calendar Calendars Get"
+                }
+              }
+            }
+          }
+        }
+      },
+      "put": {
+        "tags": [
+          "Calendar",
+          "Calendar"
+        ],
+        "summary": "Calendar Selection",
+        "operationId": "calendar_selection_api_v1_calendar_calendars_put",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SelectionInput"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Calendar Selection Api V1 Calendar Calendars Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar/events": {
+      "post": {
+        "tags": [
+          "Calendar",
+          "Calendar"
+        ],
+        "summary": "Create Event",
+        "operationId": "create_event_api_v1_calendar_events_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__integrations__event_feed__AgendaItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/calendar/events/{event_id}": {
+      "get": {
+        "tags": [
+          "Calendar",
+          "Calendar"
+        ],
+        "summary": "Get Event",
+        "operationId": "get_event_api_v1_calendar_events__event_id__get",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Calendar Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__integrations__event_feed__AgendaItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "Calendar",
+          "Calendar"
+        ],
+        "summary": "Update Event",
+        "operationId": "update_event_api_v1_calendar_events__event_id__patch",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EventUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/app__integrations__event_feed__AgendaItem"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "Calendar",
+          "Calendar"
+        ],
+        "summary": "Delete Event",
+        "operationId": "delete_event_api_v1_calendar_events__event_id__delete",
+        "parameters": [
+          {
+            "name": "event_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Event Id"
+            }
+          },
+          {
+            "name": "calendar_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Calendar Id"
+            }
+          },
+          {
+            "name": "etag",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Etag"
+            }
+          }
+        ],
+        "responses": {
+          "204": {
+            "description": "Successful Response"
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
@@ -3296,6 +3579,72 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/ext/native/status": {
+      "post": {
+        "tags": [
+          "Native companion"
+        ],
+        "summary": "Report",
+        "operationId": "report_api_v1_ext_native_status_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NativeReport"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/NativeDevice"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/native/devices": {
+      "get": {
+        "tags": [
+          "Native companion"
+        ],
+        "summary": "Devices",
+        "operationId": "devices_api_v1_native_devices_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/NativeDevice"
+                  },
+                  "type": "array",
+                  "title": "Response Devices Api V1 Native Devices Get"
                 }
               }
             }
@@ -4595,6 +4944,62 @@
         ],
         "title": "EmailRequest"
       },
+      "EventCreate": {
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Calendar Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Notes",
+            "default": ""
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "all_day": {
+            "type": "boolean",
+            "title": "All Day",
+            "default": false
+          },
+          "client_event_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Client Event Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calendar_id",
+          "title",
+          "start_at",
+          "end_at",
+          "timezone",
+          "client_event_id"
+        ],
+        "title": "EventCreate"
+      },
       "EventInput": {
         "properties": {
           "title": {
@@ -4833,6 +5238,63 @@
           "id"
         ],
         "title": "EventResponse"
+      },
+      "EventUpdate": {
+        "properties": {
+          "calendar_id": {
+            "type": "string",
+            "maxLength": 512,
+            "minLength": 1,
+            "title": "Calendar Id"
+          },
+          "title": {
+            "type": "string",
+            "maxLength": 500,
+            "minLength": 1,
+            "title": "Title"
+          },
+          "notes": {
+            "type": "string",
+            "maxLength": 10000,
+            "title": "Notes",
+            "default": ""
+          },
+          "start_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Start At"
+          },
+          "end_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "End At"
+          },
+          "timezone": {
+            "type": "string",
+            "title": "Timezone"
+          },
+          "all_day": {
+            "type": "boolean",
+            "title": "All Day",
+            "default": false
+          },
+          "etag": {
+            "type": "string",
+            "maxLength": 1024,
+            "minLength": 1,
+            "title": "Etag"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calendar_id",
+          "title",
+          "start_at",
+          "end_at",
+          "timezone",
+          "etag"
+        ],
+        "title": "EventUpdate"
       },
       "ExtEvent": {
         "properties": {
@@ -5670,6 +6132,156 @@
         ],
         "title": "MessageResponse"
       },
+      "NativeDevice": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Device Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "default": "Linux companion"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "blocking",
+              "paused",
+              "error"
+            ],
+            "title": "Mode"
+          },
+          "suspended_count": {
+            "type": "integer",
+            "maximum": 4096.0,
+            "minimum": 0.0,
+            "title": "Suspended Count"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          },
+          "credential_id": {
+            "type": "string",
+            "title": "Credential Id"
+          },
+          "last_seen_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Last Seen At"
+          },
+          "connected": {
+            "type": "boolean",
+            "title": "Connected"
+          },
+          "reporting": {
+            "type": "string",
+            "const": "helper",
+            "title": "Reporting",
+            "default": "helper"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_id",
+          "mode",
+          "suspended_count",
+          "credential_id",
+          "last_seen_at",
+          "connected"
+        ],
+        "title": "NativeDevice"
+      },
+      "NativeReport": {
+        "properties": {
+          "device_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Device Id"
+          },
+          "label": {
+            "type": "string",
+            "maxLength": 120,
+            "minLength": 1,
+            "title": "Label",
+            "default": "Linux companion"
+          },
+          "mode": {
+            "type": "string",
+            "enum": [
+              "idle",
+              "blocking",
+              "paused",
+              "error"
+            ],
+            "title": "Mode"
+          },
+          "suspended_count": {
+            "type": "integer",
+            "maximum": 4096.0,
+            "minimum": 0.0,
+            "title": "Suspended Count"
+          },
+          "session_id": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Session Id"
+          },
+          "ends_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Ends At"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "device_id",
+          "mode",
+          "suspended_count"
+        ],
+        "title": "NativeReport"
+      },
       "ObstacleInput": {
         "properties": {
           "risk_text": {
@@ -6482,6 +7094,23 @@
         ],
         "title": "SeasonResponse"
       },
+      "SelectionInput": {
+        "properties": {
+          "calendar_ids": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "maxItems": 50,
+            "title": "Calendar Ids"
+          }
+        },
+        "type": "object",
+        "required": [
+          "calendar_ids"
+        ],
+        "title": "SelectionInput"
+      },
       "SessionInfo": {
         "properties": {
           "id": {
@@ -7008,6 +7637,17 @@
               }
             ],
             "title": "Calendar Name"
+          },
+          "etag": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Etag"
           }
         },
         "type": "object",

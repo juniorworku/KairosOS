@@ -1,3 +1,9 @@
+import {
+  GoogleEventEditor,
+  GoogleEventForm,
+  GoogleCalendarPicker,
+} from "./GoogleEventEditor";
+import type { CalendarList } from "../api/calendar";
 import { Input } from "../components/primitives/input";
 import { Textarea } from "../components/primitives/textarea";
 import { NativeSelect } from "../components/primitives/native-select";
@@ -43,8 +49,15 @@ interface Props {
 export function AgendaEditor(props: Props) {
   return props.selection.kind === "block" ? (
     <BlockEditor {...props} selection={props.selection} />
-  ) : props.selection.item?.source === "google" ||
-    props.selection.item?.editable === false ? (
+  ) : props.selection.item?.source === "google" ? (
+    <GoogleEventEditor
+      item={props.selection.item}
+      timezone={props.timezone}
+      online={props.online}
+      close={props.close}
+      onChange={props.onChange}
+    />
+  ) : props.selection.item?.editable === false ? (
     <ReadOnlyEvent
       item={props.selection.item}
       timezone={props.timezone}
@@ -102,6 +115,8 @@ function EventEditor(
 ) {
   const { selection, close } = props;
   const item = selection.item;
+  const calendars = useData<CalendarList>("/calendar/calendars", !item);
+  const [calendarId, setCalendarId] = useState("");
   const series = useData<LocalEvent>(`/events/${item?.source_id}`, !!item);
   const [scope, setScope] = useState<"occurrence" | "series">(
     item?.recurring && item.occurrence_date ? "occurrence" : "series",
@@ -123,6 +138,15 @@ function EventEditor(
   return (
     <Modal titleId="event-title" onClose={close}>
       <h2 id="event-title">{item ? a.editEvent : a.newEvent}</h2>
+      {!item && !selection.task && calendars.data?.write_enabled && (
+        <GoogleCalendarPicker
+          value={calendarId}
+          onChange={setCalendarId}
+          calendars={calendars.data}
+          disabled={!props.online}
+        />
+      )}
+      {!item && calendars.error && <Notice error={calendars.error} />}
       {item?.recurring && item.occurrence_date && (
         <div
           className="segmented agenda-edit-scope"
@@ -146,7 +170,20 @@ function EventEditor(
         </div>
       )}
       <Notice error={series.error} />
-      {item && scope === "series" && !series.data ? (
+      {calendarId && calendars.data ? (
+        <GoogleEventForm
+          key={calendarId}
+          calendarId={calendarId}
+          calendars={calendars.data}
+          timezone={props.timezone}
+          online={props.online}
+          startAt={selection.start}
+          endAt={selection.end}
+          allDay={selection.allDay}
+          close={close}
+          onChange={props.onChange}
+        />
+      ) : item && scope === "series" && !series.data ? (
         <p role="status">{series.error ? c.requestFailed : c.loading}</p>
       ) : (
         <EventForm

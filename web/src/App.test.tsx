@@ -88,19 +88,45 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 describe("functional shell", () => {
-  it("defaults to dark tokens and preserves an explicit light preference", async () => {
+  it("defaults to warm light tokens and preserves an explicit dark preference", async () => {
     const first = mount();
-    await waitFor(() =>
-      expect(document.documentElement).toHaveAttribute("data-theme", "dark"),
-    );
-    expect(document.documentElement).toHaveClass("dark");
-    first.unmount();
-    localStorage.setItem("kairos.theme", "light");
-    mount();
     await waitFor(() =>
       expect(document.documentElement).toHaveAttribute("data-theme", "light"),
     );
     expect(document.documentElement).not.toHaveClass("dark");
+    first.unmount();
+    localStorage.setItem("kairos.theme", "dark");
+    mount();
+    await waitFor(() =>
+      expect(document.documentElement).toHaveAttribute("data-theme", "dark"),
+    );
+    expect(document.documentElement).toHaveClass("dark");
+    expect(localStorage.getItem("kairos.theme")).toBe("dark");
+  });
+  it("switches light and dark from the shell and persists the choice after remount", async () => {
+    const first = mount();
+    const sidebar = document.querySelector(".sidebar")! as HTMLElement;
+    fireEvent.click(
+      within(sidebar).getByRole("button", { name: "Dark theme" }),
+    );
+    await waitFor(() =>
+      expect(document.documentElement).toHaveAttribute("data-theme", "dark"),
+    );
+    expect(
+      within(sidebar).getByRole("button", { name: "Dark theme" }),
+    ).toHaveAttribute("aria-pressed", "true");
+    first.unmount();
+    mount();
+    expect(document.documentElement).toHaveClass("dark");
+    fireEvent.click(
+      within(document.querySelector(".sidebar")! as HTMLElement).getByRole(
+        "button",
+        { name: "Light theme" },
+      ),
+    );
+    await waitFor(() =>
+      expect(document.documentElement).toHaveAttribute("data-theme", "light"),
+    );
     expect(localStorage.getItem("kairos.theme")).toBe("light");
   });
   it("traps mobile navigation focus and restores the trigger after Escape", async () => {

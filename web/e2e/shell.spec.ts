@@ -191,11 +191,33 @@ test("goal, weekly draft, focus, check-in, review, and settings", async ({
     await expect(
       page.getByRole("button", { name: "End session" }),
     ).toBeVisible();
+    await page.getByRole("link", { name: "Goals", exact: true }).click();
+    const running = page.getByRole("complementary", {
+      name: "Current focus session",
+    });
+    await expect(running).toContainText(actionTitle);
+    await running.getByRole("link", { name: "Return to session" }).click();
+    await expect(
+      page.getByRole("button", { name: "End session" }),
+    ).toBeVisible();
     await page.getByRole("button", { name: "End session" }).click();
     await page.getByRole("button", { name: "4", exact: true }).click();
     await page.getByRole("button", { name: "Save session" }).click();
     await expect(page.getByText("4 / 5", { exact: true })).toBeVisible();
-    await page.getByRole("link", { name: "Review", exact: true }).click();
+    await page.getByLabel("Books (books)", { exact: true }).fill("3");
+    await page
+      .getByRole("button", { name: "Log progress", exact: true })
+      .click();
+    await expect(
+      page.getByText("Progress saved", { exact: true }),
+    ).toBeVisible();
+    const progress = (await (
+      await page.request.get(`/api/v1/goals/${goalId}`)
+    ).json()) as { checkins: { metric_value: number }[] };
+    expect(progress.checkins.at(-1)?.metric_value).toBe(3);
+    await page
+      .getByRole("link", { name: "Review this week", exact: true })
+      .click();
     const reflection = (await (
       await page.request.get(
         `/api/v1/reflection/${await page.locator(".week-nav span").textContent()}`,
@@ -362,6 +384,9 @@ test("tasks, recurring events, notes, and occurrence edits persist", async ({
       .getByLabel("Notes", { exact: true })
       .fill("Take the notebook.");
     await dialog
+      .getByLabel("Due date", { exact: true })
+      .fill(DateTime.now().setZone(me.timezone).toISODate()!);
+    await dialog
       .getByRole("button", { name: "Save task", exact: true })
       .click();
     await expect(dialog).toHaveCount(0);
@@ -370,6 +395,13 @@ test("tasks, recurring events, notes, and occurrence edits persist", async ({
       title: string;
     }[];
     taskId = tasks.find((task) => task.title === title)!.id;
+    await page.getByRole("link", { name: "Today", exact: true }).click();
+    await page.getByRole("link").filter({ hasText: title }).click();
+    await expect(page).toHaveURL(new RegExp(`task=${taskId}`));
+    const linkedTask = page.locator(`#agenda-task-${taskId}`);
+    await expect(linkedTask).toBeFocused();
+    await expect(linkedTask).toHaveClass(/is-context-task/);
+    await page.getByRole("button", { name: "Next week", exact: true }).click();
     await page
       .getByRole("button", { name: `Schedule task: ${title}`, exact: true })
       .click();
@@ -534,7 +566,7 @@ test("manual action creation and proposed moves require explicit acceptance", as
       .click();
     await expect(dialog).toHaveCount(0);
     await expect(
-      page.getByRole("heading", { name: "Proposed changes", exact: true }),
+      page.getByRole("heading", { name: "Review draft", exact: true }),
     ).toBeVisible();
     let blocks = (await (
       await page.request.get(`/api/v1/plan/week?start=${monday.toISODate()}`)
@@ -545,10 +577,10 @@ test("manual action creation and proposed moves require explicit acceptance", as
       ).toMillis(),
     ).toBe(start.toMillis());
     await page
-      .getByRole("button", { name: "Apply change", exact: true })
+      .getByRole("button", { name: "Keep change", exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { name: "Proposed changes", exact: true }),
+      page.getByRole("heading", { name: "Review draft", exact: true }),
     ).toHaveCount(0);
     blocks = (await (
       await page.request.get(`/api/v1/plan/week?start=${monday.toISODate()}`)
@@ -567,4 +599,150 @@ test("manual action creation and proposed moves require explicit acceptance", as
         () => {},
       );
   }
+});
+
+test("connected workspace routes retain dates and remain accessible in both themes", async ({
+  page,
+}) => {
+  test.setTimeout(90000);
+  for (const theme of ["dark", "light"]) {
+    await page.goto("/settings");
+    await page.getByLabel("Theme", { exact: true }).selectOption(theme);
+    for (const route of [
+      "/today",
+      "/goals",
+      "/focus",
+      "/review",
+      "/coach",
+      "/plan?date=2026-11-04",
+    ]) {
+      await page.goto(route);
+      await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+      if (route.startsWith("/plan")) {
+        await expect(
+          page.getByLabel("Selected date", { exact: true }),
+        ).toHaveValue("2026-11-04");
+        await page.reload();
+        await expect(
+          page.getByLabel("Selected date", { exact: true }),
+        ).toHaveValue("2026-11-04");
+      }
+      await expect
+        .poll(() =>
+          page.evaluate(
+            () => document.documentElement.scrollWidth <= window.innerWidth,
+          ),
+        )
+        .toBe(true);
+      const audit = await new AxeBuilder({ page })
+        .withTags(["wcag2a", "wcag2aa"])
+        .analyze();
+      expect(audit.violations, `${theme} ${route}`).toEqual([]);
+    }
+  }
+});
+
+test("monthly and yearly repeats persist from the event form", async ({
+  page,
+}) => {
+  test.setTimeout(60000);
+  await page.goto("/plan?date=2027-01-31");
+  for (const frequency of ["monthly", "yearly"]) {
+    const title = `E2E ${frequency} ${Date.now()}`;
+    let eventId = "";
+    try {
+      await page
+        .getByRole("button", { name: "Add event", exact: true })
+        .click();
+      const dialog = page.getByRole("dialog");
+      await dialog.getByLabel("Title", { exact: true }).fill(title);
+      await dialog
+        .getByLabel("Start", { exact: true })
+        .fill("2027-01-31T09:00");
+      await dialog.getByLabel("End", { exact: true }).fill("2027-01-31T10:00");
+      await dialog.getByLabel("Time zone", { exact: true }).fill("UTC");
+      await dialog.getByLabel("Repeat", { exact: true }).check();
+      await dialog
+        .getByLabel("Frequency", { exact: true })
+        .selectOption(frequency);
+      const response = page.waitForResponse(
+        (r) =>
+          r.url().endsWith("/api/v1/events") && r.request().method() === "POST",
+      );
+      await dialog
+        .getByRole("button", { name: "Save event", exact: true })
+        .click();
+      const saved = await response;
+      expect(saved.status()).toBe(201);
+      eventId = ((await saved.json()) as { id: string }).id;
+      await expect(dialog).toHaveCount(0);
+      await page.reload();
+      const event = (await (
+        await page.request.get(`/api/v1/events/${eventId}`)
+      ).json()) as { recurrence: { frequency: string } };
+      expect(event.recurrence.frequency).toBe(frequency);
+    } finally {
+      if (eventId) await write(page, `/events/${eventId}`, undefined, "DELETE");
+    }
+  }
+});
+
+test("visible light and dark controls persist on desktop and mobile", async ({
+  page,
+}) => {
+  await page.goto("/today");
+  const desktop = page.locator(".sidebar");
+  await desktop
+    .getByRole("button", { name: "Dark theme", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await desktop
+    .getByRole("button", { name: "Light theme", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page
+    .locator(".mobile-bar")
+    .getByRole("button", { name: "Dark theme", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "dark");
+  await page.getByRole("button", { name: "Open navigation" }).click();
+  await page
+    .getByRole("dialog", { name: "Kairos", exact: true })
+    .getByRole("button", { name: "Light theme", exact: true })
+    .click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Close navigation" }).click();
+  const accessibility = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(accessibility.violations).toEqual([]);
+});
+
+test("native setup is reachable from focus without installing or enabling the helper", async ({
+  page,
+}) => {
+  await page.goto("/focus");
+  await page
+    .getByRole("link", { name: "Set up native blocking", exact: true })
+    .click();
+  await expect(page).toHaveURL(/\/settings#native-blocking$/);
+  const panel = page.locator("#native-blocking");
+  await expect(panel).toBeFocused();
+  await panel.getByText("Linux setup", { exact: true }).click();
+  await expect(
+    panel.getByRole("button", { name: "Pair Linux companion", exact: true }),
+  ).toBeVisible();
+  await expect(panel).toContainText(
+    "The web app cannot change your local executable list or enable the helper.",
+  );
+  const audit = await new AxeBuilder({ page })
+    .include("#native-blocking")
+    .withTags(["wcag2a", "wcag2aa"])
+    .analyze();
+  expect(audit.violations).toEqual([]);
 });

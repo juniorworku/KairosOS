@@ -2,7 +2,7 @@
 
 import re
 from collections.abc import Iterator
-from datetime import UTC, date, datetime
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
 
@@ -304,6 +304,18 @@ def test_monthly_yearly_series_persist_and_keep_occurrence_overrides(
 ) -> None:
     client = agenda_client
     user_id = login(client)
+
+    def series_feed() -> list[dict[str, Any]]:
+        # The agenda deliberately bounds each read to one year. Follow that public
+        # contract while checking leap-day series that span multiple years.
+        cursor, limit = date.fromisoformat(start[:10]), date.fromisoformat(range_end)
+        rows: list[dict[str, Any]] = []
+        while cursor < limit:
+            next_day = min(cursor + timedelta(days=366), limit)
+            rows.extend(feed(client, user_id, cursor, next_day))
+            cursor = next_day
+        return rows
+
     response = client.post(
         "/api/v1/events",
         json=event_body()
@@ -317,7 +329,7 @@ def test_monthly_yearly_series_persist_and_keep_occurrence_overrides(
     assert response.status_code == 201, response.text
     identifier = response.json()["id"]
     assert client.get(f"/api/v1/events/{identifier}").json()["recurrence"]["frequency"] == frequency
-    rows = feed(client, user_id, date.fromisoformat(start[:10]), date.fromisoformat(range_end))
+    rows = series_feed()
     assert len(rows) == 3
     assert rows[1]["occurrence_date"] == second
     assert (
@@ -336,7 +348,7 @@ def test_monthly_yearly_series_persist_and_keep_occurrence_overrides(
         ).status_code
         == 200
     )
-    rows = feed(client, user_id, date.fromisoformat(start[:10]), date.fromisoformat(range_end))
+    rows = series_feed()
     assert all(row["title"] == "Renamed" for row in rows)
     assert [row["occurrence_date"] for row in rows if row["notes"] == "Only this occurrence"] == [
         second
@@ -348,7 +360,4 @@ def test_monthly_yearly_series_persist_and_keep_occurrence_overrides(
         ).status_code
         == 204
     )
-    assert (
-        len(feed(client, user_id, date.fromisoformat(start[:10]), date.fromisoformat(range_end)))
-        == 2
-    )
+    assert len(series_feed()) == 2

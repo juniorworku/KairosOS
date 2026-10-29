@@ -44,7 +44,7 @@ The PWA shell uses prompt-based service-worker updates. Private cached reads and
 
 OpenAPI is exported without connecting to infrastructure. The generated TypeScript schema is committed, regenerated after endpoint changes, and checked for drift. Python and npm dependency locks are committed. Tests cover pure calculations, real isolated PostgreSQL ownership/security cases, fake provider contracts, web behavior, browser workflows, and extension rule generation.
 
-No deployment or publishing is configured. Personal Mode, companion/helper processes, activity collection, OS automation, and interventions remain deferred.
+No deployment or publishing is configured. A narrow opt-in Linux focus companion is implemented under `native/`; broader Personal Mode, activity collection, OS automation and interventions remain deferred.
 
 Coaching requests reserve their maximum output allowance before network work. If cancellation or an interrupted provider response leaves usage unknown, the reservation remains; it is an allowance reservation, not a claim about billed tokens. Completed requests use confirmed counts. Daily and monthly quota errors include their actual reset time.
 
@@ -60,4 +60,12 @@ Focus completion accumulates recorded session duration against the block budget;
 
 ## Agenda extension
 
-[Events, tasks and week drafts](AGENDA.md) describes the new local task/event/exception/proposal aggregates and unified feed. The pure bounded recurrence engine expands daily/weekly wall-clock occurrences; the scheduler consumes local event intervals without duplicating goal blocks. Explicit optional Google-details consent adds a dedicated encrypted occurrence cache through migration 0005; default availability access remains minimal. The Plan UI and generated schemas now expose manual creation, occurrence edits, notes and proposal acceptance.
+[Events, tasks and week drafts](AGENDA.md) describes the new local task/event/exception/proposal aggregates and unified feed. The pure bounded recurrence engine expands daily/weekly/monthly/yearly wall-clock occurrences; the scheduler consumes local event intervals without duplicating goal blocks. Explicit optional Google-details consent adds a dedicated encrypted occurrence cache through migration 0005; default availability access remains minimal. The Plan UI and generated schemas now expose manual creation, occurrence edits, notes and proposal acceptance.
+
+## Selected calendars and Linux companion
+
+Calendar selection, list metadata and edit consent use migration 0006; metadata and event details are encrypted. Selection reads and conditional owned-event writes are bounded, ownership checked and serialized with existing owner/calendar locks. Provider ETags guard edits/deletes and stable IDs protect create retries. The event feed carries calendar identity and version without duplicating linked goal blocks.
+
+The Linux companion uses existing revocable device pairing and bearer-limited focus state. Executable paths stay in a private local allowlist; only exact same-user targets are suspended, never terminated. PID/start/executable/boot identity and pidfds protect signals. Recovery intent is durable before suspension; a separate watchdog enforces the session deadline and a short controller lease. Failed resume attempts retain their journal records and retry. A simultaneous forced stop of every recovery process still requires local recovery.
+
+`POST /ext/native/status` stores one bounded report per paired credential, validates blocking session/deadline, and allows explicit error/pending-recovery counts. `GET /native/devices` is owner-only, filters revoked credentials and expires freshness after 30 seconds. Counts are app processes, not attention measurements or proof of current OS state. The web app cannot enable native blocking or change its local executable list.

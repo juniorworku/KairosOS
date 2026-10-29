@@ -3,7 +3,13 @@ import { Textarea } from "../components/primitives/textarea";
 import { NativeSelect } from "../components/primitives/native-select";
 import { Card } from "../components/primitives/card";
 import { useEffect, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import {
+  Link,
+  useLocation,
+  useNavigate,
+  useParams,
+  useSearchParams,
+} from "react-router-dom";
 import { useQueryClient } from "@tanstack/react-query";
 import { ArrowLeft, ArrowRight, Plus, Trash2 } from "lucide-react";
 import { copy as c } from "../copy/en";
@@ -17,12 +23,23 @@ import {
   deleteDraft,
 } from "../api/client";
 import type { Goal, Action, Trajectory, Season } from "../api/types";
-import { addDays, dateKey, minutes } from "../lib/time";
+import { addDays, dateKey, minutes, weekStart } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Empty, Field, Notice, SubmitForm } from "../components/ui/Forms";
 import { GoalRow } from "./Today";
 import { Suggestions } from "./Suggestions";
+import { SeasonOverview } from "./SeasonOverview";
+import { workflowCopy as w } from "../copy/workflow";
+import { planDay } from "./workflow-data";
+import type { Block } from "../api/types";
 export function Goals() {
+  const { user } = useAuth();
+  const [params] = useSearchParams();
+  const today = dateKey(new Date(), user!.timezone);
+  const week = weekStart(today);
+  const seasons = useData<Season[]>("/seasons");
+  const blocks = useData<Block[]>(`/plan/week?start=${week}`);
+  const following = useData<Block[]>(`/plan/week?start=${addDays(week, 7)}`);
   const goals = useData<Goal[]>("/goals");
   const trajectory = useData<Trajectory[]>("/trajectory");
   const [filter, setFilter] = useState("active");
@@ -38,6 +55,27 @@ export function Goals() {
           </Link>
         )}
       </header>
+      <Notice
+        error={
+          seasons.error || trajectory.error || blocks.error || following.error
+        }
+      />
+      <SeasonOverview
+        seasons={seasons.data || []}
+        goals={goals.data || []}
+        trajectories={trajectory.data || []}
+        blocks={[...(blocks.data || []), ...(following.data || [])]}
+        today={today}
+        timezone={user!.timezone}
+        online={online}
+        loading={seasons.isPending || goals.isPending}
+        through={addDays(week, 13)}
+        initialSeason={params.get("season") || undefined}
+      />
+      <div className="workflow-goals-heading">
+        <h2>{w.goalsList}</h2>
+        <p>{w.allGoalsHint}</p>
+      </div>
       <div className="tabs" role="group" aria-label={c.goals.status}>
         {(["active", "paused", "done", "all"] as const).map((status) => (
           <Button
@@ -55,21 +93,17 @@ export function Goals() {
         <p role="status">{c.loading}</p>
       ) : goals.data?.filter((g) => filter === "all" || g.status === filter)
           .length ? (
-        <Card asChild>
-          <section className="panel goal-rows">
-            {goals.data
-              .filter((g) => filter === "all" || g.status === filter)
-              .map((goal) => (
-                <GoalRow
-                  key={goal.id}
-                  goal={goal}
-                  trajectory={trajectory.data?.find(
-                    (t) => t.goal_id === goal.id,
-                  )}
-                />
-              ))}
-          </section>
-        </Card>
+        <section className="workflow-goal-list goal-rows">
+          {goals.data
+            .filter((g) => filter === "all" || g.status === filter)
+            .map((goal) => (
+              <GoalRow
+                key={goal.id}
+                goal={goal}
+                trajectory={trajectory.data?.find((t) => t.goal_id === goal.id)}
+              />
+            ))}
+        </section>
       ) : (
         <Empty title={c.goals.empty} />
       )}
@@ -78,6 +112,8 @@ export function Goals() {
 }
 export function GoalDetail() {
   const { id } = useParams();
+  const location = useLocation();
+  const { user } = useAuth();
   const goal = useData<Goal>(`/goals/${id}`);
   const trajectories = useData<Trajectory[]>("/trajectory");
   const client = useQueryClient();
@@ -88,6 +124,14 @@ export function GoalDetail() {
   const [value, setValue] = useState("");
   const [note, setNote] = useState("");
   const g = goal.data;
+  const readyGoalId = g?.id;
+  useEffect(() => {
+    if (readyGoalId && location.hash === "#check-in") {
+      const target = document.getElementById("check-in");
+      target?.scrollIntoView?.({ block: "start" });
+      target?.focus({ preventScroll: true });
+    }
+  }, [readyGoalId, location.hash]);
   async function status(value: string) {
     try {
       await api(`/goals/${id}`, "PATCH", { ...g, status: value });
@@ -141,6 +185,28 @@ export function GoalDetail() {
       {g.outcome_statement && (
         <p className="goal-outcome">{g.outcome_statement}</p>
       )}
+      <nav className="goal-workflow-links" aria-label={w.seeGoal}>
+        {g.season_id && (
+          <Link
+            className="text-link"
+            to={`/goals?season=${encodeURIComponent(g.season_id)}`}
+          >
+            {w.season}
+            <ArrowRight size={13} />
+          </Link>
+        )}
+        <Link
+          className="text-link"
+          to={planDay(dateKey(new Date(), user!.timezone), g.id)}
+        >
+          {w.planTime}
+          <ArrowRight size={13} />
+        </Link>
+        <Link className="text-link" to="/review">
+          {w.weeklyReview}
+          <ArrowRight size={13} />
+        </Link>
+      </nav>
       <div className="detail-columns">
         <div>
           <Card asChild>
@@ -205,7 +271,9 @@ export function GoalDetail() {
         <div>
           <Card asChild>
             <section className="panel">
-              <h2>{c.goals.checkin}</h2>
+              <h2 id="check-in" tabIndex={-1}>
+                {c.goals.checkin}
+              </h2>
               <SubmitForm
                 onSubmit={async () => {
                   const body = { metric_value: Number(value), note };
@@ -349,12 +417,30 @@ const actionDefault = (): Action => ({
 });
 export function GoalEditor() {
   const { id } = useParams();
+  const [params] = useSearchParams();
+  const initialSeasonId = !id ? params.get("season") : null;
+  const seasons = useData<Season[]>("/seasons", Boolean(initialSeasonId));
   const query = useData<Goal>(`/goals/${id}`, !!id);
   if (id && query.isPending) return <p>{c.loading}</p>;
   if (id && query.isError) return <Notice error={query.error} />;
-  return <Editor key={id || "new"} existing={query.data} />;
+  if (initialSeasonId && seasons.isPending) return <p>{c.loading}</p>;
+  return (
+    <Editor
+      key={id || `new:${initialSeasonId || ""}`}
+      existing={query.data}
+      initialSeason={seasons.data?.find(
+        (season) => season.id === initialSeasonId,
+      )}
+    />
+  );
 }
-function Editor({ existing }: { existing?: Goal }) {
+function Editor({
+  existing,
+  initialSeason,
+}: {
+  existing?: Goal;
+  initialSeason?: Season;
+}) {
   const auth = useAuth();
   const online = useOnline();
   const navigate = useNavigate();
@@ -366,13 +452,13 @@ function Editor({ existing }: { existing?: Goal }) {
       id: "",
       title: "",
       outcome_statement: "",
-      season_id: null,
+      season_id: initialSeason?.id || null,
       metric_name: "",
       metric_unit: "",
       metric_start: 0,
       metric_target: 100,
-      start_date: today,
-      target_date: addDays(today, 84),
+      start_date: initialSeason?.start_date || today,
+      target_date: initialSeason?.end_date || addDays(today, 84),
       why_facts: "",
       why_feelings: "",
       why_function: "",
@@ -395,13 +481,16 @@ function Editor({ existing }: { existing?: Goal }) {
       void readDraft<{ draft: Goal; step: number }>("new-goal")
         .then((value) => {
           if (value) {
-            setDraft(value.draft);
+            setDraft({
+              ...value.draft,
+              season_id: initialSeason?.id || value.draft.season_id,
+            });
             setStep(value.step);
           }
           setLoaded(true);
         })
         .catch(() => setLoaded(true));
-  }, [existing]);
+  }, [existing, initialSeason?.id]);
   useEffect(() => {
     if (loaded && !existing) void saveDraft("new-goal", { draft, step });
   }, [draft, step, loaded, existing]);

@@ -83,6 +83,7 @@ const occurrence: AgendaItem = {
   action_id: null,
   calendar_id: null,
   calendar_name: null,
+  etag: null,
 };
 function mount(
   element: React.ReactNode,
@@ -139,19 +140,40 @@ afterEach(() => {
 });
 
 describe("local agenda editing", () => {
-  it.each(["monthly", "yearly"])("wires %s repeats to the event API", async (frequency) => {
-    editor({ kind: "event", start: "2026-01-31T09:00:00Z", end: "2026-01-31T10:00:00Z" });
-    fireEvent.change(screen.getByLabelText(a.title), { target: { value: "Planning review" } });
-    fireEvent.click(screen.getByLabelText(a.repeats));
-    fireEvent.change(screen.getByLabelText(a.frequency), { target: { value: frequency } });
-    expect(screen.getByText(/Months or years without that date are skipped/)).toBeVisible();
-    fireEvent.click(screen.getByRole("button", { name: a.saveEvent }));
-    await waitFor(() => expect(api).toHaveBeenCalledWith(
-      "/events", "POST", expect.objectContaining({ recurrence: expect.objectContaining({
-        frequency, weekdays: [], count: expect.any(Number),
-      }) }),
-    ));
-  });
+  it.each(["monthly", "yearly"])(
+    "wires %s repeats to the event API",
+    async (frequency) => {
+      editor({
+        kind: "event",
+        start: "2026-01-31T09:00:00Z",
+        end: "2026-01-31T10:00:00Z",
+      });
+      fireEvent.change(screen.getByLabelText(a.title), {
+        target: { value: "Planning review" },
+      });
+      fireEvent.click(screen.getByLabelText(a.repeats));
+      fireEvent.change(screen.getByLabelText(a.frequency), {
+        target: { value: frequency },
+      });
+      expect(
+        screen.getByText(/Months or years without that date are skipped/),
+      ).toBeVisible();
+      fireEvent.click(screen.getByRole("button", { name: a.saveEvent }));
+      await waitFor(() =>
+        expect(api).toHaveBeenCalledWith(
+          "/events",
+          "POST",
+          expect.objectContaining({
+            recurrence: expect.objectContaining({
+              frequency,
+              weekdays: [],
+              count: expect.any(Number),
+            }),
+          }),
+        ),
+      );
+    },
+  );
 
   it("saves a one-day event using local midnight and an exclusive end", async () => {
     editor(
@@ -242,6 +264,50 @@ describe("local agenda editing", () => {
   });
 });
 describe("tasks and plan review", () => {
+  it("focuses a task linked from Today without scheduling it automatically", () => {
+    const original = Object.getOwnPropertyDescriptor(
+      Element.prototype,
+      "scrollIntoView",
+    );
+    const scroll = vi.fn();
+    Object.defineProperty(Element.prototype, "scrollIntoView", {
+      configurable: true,
+      value: scroll,
+    });
+    try {
+      const task: Task = {
+        id: "due-task",
+        title: "Read paper",
+        notes: "",
+        due_date: "2026-11-04",
+        goal_id: null,
+        status: "todo",
+        estimated_minutes: 30,
+      };
+      mount(
+        <AgendaTasks
+          tasks={[task]}
+          goals={[]}
+          online
+          pending={false}
+          error={null}
+          onChange={onChange}
+          onSchedule={vi.fn()}
+          selectedTaskId={task.id}
+        />,
+      );
+      const target = document.getElementById("agenda-task-due-task");
+      expect(target).toHaveFocus();
+      expect(target).toHaveClass("is-context-task");
+      expect(scroll).toHaveBeenCalledWith({ block: "nearest" });
+      expect(api).not.toHaveBeenCalled();
+    } finally {
+      if (original)
+        Object.defineProperty(Element.prototype, "scrollIntoView", original);
+      else Reflect.deleteProperty(Element.prototype, "scrollIntoView");
+    }
+  });
+
   it("marks a task done and schedules its details without creating an event automatically", async () => {
     const task: Task = {
       id: "task",

@@ -1,0 +1,612 @@
+.workflow-page-header {
+  margin-bottom: 1.4rem;
+}
+.workflow-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  margin: 0 0 0.7rem;
+  font-size: 0.68rem;
+  font-weight: 650;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: hsl(var(--muted-foreground));
+}
+.today-action-hero {
+  padding: 1.65rem 1.8rem;
+  border: 1px solid hsl(var(--border));
+  border-radius: 0.8rem;
+  background: hsl(var(--planned-soft));
+}
+.today-action-hero.is-running {
+  background: hsl(var(--success-soft));
+}
+.today-action-hero h2 {
+  max-width: 35ch;
+  margin: 0 0 0.65rem;
+  font-size: clamp(1.35rem, 2.8vw, 2rem);
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: -0.04em;
+}
+.today-action-hero > p:not(.workflow-eyebrow) {
+  max-width: 65ch;
+  margin-bottom: 1rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.82rem;
+}
+.today-action-body {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.5rem;
+}
+.today-action-body > div:first-child > a {
+  font-size: 0.82rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.today-action-context,
+.today-action-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.75rem 1.1rem;
+}
+.today-action-context {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.76rem;
+}
+.today-action-context > a {
+  color: hsl(var(--foreground));
+}
+.today-action-controls {
+  margin-top: 1.1rem;
+}
+.today-action-controls .text-link {
+  font-size: 0.76rem;
+}
+.session-live-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: hsl(var(--success));
+}
+.today-live-clock {
+  flex-shrink: 0;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: clamp(1.7rem, 3vw, 2.4rem);
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+.today-live-clock > span {
+  display: block;
+  margin-top: 0.4rem;
+  font-size: 0.7rem;
+  color: hsl(var(--muted-foreground));
+  letter-spacing: 0;
+}
+.today-evidence-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem 2.7rem;
+  margin: 1.2rem 0 1.5rem;
+  padding: 0.2rem 0.1rem 1.2rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.today-evidence-strip dt {
+  margin-bottom: 0.3rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.68rem;
+}
+.today-evidence-strip dd {
+  margin: 0;
+  font-size: 1.03rem;
+  font-weight: 550;
+  font-variant-numeric: tabular-nums;
+}
+.today-evidence-strip .today-hours {
+  margin-left: auto;
+}
+.today-hours dd > a {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-size: 0.8rem;
+}
+.workflow-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.4rem;
+  margin-bottom: 2rem;
+}
+.workflow-week > a {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.22rem;
+  padding: 0.55rem 0.3rem;
+  border-radius: 0.5rem;
+  border: 1px solid transparent;
+}
+.workflow-week > a:hover,
+.workflow-week > a:focus-visible {
+  background: hsl(var(--muted));
+}
+.workflow-week > a.is-today {
+  background: hsl(var(--planned-soft));
+  border-color: hsl(var(--planned) / 0.25);
+}
+.workflow-week span {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.67rem;
+}
+.workflow-week strong {
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+.workflow-week small {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.59rem;
+}
+.workflow-columns {
+  display: grid;
+  grid-template-columns: minmax(0, 1.08fr) minmax(0, 1fr);
+  gap: 2.25rem;
+  align-items: start;
+}
+.workflow-main-column {
+  min-width: 0;
+}
+.workflow-section-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+.workflow-section-heading h2 {
+  margin: 0;
+  font-size: 0.98rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+}
+.workflow-section-heading .text-link {
+  font-size: 0.7rem;
+}
+.workflow-agenda-list {
+  border-top: 1px solid hsl(var(--border));
+}
+.workflow-agenda-row {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  min-height: 73px;
+  padding: 0.8rem 0;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.workflow-agenda-row.is-complete .workflow-agenda-content > a {
+  color: hsl(var(--muted-foreground));
+}
+.workflow-agenda-time {
+  flex: 0 0 62px;
+  font-size: 0.73rem;
+  font-variant-numeric: tabular-nums;
+}
+.workflow-agenda-time small {
+  display: block;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.64rem;
+}
+.workflow-agenda-content {
+  flex: 1;
+  min-width: 0;
+}
+.workflow-agenda-content > a {
+  display: block;
+  overflow-wrap: anywhere;
+  font-size: 0.81rem;
+  font-weight: 550;
+}
+.workflow-agenda-content > small {
+  display: block;
+  margin-top: 0.25rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.66rem;
+}
+.workflow-agenda-row > .button {
+  flex-shrink: 0;
+}
+.workflow-empty-line {
+  padding: 1.1rem 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.8rem;
+}
+.workflow-empty-line p {
+  margin-bottom: 0.65rem;
+}
+.today-feedback,
+.today-due-tasks {
+  margin-top: 1.7rem;
+  padding-top: 1.2rem;
+  border-top: 1px solid hsl(var(--border));
+}
+.workflow-small {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.73rem;
+  line-height: 1.6;
+}
+.today-checkin-link,
+.today-due-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.9rem;
+  padding: 0.85rem 0;
+  border-bottom: 1px solid hsl(var(--border));
+  font-size: 0.76rem;
+}
+.today-checkin-link strong,
+.today-checkin-link small {
+  display: block;
+}
+.today-checkin-link strong {
+  font-weight: 550;
+}
+.today-checkin-link small,
+.today-due-row small {
+  margin-top: 0.25rem;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.65rem;
+}
+.today-checkin-link > span:last-child {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-shrink: 0;
+  font-size: 0.66rem;
+}
+.today-due-row > span {
+  flex: 1;
+}
+.today-review-link {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-top: 1.2rem;
+}
+.today-review-link strong {
+  font-weight: 550;
+  font-size: 0.78rem;
+}
+.today-review-link p {
+  max-width: 30ch;
+  margin: 0.35rem 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.69rem;
+  line-height: 1.6;
+}
+.today-review-link .button {
+  font-size: 0.68rem;
+}
+.season-overview {
+  min-width: 0;
+  padding-bottom: 1.4rem;
+  border-bottom: 1px solid hsl(var(--border));
+}
+.season-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1.2rem;
+  margin-bottom: 1rem;
+}
+.season-heading h2 {
+  margin: 0;
+  font-size: 1.28rem;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+}
+.season-heading .workflow-eyebrow {
+  margin-bottom: 0.35rem;
+}
+.season-controls {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+.season-controls .field {
+  margin: 0;
+  max-width: 170px;
+}
+.season-controls .field label {
+  font-size: 0.63rem;
+}
+.season-controls .button {
+  font-size: 0.68rem;
+}
+.season-dates {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.72rem;
+}
+.season-dates > span {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  color: hsl(var(--muted-foreground));
+}
+.season-dates > strong {
+  font-size: 0.7rem;
+  font-weight: 550;
+}
+.season-timeline {
+  display: flex;
+  gap: 0.8rem;
+  align-items: center;
+  margin: 0.9rem 0 1.1rem;
+}
+.season-timeline > [role="progressbar"] {
+  height: 3px;
+  flex: 1;
+}
+.season-timeline > span {
+  flex-shrink: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.63rem;
+}
+.season-goal {
+  display: grid;
+  grid-template-columns:
+    minmax(0, 1fr) minmax(150px, 1fr) minmax(150px, 1fr)
+    auto;
+  align-items: center;
+  gap: 0.8rem 1.25rem;
+  padding: 1rem 0;
+  border-top: 1px solid hsl(var(--border));
+}
+.season-goal-name > a {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.45rem;
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+.season-goal-name > a > svg {
+  flex-shrink: 0;
+}
+.season-goal-name > span {
+  font-size: 0.59rem;
+  font-weight: 450;
+}
+.season-pace-track {
+  position: relative;
+  margin-top: 0.2rem;
+}
+.season-pace-track > [role="progressbar"] {
+  height: 5px;
+}
+.season-pace-track > [role="progressbar"] > div {
+  background: hsl(var(--success));
+}
+.season-expected-marker {
+  position: absolute;
+  top: -3px;
+  width: 1px;
+  height: 11px;
+  background: hsl(var(--foreground));
+  transform: translateX(-1px);
+}
+.season-goal-pace > p {
+  margin: 0.5rem 0 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.62rem;
+  line-height: 1.6;
+}
+.season-goal-next > a {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  font-size: 0.7rem;
+}
+.season-goal-next > a > span,
+.season-goal-next > span {
+  color: hsl(var(--muted-foreground));
+  font-size: 0.62rem;
+}
+.season-goal-next > span + a {
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.3rem;
+}
+.season-checkin {
+  font-size: 0.65rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.season-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding-top: 1rem;
+}
+.season-footer .text-link {
+  font-size: 0.73rem;
+}
+.season-footer .button {
+  font-size: 0.65rem;
+}
+.season-empty {
+  padding: 1rem 0;
+  border-top: 1px solid hsl(var(--border));
+}
+.season-empty > strong {
+  font-size: 0.8rem;
+  font-weight: 550;
+}
+.season-empty > p,
+.season-empty-copy {
+  margin: 0.45rem 0 0.5rem;
+  font-size: 0.75rem;
+  line-height: 1.6;
+  color: hsl(var(--muted-foreground));
+}
+.workflow-columns .season-heading {
+  align-items: flex-start;
+}
+.workflow-columns .season-controls {
+  flex-direction: column-reverse;
+  align-items: flex-end;
+}
+.workflow-columns .season-goal {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.7rem;
+}
+.workflow-columns .season-goal-name,
+.workflow-columns .season-goal-pace {
+  grid-column: 1 / -1;
+}
+.workflow-columns .season-goal-next {
+  grid-column: 1;
+}
+.workflow-columns .season-checkin {
+  grid-column: 2;
+}
+.workflow-goals-heading {
+  margin-top: 2rem;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  align-items: baseline;
+}
+.workflow-goals-heading h2 {
+  font-size: 1rem;
+  font-weight: 600;
+}
+.workflow-goals-heading p {
+  margin: 0;
+  color: hsl(var(--muted-foreground));
+  font-size: 0.7rem;
+}
+.workflow-goal-list {
+  padding: 0;
+}
+.goal-workflow-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1.2rem;
+  margin: 0 0 1.5rem;
+  font-size: 0.74rem;
+}
+#check-in {
+  scroll-margin-top: 6rem;
+}
+@media (max-width: 1000px) {
+  .workflow-columns {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 2rem;
+  }
+  .workflow-columns > .season-overview {
+    grid-row: 1;
+  }
+  .season-goal {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 1fr);
+  }
+  .season-checkin {
+    justify-self: end;
+  }
+  .workflow-columns .season-goal {
+    grid-template-columns: minmax(0, 1fr) minmax(150px, 1fr);
+  }
+  .workflow-columns .season-goal-name,
+  .workflow-columns .season-goal-pace {
+    grid-column: auto;
+  }
+}
+@media (max-width: 600px) {
+  .today-action-hero {
+    padding: 1.25rem;
+  }
+  .today-action-body {
+    align-items: flex-start;
+    gap: 0.8rem;
+  }
+  .today-live-clock {
+    font-size: 1.7rem;
+  }
+  .today-evidence-strip {
+    gap: 1rem 1.5rem;
+  }
+  .today-evidence-strip .today-hours {
+    margin-left: 0;
+  }
+  .workflow-week {
+    gap: 0;
+    margin-bottom: 1.4rem;
+  }
+  .workflow-week small {
+    font-size: 0.54rem;
+  }
+  .season-heading {
+    gap: 0.7rem;
+    align-items: flex-start;
+  }
+  .season-controls {
+    flex-direction: column-reverse;
+    align-items: flex-end;
+  }
+  .season-heading h2 {
+    font-size: 1.13rem;
+  }
+  .season-goal,
+  .workflow-columns .season-goal {
+    grid-template-columns: minmax(0, 1fr) auto;
+  }
+  .season-goal-name,
+  .season-goal-pace,
+  .workflow-columns .season-goal-name,
+  .workflow-columns .season-goal-pace {
+    grid-column: 1 / -1;
+  }
+  .today-review-link {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .today-review-link p {
+    max-width: none;
+  }
+  .today-checkin-link {
+    gap: 0.7rem;
+  }
+  .today-checkin-link > span:last-child {
+    max-width: 85px;
+    text-align: right;
+  }
+  .workflow-agenda-row {
+    gap: 0.65rem;
+  }
+  .workflow-agenda-row > .button {
+    padding: 0.35rem 0.5rem;
+    font-size: 0.65rem;
+  }
+  .workflow-goals-heading {
+    display: block;
+  }
+  .workflow-goals-heading p {
+    margin-top: 0.4rem;
+  }
+  .season-dates {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+}

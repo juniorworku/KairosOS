@@ -41,6 +41,8 @@ class CalendarConnection(Base):
     sync_token: Mapped[str | None] = mapped_column(String(2048))
     status: Mapped[str] = mapped_column(String(30), default="active")
     last_synced_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    editing_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
+    selection_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     details_enabled: Mapped[bool] = mapped_column(Boolean, default=False)
     details_from: Mapped[date | None] = mapped_column(Date)
     details_to: Mapped[date | None] = mapped_column(Date)
@@ -69,6 +71,8 @@ class CalendarState(Base):
     verifier: Mapped[str] = mapped_column(String(128))
     write_access: Mapped[bool] = mapped_column(default=False)
     details_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    calendars_access: Mapped[bool] = mapped_column(Boolean, default=False)
+    edit_access: Mapped[bool] = mapped_column(Boolean, default=False)
     expires_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
 
 
@@ -134,3 +138,16 @@ class GoogleEventCache(Base):
     recurring: Mapped[bool] = mapped_column(Boolean, default=False)
     occurrence_date: Mapped[date | None] = mapped_column(Date)
     details_enc: Mapped[bytes] = mapped_column(LargeBinary)
+
+
+class CalendarSelection(Base):
+    __tablename__ = "calendar_selections"
+    __table_args__ = (UniqueConstraint("user_id", "calendar_id"),)
+    id: Mapped[str] = mapped_column(Uuid(as_uuid=False), primary_key=True, default=new_id)
+    user_id: Mapped[str] = mapped_column(
+        Uuid(as_uuid=False), ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    calendar_id: Mapped[str] = mapped_column(String(512))
+    metadata_enc: Mapped[bytes] = mapped_column(LargeBinary)
+    access_role: Mapped[str] = mapped_column(String(40))
+    selected: Mapped[bool] = mapped_column(Boolean, default=False)

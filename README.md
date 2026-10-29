@@ -53,3 +53,7 @@ Browser checks use the real local app, API, and Mailpit. `PLAYWRIGHT_EXTERNAL_SE
 `make generate-api` exports OpenAPI and regenerates frontend types. Both generated files are committed and checked for drift in CI. Python dependencies are pinned in `api/requirements.lock`; npm lockfiles pin the web and extension. CI also builds the local stack, checks migrations and workers, and audits dependencies. No CI job deploys or publishes anything. A workflow file is not evidence that remote CI has run; see the verification record for actual results.
 
 See [architecture](docs/ARCHITECTURE.md), [privacy](docs/PRIVACY.md), [the demo](docs/DEMO.md), and [remaining work](docs/ROADMAP.md). Local production Lighthouse and offline checks have passed; see the verification report. Public deployment, live provider verification, and remaining Chrome manual QA remain separate acceptance gates.
+
+### Linux app blocking and appearance
+
+Optional native app blocking is implemented in [native/README.md](native/README.md). It runs on the Linux desktop host, requires explicit local executable choices, and has no automatic installation or autostart. Settings provides pairing/setup and recent authenticated helper reports. The app defaults to warm light surfaces with lavender planning and green progress; persistent light/dark controls are available in the sidebar and mobile bar.

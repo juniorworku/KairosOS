@@ -36,6 +36,8 @@ export interface CalendarStatus {
   status: string;
   can_publish: boolean;
   last_synced_at: string | null;
+  selection_enabled?: boolean;
+  write_enabled?: boolean;
   details_enabled?: boolean;
   can_read_events?: boolean;
   details_cached_from?: string | null;
@@ -224,6 +226,7 @@ export function Plan() {
     editable:
       online &&
       item.editable &&
+      item.source !== "google" &&
       !(
         item.source === "block" &&
         ["completed", "published", "cancelled"].includes(item.status)
@@ -575,7 +578,7 @@ export function Plan() {
                           ? c.plan[item.status as keyof typeof c.plan] ||
                             item.status
                           : item.source === "google"
-                            ? a.google
+                            ? item.calendar_name || a.google
                             : a.event}
                         {item.recurring ? ` · ${a.recurring}` : ""}
                       </small>
@@ -680,7 +683,7 @@ export function Plan() {
                     <strong>{item.title}</strong>
                     <Badge variant="outline" className="agenda-list-status">
                       {item.source === "google"
-                        ? a.google
+                        ? item.calendar_name || a.google
                         : item.source === "local"
                           ? a.event
                           : c.plan[item.status as keyof typeof c.plan] ||
@@ -697,6 +700,7 @@ export function Plan() {
           ) : null}
         </Card>
         <AgendaTasks
+          selectedTaskId={search.get("task") || undefined}
           tasks={tasks.data || []}
           goals={goals.data || []}
           online={online}

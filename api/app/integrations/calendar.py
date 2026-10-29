@@ -19,6 +19,8 @@ from app.integrations.config import IntegrationSettings
 from app.integrations.jsonutil import Json, list_value, object_value, string_value
 from app.integrations.models import CalendarBusy, CalendarConnection
 
+LIST_SCOPE = "https://www.googleapis.com/auth/calendar.calendarlist.readonly"
+EDIT_SCOPE = "https://www.googleapis.com/auth/calendar.events.owned"
 DETAIL_SCOPE = "https://www.googleapis.com/auth/calendar.events.owned.readonly"
 FREEBUSY_SCOPE = "https://www.googleapis.com/auth/calendar.events.freebusy"
 WRITE_SCOPE = "https://www.googleapis.com/auth/calendar.app.created"
@@ -149,6 +151,7 @@ class GoogleCalendar:
         params: dict[str, str] | None = None,
         *,
         retry_safe: bool = True,
+        headers: dict[str, str] | None = None,
     ) -> dict[str, Json]:
         attempts = 3 if retry_safe else 1
         for attempt in range(attempts):
@@ -156,7 +159,7 @@ class GoogleCalendar:
                 response = await self.client.request(
                     method,
                     API_URL + path,
-                    headers={"Authorization": f"Bearer {access}"},
+                    headers={"Authorization": f"Bearer {access}", **(headers or {})},
                     json=body,
                     params=params,
                 )
@@ -178,7 +181,7 @@ class GoogleCalendar:
         raise CalendarUnavailable("Google Calendar is unavailable")
 
     async def busy(
-        self, access: str, start: datetime, end: datetime
+        self, access: str, start: datetime, end: datetime, calendar_ids: list[str] | None = None
     ) -> list[tuple[datetime, datetime]]:
         data = await self.request(
             "POST",
@@ -187,22 +190,35 @@ class GoogleCalendar:
             {
                 "timeMin": start.isoformat(),
                 "timeMax": end.isoformat(),
-                "items": [{"id": "primary"}],
+                "items": [
+                    {"id": identifier}
+                    for identifier in (calendar_ids if calendar_ids is not None else ["primary"])
+                ],
             },
         )
-        primary = object_value(object_value(data.get("calendars")).get("primary"))
-        if primary.get("errors"):
-            raise CalendarUnavailable("Calendar availability could not be read")
-        return [
-            (
-                parse_timestamp(string_value(object_value(item).get("start"))),
-                parse_timestamp(string_value(object_value(item).get("end"))),
-            )
-            for item in list_value(primary.get("busy", []))
-        ]
+        result: list[tuple[datetime, datetime]] = []
+        calendars = object_value(data.get("calendars"))
+        for identifier in calendar_ids if calendar_ids is not None else ["primary"]:
+            entry = object_value(calendars.get(identifier))
+            if entry.get("errors") or "busy" not in entry:
+                raise CalendarUnavailable("Calendar availability could not be read")
+            for item in list_value(entry.get("busy", [])):
+                value = object_value(item)
+                result.append(
+                    (
+                        parse_timestamp(string_value(value.get("start"))),
+                        parse_timestamp(string_value(value.get("end"))),
+                    )
+                )
+        return result
 
     async def event_instances(
-        self, access: str, start: datetime, end: datetime, timezone: str
+        self,
+        access: str,
+        start: datetime,
+        end: datetime,
+        timezone: str,
+        calendar_id: str = "primary",
     ) -> tuple[list[dict[str, Json]], str, str]:
         params = {
             "timeMin": start.isoformat(),
@@ -214,14 +230,16 @@ class GoogleCalendar:
             "timeZone": timezone,
             "fields": (
                 "summary,timeZone,nextPageToken,items(id,status,summary,description,"
-                "start,end,recurringEventId,originalStartTime)"
+                "start,end,recurringEventId,originalStartTime,etag,eventType,extendedProperties)"
             ),
         }
         events: list[dict[str, Json]] = []
         pages: set[str] = set()
         calendar_name, calendar_timezone = "Google Calendar", timezone
         while True:
-            data = await self.request("GET", "/calendars/primary/events", access, params=params)
+            data = await self.request(
+                "GET", f"/calendars/{quote(calendar_id, safe='')}/events", access, params=params
+            )
             if isinstance(data.get("summary"), str):
                 calendar_name = string_value(data["summary"])
             if isinstance(data.get("timeZone"), str):

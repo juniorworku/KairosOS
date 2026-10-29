@@ -201,6 +201,49 @@ describe("durable offline updates", () => {
 });
 
 describe("private offline reads", () => {
+  it("purges deselected agenda snapshots and rejects an older read that finishes afterward", async () => {
+    const path = "/agenda?start=2026-10-26&end=2026-11-02";
+    fetchMock.mockResolvedValueOnce(json([{ title: "Old calendar" }]));
+    await api(path);
+    let release!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const stale = api(path);
+    fetchMock.mockImplementation(async (input) =>
+      json(
+        String(input).endsWith("/auth/csrf")
+          ? { csrf_token: "csrf" }
+          : { status: "saved" },
+      ),
+    );
+    await api("/calendar/calendars", "PUT", { calendar_ids: [] });
+    release(json([{ title: "Old calendar" }]));
+    await stale;
+    online(false);
+    fetchMock.mockRejectedValue(new TypeError("Offline"));
+    await expect(api(path)).rejects.toThrow("Offline");
+  });
+  it("cannot restore private reads after logout even when the same account signs in again", async () => {
+    let release!: (response: Response) => void;
+    fetchMock.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          release = resolve;
+        }),
+    );
+    const stale = api("/goals");
+    await clearPrivateData();
+    setAccount("account-a");
+    release(json([{ title: "Private old goal" }]));
+    await stale;
+    online(false);
+    fetchMock.mockRejectedValue(new TypeError("Offline"));
+    await expect(api("/goals")).rejects.toThrow("Offline");
+  });
   it("does not persist a canceled pre-mutation snapshot over the refreshed week", async () => {
     const path = "/plan/week?start=2026-10-26";
     let release!: (response: Response) => void;

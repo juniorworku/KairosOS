@@ -1,3 +1,13 @@
+import { WeekSuggestions } from "./WeekSuggestions";
+import { Link, useSearchParams } from "react-router-dom";
+import {
+  plannedWeekMinutes,
+  planHref,
+  nextWeekHref,
+  requestedWeek,
+} from "./workflow";
+import { workflowCopy as w } from "./workflow-copy";
+import "./workflow.css";
 import { useState } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
@@ -12,8 +22,14 @@ import { copy as c } from "../copy/en";
 import { useAuth } from "../lib/auth";
 import { useData, useOnline } from "../lib/hooks";
 import { api, streamRequest } from "../api/client";
-import type { FocusStats, Goal, Reflection, Trajectory } from "../api/types";
-import { addDays, dateKey, minutes, weekStart } from "../lib/time";
+import type {
+  Block,
+  FocusStats,
+  Goal,
+  Reflection,
+  Trajectory,
+} from "../api/types";
+import { addDays, dateKey, minutes } from "../lib/time";
 import { Button } from "../components/ui/Button";
 import { Field, Notice, SubmitForm } from "../components/ui/Forms";
 import { GoalRow } from "./Today";
@@ -21,12 +37,21 @@ import { MetricCard } from "../components/ui/MetricCard";
 import { Card, CardContent, CardHeader } from "../components/primitives/card";
 import { Badge } from "../components/primitives/badge";
 import { Skeleton } from "../components/primitives/skeleton";
+import { NativeSelect } from "../components/primitives/native-select";
 import { Textarea } from "../components/primitives/textarea";
 export function Review() {
   const { user } = useAuth();
-  const [week, setWeek] = useState(
-    weekStart(dateKey(new Date(), user!.timezone)),
+  const [params, setParams] = useSearchParams();
+  const week = requestedWeek(
+    params.get("week"),
+    dateKey(new Date(), user!.timezone),
   );
+  function setWeek(value: string) {
+    const next = new URLSearchParams(params);
+    next.set("week", value);
+    setParams(next);
+  }
+  const blocks = useData<Block[]>(`/plan/week?start=${week}`);
   const review = useData<Reflection | null>(`/reflection/${week}`);
   const stats = useData<FocusStats>(
     `/focus/stats?from=${week}&to=${addDays(week, 6)}`,
@@ -54,9 +79,33 @@ export function Review() {
         </div>
       </header>
       <Notice
-        error={review.error || stats.error || goals.error || trajectory.error}
+        error={
+          review.error ||
+          stats.error ||
+          goals.error ||
+          trajectory.error ||
+          blocks.error
+        }
       />
+      <div className="workflow-actions">
+        <Button asChild>
+          <Link to={planHref(week, params.get("goal"))}>{w.thisPlan}</Link>
+        </Button>
+        <Button asChild>
+          <Link to={nextWeekHref(week, params.get("goal") || undefined)}>
+            {w.planNext}
+          </Link>
+        </Button>
+      </div>
+      <p className="workflow-muted">
+        {w.focusIncludesUnplanned} {w.selfRatingNote}
+      </p>
       <div className="stats-row">
+        <MetricCard
+          label={w.goalBlocks}
+          value={blocks.data ? minutes(plannedWeekMinutes(blocks.data)) : "—"}
+          icon={<Clock3 size={20} />}
+        />
         <MetricCard
           label={c.review.minutes}
           value={stats.data ? minutes(stats.data.total_minutes) : "—"}
@@ -68,7 +117,7 @@ export function Review() {
           icon={<ListChecks size={20} />}
         />
         <MetricCard
-          label={c.focus.rating}
+          label={w.selfRating}
           value={
             stats.data?.average_rating
               ? `${stats.data.average_rating.toFixed(1)} / 5`
@@ -92,7 +141,7 @@ export function Review() {
         </Card>
         <Card>
           <CardHeader>
-            <h2>{c.review.trajectories}</h2>
+            <h2>{w.currentGoals}</h2>
           </CardHeader>
           <CardContent>
             {goals.data
@@ -109,6 +158,13 @@ export function Review() {
           </CardContent>
         </Card>
       </div>
+      <WeekSuggestions
+        key={week + (params.get("goal") || "")}
+        week={week}
+        stats={stats.data}
+        reflection={review.data}
+        goal={goals.data?.find((goal) => goal.id === params.get("goal"))}
+      />
     </>
   );
 }
@@ -171,6 +227,10 @@ export function Coach() {
   const status = useData<{ configured: boolean; enabled: boolean }>(
     "/coach/status",
   );
+  const goals = useData<Goal[]>("/goals");
+  const [selectedGoal, setSelectedGoal] = useState("");
+  const goal = goals.data?.find((item) => item.id === selectedGoal);
+  const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([]);
   const [text, setText] = useState("");
   const [consent, setConsent] = useState(false);
@@ -284,6 +344,43 @@ export function Coach() {
         </Card>
         <Card className="coach-privacy" role="complementary">
           <CardContent className="pt-6">
+            <h2>{w.contextLinks}</h2>
+            <p className="workflow-muted">{w.contextLocal}</p>
+            <Field label={w.chooseGoal}>
+              <NativeSelect
+                value={selectedGoal}
+                onChange={(event) => setSelectedGoal(event.target.value)}
+              >
+                <option value="">{w.allGoals}</option>
+                {goals.data?.map((item) => (
+                  <option key={item.id} value={item.id}>
+                    {item.title}
+                  </option>
+                ))}
+              </NativeSelect>
+            </Field>
+            {goal && (
+              <>
+                <p>
+                  <strong>{goal.title}</strong>
+                </p>
+                <p>
+                  {goal.metric_name}:{" "}
+                  {goal.checkins.at(-1)?.metric_value ?? goal.metric_start} /{" "}
+                  {goal.metric_target} {goal.metric_unit}
+                </p>
+                <Button asChild>
+                  <Link to={"/goals/" + goal.id}>{w.viewGoal}</Link>
+                </Button>
+              </>
+            )}
+            <Button asChild>
+              <Link
+                to={planHref(dateKey(new Date(), user!.timezone), goal?.id)}
+              >
+                {w.reviewPlan}
+              </Link>
+            </Button>
             <p>{c.coach.disclosure}</p>
             <label className="checkbox">
               <input

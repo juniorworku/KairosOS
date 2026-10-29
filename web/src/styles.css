@@ -1798,27 +1798,39 @@
   }
 }
 
-/* shadcn New York tokens. Color is neutral; status is also conveyed by text/icons. */
+/* Warm neutral shadcn surfaces; color reinforces visible status labels and borders. */
 :root {
-  --background: 0 0% 100%;
-  --foreground: 0 0% 6%;
-  --card: 0 0% 100%;
-  --card-foreground: 0 0% 6%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 0 0% 6%;
-  --primary: 0 0% 9%;
-  --primary-foreground: 0 0% 98%;
-  --secondary: 0 0% 95%;
-  --secondary-foreground: 0 0% 9%;
-  --muted: 0 0% 96%;
-  --muted-foreground: 0 0% 40%;
-  --accent: 0 0% 94%;
-  --accent-foreground: 0 0% 9%;
-  --destructive: 0 0% 12%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 0 0% 88%;
-  --input: 0 0% 82%;
-  --ring: 0 0% 15%;
+  color-scheme: light;
+  --background: 40 24% 96%;
+  --foreground: 30 10% 13%;
+  --card: 40 30% 99%;
+  --card-foreground: 30 10% 13%;
+  --popover: 40 30% 99%;
+  --popover-foreground: 30 10% 13%;
+  --primary: 30 10% 16%;
+  --primary-foreground: 40 30% 98%;
+  --secondary: 38 18% 91%;
+  --secondary-foreground: 30 10% 16%;
+  --muted: 38 17% 92%;
+  --muted-foreground: 30 6% 40%;
+  --accent: 38 20% 89%;
+  --accent-foreground: 30 10% 13%;
+  --destructive: 3 46% 35%;
+  --destructive-foreground: 40 30% 99%;
+  --border: 35 12% 82%;
+  --input: 30 7% 51%;
+  --ring: 258 25% 41%;
+  --planned: 258 25% 47%;
+  --planned-soft: 258 32% 93%;
+  --planned-foreground: 258 29% 29%;
+  --proposal-soft: 258 26% 96%;
+  --success: 145 28% 35%;
+  --success-soft: 145 22% 92%;
+  --success-foreground: 145 30% 25%;
+  --local-soft: 35 35% 92%;
+  --local-foreground: 30 31% 27%;
+  --external-soft: 210 22% 93%;
+  --external-foreground: 210 28% 29%;
   --radius: 0.625rem;
   font-family: "Manrope Variable", ui-sans-serif, system-ui, sans-serif;
   font-synthesis: none;
@@ -1828,25 +1840,36 @@
 :root.dark,
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --background: 0 0% 3.5%;
-  --foreground: 0 0% 96%;
-  --card: 0 0% 5.5%;
-  --card-foreground: 0 0% 96%;
-  --popover: 0 0% 7%;
-  --popover-foreground: 0 0% 96%;
-  --primary: 0 0% 96%;
-  --primary-foreground: 0 0% 7%;
-  --secondary: 0 0% 12%;
-  --secondary-foreground: 0 0% 96%;
-  --muted: 0 0% 11%;
-  --muted-foreground: 0 0% 66%;
-  --accent: 0 0% 14%;
-  --accent-foreground: 0 0% 96%;
-  --destructive: 0 0% 94%;
-  --destructive-foreground: 0 0% 8%;
-  --border: 0 0% 17%;
-  --input: 0 0% 25%;
-  --ring: 0 0% 80%;
+  --background: 35 8% 8%;
+  --foreground: 40 20% 93%;
+  --card: 35 7% 11%;
+  --card-foreground: 40 20% 93%;
+  --popover: 35 7% 13%;
+  --popover-foreground: 40 20% 93%;
+  --primary: 40 20% 91%;
+  --primary-foreground: 30 10% 12%;
+  --secondary: 35 6% 18%;
+  --secondary-foreground: 40 20% 93%;
+  --muted: 35 6% 17%;
+  --muted-foreground: 35 9% 69%;
+  --accent: 35 7% 21%;
+  --accent-foreground: 40 20% 93%;
+  --destructive: 5 45% 76%;
+  --destructive-foreground: 0 22% 13%;
+  --border: 35 7% 25%;
+  --input: 35 7% 44%;
+  --ring: 258 36% 77%;
+  --planned: 258 30% 69%;
+  --planned-soft: 258 17% 23%;
+  --planned-foreground: 258 35% 88%;
+  --proposal-soft: 258 13% 17%;
+  --success: 145 25% 63%;
+  --success-soft: 145 14% 19%;
+  --success-foreground: 145 28% 79%;
+  --local-soft: 35 20% 21%;
+  --local-foreground: 35 36% 81%;
+  --external-soft: 210 15% 22%;
+  --external-foreground: 210 31% 83%;
 }
 :root {
   --paper: hsl(var(--background));
@@ -1856,9 +1879,9 @@
   --green: hsl(var(--primary));
   --soft: hsl(var(--muted));
   --muted-ink: hsl(var(--muted-foreground));
-  --warning: hsl(var(--foreground));
-  --warning-bg: hsl(var(--muted));
-  --danger: hsl(var(--foreground));
+  --warning: hsl(var(--local-foreground));
+  --warning-bg: hsl(var(--local-soft));
+  --danger: hsl(var(--destructive));
   --glass: hsl(var(--card));
   --card-shadow: none;
   --card-hover: none;

@@ -15,8 +15,8 @@ export default defineConfig({
         short_name: "Kairos",
         start_url: "/today",
         display: "standalone",
-        background_color: "#090909",
-        theme_color: "#090909",
+        background_color: "#f7f4ef",
+        theme_color: "#f7f4ef",
         icons: [
           { src: "/icon-192.png", sizes: "192x192", type: "image/png" },
           { src: "/icon-512.png", sizes: "512x512", type: "image/png" },
@@ -52,6 +52,8 @@ export default defineConfig({
     },
   },
   test: {
+    // Bound jsdom/IndexedDB contention on development and small CI hosts.
+    maxWorkers: 2,
     exclude: ["e2e/**", "node_modules/**"],
     environment: "jsdom",
     setupFiles: "./src/test-setup.ts",

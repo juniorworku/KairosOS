@@ -18,7 +18,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.deps import current_user, get_db
 from app.integrations.calendar import (
     DETAIL_SCOPE,
+    EDIT_SCOPE,
     FREEBUSY_SCOPE,
+    LIST_SCOPE,
     WRITE_SCOPE,
     CalendarHTTPError,
     CalendarReauth,
@@ -44,6 +46,7 @@ from app.integrations.jsonutil import Json, list_value, string_value
 from app.integrations.models import (
     CalendarBusy,
     CalendarConnection,
+    CalendarSelection,
     CalendarState,
     ExtensionPair,
     ExtensionToken,
@@ -132,7 +135,12 @@ async def calendar_status(db: DB, user: Owner) -> dict[str, Json]:
 
 @calendar_router.get("/connect")
 async def calendar_connect(
-    db: DB, user: Owner, write: bool = False, details: bool = False
+    db: DB,
+    user: Owner,
+    write: bool = False,
+    details: bool = False,
+    calendars: bool = False,
+    edit: bool = False,
 ) -> RedirectResponse:
     config = require_calendar()
     state, verifier = secrets.token_urlsafe(32), secrets.token_urlsafe(48)
@@ -142,7 +150,9 @@ async def calendar_connect(
             token_hash=digest(state),
             verifier=verifier,
             write_access=write,
-            details_access=details,
+            details_access=details or calendars or edit,
+            calendars_access=calendars or edit,
+            edit_access=edit,
             expires_at=datetime.now(UTC) + timedelta(minutes=10),
         )
     )
@@ -154,7 +164,9 @@ async def calendar_connect(
         "scope": " ".join(
             [FREEBUSY_SCOPE]
             + ([WRITE_SCOPE] if write else [])
-            + ([DETAIL_SCOPE] if details else [])
+            + ([DETAIL_SCOPE] if details or calendars else [])
+            + ([LIST_SCOPE] if calendars or edit else [])
+            + ([EDIT_SCOPE] if edit else [])
         ),
         "state": state,
         "code_challenge": challenge(verifier),
@@ -200,7 +212,9 @@ async def calendar_callback(
             if (
                 FREEBUSY_SCOPE not in scopes
                 or (record.write_access and WRITE_SCOPE not in scopes)
-                or (record.details_access and DETAIL_SCOPE not in scopes)
+                or (record.details_access and not {DETAIL_SCOPE, EDIT_SCOPE}.intersection(scopes))
+                or (record.calendars_access and LIST_SCOPE not in scopes)
+                or (record.edit_access and EDIT_SCOPE not in scopes)
             ):
                 raise CalendarUnavailable("Required calendar permission was not granted")
             connection = await db.scalar(
@@ -215,8 +229,12 @@ async def calendar_callback(
                 connection.token_enc = encrypt_token(token, config.token_encryption_key)
                 connection.scopes = scopes
                 connection.status = "active"
+                connection.editing_enabled = bool(
+                    (connection.editing_enabled or record.edit_access) and EDIT_SCOPE in scopes
+                )
                 connection.details_enabled = bool(
-                    (connection.details_enabled or record.details_access) and DETAIL_SCOPE in scopes
+                    (connection.details_enabled or record.details_access)
+                    and bool({DETAIL_SCOPE, EDIT_SCOPE}.intersection(scopes))
                 )
                 if not connection.details_enabled:
                     await clear_event_details(db, connection)
@@ -225,7 +243,9 @@ async def calendar_callback(
                     user_id=user.id,
                     token_enc=encrypt_token(token, config.token_encryption_key),
                     scopes=scopes,
-                    details_enabled=record.details_access and DETAIL_SCOPE in scopes,
+                    editing_enabled=record.edit_access and EDIT_SCOPE in scopes,
+                    details_enabled=record.details_access
+                    and bool({DETAIL_SCOPE, EDIT_SCOPE}.intersection(scopes)),
                 )
                 db.add(connection)
             if not isinstance(token.get("refresh_token"), str):
@@ -264,7 +284,13 @@ async def _sync_user(db: AsyncSession, user_id: str) -> None:
         access = await google.access_token(connection, db)
         start = datetime.now(UTC)
         end = start + timedelta(days=21)
-        intervals = await google.busy(access, start, end)
+        from app.integrations.multi_calendar import selected_ids
+
+        if connection.selection_enabled:
+            identifiers = await selected_ids(db, connection)
+            intervals = await google.busy(access, start, end, identifiers) if identifiers else []
+        else:
+            intervals = await google.busy(access, start, end)
         await replace_busy(db, user_id, start, end, intervals)
         if connection.app_calendar_id and WRITE_SCOPE in connection.scopes:
             await reconcile(db, user_id, connection, google, access, user.timezone)
@@ -428,6 +454,8 @@ async def reconcile(
         str(row.payload["google_event_id"]): row
         for row in blocks
         if row.payload.get("google_event_id")
+        and row.payload.get("google_calendar_id", connection.app_calendar_id)
+        == connection.app_calendar_id
     }
     by_id = {row.id: row for row in blocks}
     seen: set[str] = set()
@@ -448,6 +476,7 @@ async def reconcile(
             ):
                 block = candidate
         if block is not None:
+            block.payload = {**block.payload, "google_calendar_id": connection.app_calendar_id}
             apply_calendar_event(block, event, timezone, collection_timezone)
     if full_sync:
         for identifier, block in by_event.items():
@@ -530,6 +559,7 @@ async def calendar_publish(body: PublishInput, db: DB, user: Owner) -> dict[str,
                     str(block.payload["start_at"]),
                     str(block.payload["end_at"]),
                 )
+                block.payload = {**block.payload, "google_calendar_id": connection.app_calendar_id}
                 apply_calendar_event(block, event.data, user.timezone)
                 published.append(block.id)
             except CalendarReauth:
@@ -569,6 +599,7 @@ async def calendar_disconnect(db: DB, user: Owner) -> dict[str, str]:
                 raise unavailable(
                     "Google could not revoke access. Try again.", "calendar_unavailable"
                 ) from exc
+        await db.execute(delete(CalendarSelection).where(CalendarSelection.user_id == user.id))
         await db.delete(connection)
     # Disconnect intentionally stops management; existing Google events remain untouched.
     blocks = (
@@ -582,6 +613,7 @@ async def calendar_disconnect(db: DB, user: Owner) -> dict[str, str]:
         payload = dict(block.payload)
         payload.pop("google_event_id", None)
         payload.pop("google_etag", None)
+        payload.pop("google_calendar_id", None)
         if payload.get("status") == "published":
             payload["status"] = "accepted"
         block.payload = payload
@@ -926,3 +958,9 @@ async def unified_agenda(
     response.headers["Cache-Control"] = "no-store"
     response.headers["X-Calendar-Status"] = "unavailable" if failed else "ready"
     return result
+
+
+# Imported after dependency helpers so the subrouter can use them lazily.
+from app.integrations.multi_calendar import router as multi_calendar_router  # noqa: E402
+
+calendar_router.include_router(multi_calendar_router)

@@ -2,7 +2,7 @@ import { Input } from "../components/primitives/input";
 import { Textarea } from "../components/primitives/textarea";
 import { NativeSelect } from "../components/primitives/native-select";
 import { Card } from "../components/primitives/card";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { CalendarPlus, Check, Pencil, Plus } from "lucide-react";
 import { api } from "../api/client";
 import type { Task } from "../api/agenda";
@@ -20,6 +20,7 @@ export function AgendaTasks({
   error,
   onChange,
   onSchedule,
+  selectedTaskId,
 }: {
   tasks: Task[];
   goals: Goal[];
@@ -28,6 +29,7 @@ export function AgendaTasks({
   error: unknown;
   onChange: () => Promise<void>;
   onSchedule: (task: Task) => void;
+  selectedTaskId?: string;
 }) {
   const [editing, setEditing] = useState<Task | "new" | null>(null);
   const [failure, setFailure] = useState<unknown>();
@@ -46,11 +48,21 @@ export function AgendaTasks({
       setChanging("");
     }
   }
+  const selectedExists = tasks.some((task) => task.id === selectedTaskId);
+  useEffect(() => {
+    if (!selectedTaskId || !selectedExists) return;
+    const target = document.getElementById(`agenda-task-${selectedTaskId}`);
+    target?.scrollIntoView({ block: "nearest" });
+    target?.focus({ preventScroll: true });
+  }, [selectedTaskId, selectedExists]);
   const todo = tasks.filter((task) => task.status !== "done");
   function row(task: Task) {
     return (
       <div
-        className={`agenda-task ${task.status === "done" ? "is-done" : ""}`}
+        id={`agenda-task-${task.id}`}
+        tabIndex={-1}
+        aria-label={task.title}
+        className={`agenda-task ${task.status === "done" ? "is-done" : ""} ${selectedTaskId === task.id ? "is-context-task" : ""}`}
         key={task.id}
       >
         <Button
@@ -99,7 +111,11 @@ export function AgendaTasks({
   }
   return (
     <Card asChild>
-      <aside className="panel agenda-tasks" aria-label={a.tasks}>
+      <aside
+        id="agenda-tasks"
+        className="panel agenda-tasks"
+        aria-label={a.tasks}
+      >
         <div className="panel-heading">
           <h2>{a.tasks}</h2>
           <Button

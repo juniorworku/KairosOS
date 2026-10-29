@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.integrations.calendar import (
     DETAIL_SCOPE,
+    EDIT_SCOPE,
     CalendarUnavailable,
     GoogleCalendar,
     decrypt_token,
@@ -19,7 +20,7 @@ from app.integrations.calendar import (
 )
 from app.integrations.config import IntegrationSettings
 from app.integrations.jsonutil import Json, object_value, string_value
-from app.integrations.models import CalendarConnection, GoogleEventCache
+from app.integrations.models import CalendarConnection, CalendarSelection, GoogleEventCache
 from app.models.auth import User
 from app.models.planning import PlanningRecord
 
@@ -43,6 +44,7 @@ class AgendaItem(BaseModel):
     recurring: bool = False
     calendar_id: str | None = None
     calendar_name: str | None = None
+    etag: str | None = None
 
 
 def window_bounds(start: date, end: date, timezone: str) -> tuple[datetime, datetime]:
@@ -59,11 +61,21 @@ def window_bounds(start: date, end: date, timezone: str) -> tuple[datetime, date
 
 
 def details_allowed(connection: CalendarConnection | None) -> bool:
-    return bool(connection and connection.details_enabled and DETAIL_SCOPE in connection.scopes)
+    return bool(
+        connection
+        and connection.details_enabled
+        and bool({DETAIL_SCOPE, EDIT_SCOPE} & set(connection.scopes))
+    )
 
 
 def cache_record(
-    user_id: str, event: dict[str, Json], timezone: str, calendar_name: str, key: str
+    user_id: str,
+    event: dict[str, Json],
+    timezone: str,
+    calendar_name: str,
+    key: str,
+    *,
+    calendar_id: str = "primary",
 ) -> GoogleEventCache:
     identifier = string_value(event.get("id"))
     if not 1 <= len(identifier) <= 1024:
@@ -92,7 +104,7 @@ def cache_record(
         raise CalendarUnavailable("Calendar event details are invalid")
     return GoogleEventCache(
         user_id=user_id,
-        calendar_id="primary",
+        calendar_id=calendar_id,
         provider_event_id=identifier,
         start_at=start,
         end_at=end,
@@ -104,6 +116,7 @@ def cache_record(
         occurrence_date=occurrence_date,
         details_enc=encrypt_token(
             {
+                "etag": string_value(event.get("etag", "")),
                 "title": title,
                 "notes": notes,
                 "calendar_name": calendar_name,
@@ -127,14 +140,37 @@ async def refresh_details(
     if not details_allowed(connection):
         return
     left, right = window_bounds(start, end, user.timezone)
-    events, timezone, calendar_name = await google.event_instances(
-        access, left, right, user.timezone
-    )
-    # Validate and encrypt the complete remote snapshot before replacing any existing cache.
-    rows_by_id: dict[str, GoogleEventCache] = {}
-    for event in events:
-        row = cache_record(user.id, event, timezone, calendar_name, config.token_encryption_key)
-        rows_by_id[row.provider_event_id] = row
+    from app.integrations.multi_calendar import selections
+
+    sources = [("primary", True)]
+    if connection.selection_enabled:
+        sources = [
+            (row.calendar_id, row.access_role == "owner")
+            for row in await selections(db, user.id)
+            if row.selected
+        ]
+    rows_by_id: dict[tuple[str, str], GoogleEventCache] = {}
+    for calendar_id, readable in sources:
+        if not readable:
+            continue
+        if calendar_id == "primary":
+            events, timezone, calendar_name = await google.event_instances(
+                access, left, right, user.timezone
+            )
+        else:
+            events, timezone, calendar_name = await google.event_instances(
+                access, left, right, user.timezone, calendar_id
+            )
+        for event in events:
+            row = cache_record(
+                user.id,
+                event,
+                timezone,
+                calendar_name,
+                config.token_encryption_key,
+                calendar_id=calendar_id,
+            )
+            rows_by_id[(calendar_id, row.provider_event_id)] = row
     await db.execute(delete(GoogleEventCache).where(GoogleEventCache.user_id == user.id))
     db.add_all(list(rows_by_id.values()))
     connection.details_from = start
@@ -173,12 +209,39 @@ async def cached_details(
             )
         )
     ).all()
+    connection = await db.scalar(
+        select(CalendarConnection).where(CalendarConnection.user_id == user.id)
+    )
+    choices = list(
+        (
+            await db.scalars(select(CalendarSelection).where(CalendarSelection.user_id == user.id))
+        ).all()
+    )
+    allowed = {row.calendar_id for row in choices if row.selected and row.access_role == "owner"}
+    writable = (
+        allowed
+        if connection and connection.editing_enabled and EDIT_SCOPE in connection.scopes
+        else set()
+    )
     linked = {
-        str(row.payload["google_event_id"]) for row in blocks if row.payload.get("google_event_id")
+        (
+            str(
+                row.payload.get(
+                    "google_calendar_id",
+                    (connection.app_calendar_id or "primary") if connection else "primary",
+                )
+            ),
+            str(row.payload["google_event_id"]),
+        )
+        for row in blocks
+        if row.payload.get("google_event_id")
     }
+
     result: list[AgendaItem] = []
     for row in rows:
-        if row.provider_event_id in linked:
+        if (row.calendar_id, row.provider_event_id) in linked or (
+            connection and connection.selection_enabled and row.calendar_id not in allowed
+        ):
             continue
         details = decrypt_token(row.details_enc, config.token_encryption_key)
         result.append(
@@ -197,7 +260,8 @@ async def cached_details(
                 all_day=row.all_day,
                 timezone=row.timezone,
                 status=string_value(details.get("status", "confirmed")),
-                editable=False,
+                editable=row.calendar_id in writable,
+                etag=string_value(details.get("etag", "")) or None,
                 recurring=row.recurring,
                 occurrence_date=row.occurrence_date.isoformat() if row.occurrence_date else None,
                 calendar_id=row.calendar_id,

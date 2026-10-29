@@ -30,6 +30,7 @@ from app.integrations.router import calendar_router, disconnect_calendar_for_use
 from app.models.auth import User
 from app.observability import configure_logging
 from app.routers.agenda import router as agenda_router
+from app.routers.native import router as native_router
 from app.routers.planning import router as planning_router
 
 logger = logging.getLogger("kairos.health")
@@ -89,6 +90,7 @@ def create_app(
     app.include_router(unified_agenda_router)
     app.include_router(calendar_router)
     app.include_router(ext_router)
+    app.include_router(native_router)
     app.include_router(coach_router)
 
     @app.exception_handler(HTTPException)
