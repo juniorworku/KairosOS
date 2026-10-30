@@ -2,6 +2,8 @@
 
 A personal planner for goals, weekly time blocks, focus sessions, and reflection. The core app runs locally; nothing is deployed.
 
+The next product direction is specified in the [Kairos product blueprint](docs/product/README.md): a calendar-first AI executive assistant with daily coach sync, approved plans, focus sessions, and follow-up loops. This is a design specification; current implementation status is documented separately below.
+
 The Users and invites screens are deferred. The repository includes account sign-in and personal settings, saved goal planning, a deterministic weekly scheduler, focus logging and progress check-ins. Google Calendar and AI coaching are optional server-side integrations. An unpacked Chrome focus extension is included. The detailed requirements remain in [IMPLEMENTATION.md](IMPLEMENTATION.md); implementation status and remaining acceptance work are tracked in [the roadmap](docs/ROADMAP.md).
 
 ## Run locally

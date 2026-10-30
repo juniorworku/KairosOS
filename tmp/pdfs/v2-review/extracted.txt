@@ -1,0 +1,1980 @@
+K A I R O S / P R O D U C T D O C U M E N TAT I O N
+
+
+
+
+Your priorities.
+Your commitments.
+Followed through.
+A full AI executive assistant with five shared
+engines, approved plans and server-run
+follow-up.
+
+
+
+
+Product blueprint & UI/UX specification
+Version 2.0 / 30 October 2026
+
+Clean Tech edition / Design-stage specification
+Includes five engines, fixed workflows, screen designs, shared context, budgets and release gates.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                           1
+DOCUMENT GUIDE
+
+
+
+From intent to execution
+This document consolidates the product documentation suite and expands the screen-by-screen design.
+Confirmed decisions are separated from proposed defaults and unresolved platform choices.
+
+
+
+     Core loop
+     Clarify → Plan → Approve → Schedule → Daily coach sync → Focus → Follow through → Review →
+     Propose adjustments → Approve.
+
+
+
+
+01      Product description
+
+
+02      Requirements & acceptance
+
+
+03      End-to-end workflows
+
+
+04      Interface architecture
+
+
+05      Screen design & components
+
+
+06      Features & integrations
+
+
+07      Templates & background operation
+
+
+08      Shared context & AI budgets
+
+
+09      Implementation & release gates
+
+
+10      Decisions & references
+
+
+Status: design specification. This is not evidence that every feature is implemented and does not authorize
+deployment. Existing implementation and live-provider acceptance remain separate.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                    2
+W O R K S PA C E C O N C E P T / S 0 4
+
+
+
+A calm calendar at the center
+  KAIROS                       Today / Week                                                                    Daily coach sync
+
+
+
+   GOALS & TASKS                November 2 - 8                                                < Today >   Your priorities
+
+                                       MON        TUE       WED     THU      FRI        SAT         SUN   1. Validate the offer
+   Launch paid beta
+                               8:00                                                                       2. Prepare customer calls
+    Define the offer
+                                       Research             Build
+
+
+    Interview customers                                                                                     Proposed adjustment
+                               9:00
+
+                                                  Meeting                    Outreach
+    Prepare landing page                                                                                    Move research to 12:00
+
+                               10:00                                                                        Reason: meeting conflict
+
+
+    SUPPORT AREAS                                                                                              Review
+                               11:00
+
+    Inbox                                                           Review
+
+
+
+    Life Admin                 12:00                                                                        Ready to focus?
+                                       Proposed                                                             Start your core task
+    Relationships
+                               13:00
+
+
+
+
+                               14:00
+
+
+
+
+                               15:00
+
+                                                                                                            Ask your coach...
+
+
+
+
+Conceptual desktop layout with the coach open. The wireframe illustrates information hierarchy, not final pixel dimensions.
+
+
+
+One workspace, three roles
+Left: goals, tasks, support areas and quick capture. Center: the real week, linked work and proposed
+adjustments. Right: daily coaching, chat, follow-ups and explicit approvals.
+
+
+
+   When the coach closes, the calendar expands. On smaller screens, drawers and day/agenda views
+   preserve usable space.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                             3
+A S S I S TA N T A R C H I T E C T U R E
+
+
+
+Five engines. One shared context.
+
+              Google Calendar                                       Gmail                                   Meeting notes / Manual
+
+
+
+
+                                  Shared source store + evidence + rolling summaries
+                                  Incremental ingestion / Freshness / Bounded context packs / Purpose budgets
+
+
+
+
+         Commitment                 Calendar                       Briefing
+                                                                                              Goal engine                 Insights
+           ledger                   guardian                      composer
+
+
+
+
+                               Fixed templates / Server runs / Reports + notifications + proposals
+
+
+
+
+                           Exact approval before accepted tasks, external drafts, sends and calendar changes
+
+
+
+
+Logical modules share facts and bounded AI steps. Five engines do not require five continuously running agents
+or five deployed microservices.
+
+
+
+    The first web release includes all five engines. Calendar → meetings → email is internal build order, not a
+    planner-only release.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                           4
+01 / KAIROS BLUEPRINT
+
+
+
+Product description
+Version 2.0 / 30 October 2026. Target product specification; capabilities below are planned unless separately
+verified in the implementation record.
+
+
+Purpose
+Kairos is a web-first AI executive assistant that turns goals and commitments into an agreed plan, then follows up
+until each item is completed, cancelled, or deliberately deferred. It serves founders, solopreneurs, freelancers,
+and team leads in a personal workspace; shared team administration is deferred.
+
+Users already have calendars. Kairos earns its place by keeping a commitment ledger, detecting what needs
+attention, preparing briefs and drafts, and bringing concrete decisions back for approval. Its calendar-first
+interface connects this assistant work to available time, goals, and focus.
+
+
+Product promise
+Define what matters. Agree on a realistic plan. Activate follow-up loops. Work with protected focus. Kairos tracks
+the evidence, prepares the next useful action, and asks before changing the schedule or sending anything.
+
+
+Five assistant engines
+ Engine                                  Responsibility                               Authoritative inputs and outputs
+
+ Commitment ledger                       Track promises, reply debt, waiting items,   Commitments from permitted email,
+                                         meeting follow-through and VIP attention     supplied meeting notes and manual
+                                                                                      entry; linked tasks, resolution evidence
+                                                                                      and reviewable follow-ups
+
+ Calendar guardian                       Detect conflicts and overload,               Synchronized calendar events and focus
+                                         protect/recover focus time, propose          reservations; findings and proposed
+                                         freed-time use and travel buffers            calendar changes
+
+ Briefing composer                       Prepare daily briefs, week-ahead             Reads shared engine facts and
+                                         preparation, meeting dossiers and Friday     summaries; produces a coherent brief
+                                         wraps                                        without creating competing facts
+
+ Goal engine                             Support seasons, goal clarification, GPS-    Goals, tasks, measurable progress and
+                                         style planning, weekly plans, trajectory     recorded effort; reviewable plans and
+                                         and velocity                                 evidence-based adjustments
+
+ Insights                                Explain where time went and what             Calendar/session and email statistics,
+                                         creates inbox noise                          with coverage and freshness; descriptive
+                                                                                      reports and proposed fixes
+
+
+
+These are logical responsibilities, not a requirement for five autonomous agents or separate deployed services.
+They share a single context layer and durable records. Deterministic code owns checks, ranking rules, dates and
+capacity calculations; bounded AI steps extract or classify new text and write drafts, summaries and coaching.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                       5
+Product model
+A season is an optional longer planning container. A goal defines an outcome and success measure. A plan
+connects milestones, tasks, time allocations and follow-up loops to that outcome. A support area holds ongoing
+responsibilities without an artificial goal.
+
+A commitment records something owed, the responsible person, who expects it, its source, due date if known,
+and resolution evidence. Tasks are actions that fulfil commitments; they are not duplicate commitment records.
+Independent personal tasks remain supported. A calendar block reserves time; a focus session records effort.
+Task completion, commitment resolution and goal progress are separate decisions and evidence.
+
+Planning horizons are one day, one week, two weeks, four weeks, six weeks and twelve weeks. Longer plans do
+not reserve every future hour by default. Daily coaching preserves accepted blocks and proposes changes only
+when constraints or user priorities change. Users can mark a block as fixed; conflicting work is surfaced for a
+decision rather than silently moving it.
+
+
+Loops and authority
+A loop is an instance of a fixed, versioned, typed template with selected declarative parameters. Its specification
+defines trigger types, scope filters, deterministic checks, permitted action types, an authority ceiling, context
+recipe, model tiers, run/token caps and a stopping condition. Chat fills in that specification and presents what
+runs, when and why for confirmation. Parameters can lower authority but cannot exceed the template ceiling.
+Unsupported requests receive an explanation and the nearest supported option; the miss is recorded for product
+review.
+
+The six starter template families are Daily brief, Daily check-out, Goal check-in, Overdue and slipping work,
+Focus rescue, and Weekly review. Friday wrap and week-ahead prep are modes of Weekly review. Daily coach
+sync is the interactive planning conversation that uses the brief; it is not a seventh ambiguous background
+template. Specialized assistant engine checks and output profiles must be mapped to the fixed catalog before
+release; see the feature catalog for the proposed mapping and unresolved boundary.
+
+Free-text preferences may personalize output wording, length and order. They cannot alter checks, triggers,
+permissions or executable actions. Tasks, drafts and calendar actions inferred by the assistant are presented for
+approval; reading, deterministic analysis and briefing generation within granted access can run in the
+background. Correspondence and follow-up messages require exact per-message approval. Activating a
+notification loop authorizes its scheduled push/email delivery within configured limits. Every assistant-proposed
+schedule adjustment requires approval.
+
+
+First-release boundary and build order
+The first public release must deliver a full executive-assistant experience across the five engines, including
+commitments from email, supplied meeting material and manual entry. Calendar/goal/focus-only milestones are
+internal increments, not the released product.
+
+Build Google Calendar reading, synchronization and approved publication with goals and tasks first; add meeting
+ingestion and follow-through next; then email ingestion and assistant workflows. Complete and verify the
+integrated assistant before first-release acceptance. Gmail is the proposed initial mail provider; supplied
+notes/transcripts are the first meeting input. Confirm import channel details before implementation; additional
+providers remain later work.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                            6
+The web app comes first. It includes the calendar workspace, coaching, assistant workflows, in-app floating
+timer, optional lo-fi audio and Chrome website blocking. Desktop companions for macOS, Windows and Linux
+follow, including a system-floating timer where supported. Later system-wide website blocking starts with one
+selected desktop operating system. Native application blocking and cross-device blocking are excluded
+promises. The device owns session expiry and unblock recovery.
+
+
+Background operation and cost
+Server-side loops run even when the UI is closed. Each template defines a catch-up policy for missed runs. In-
+app results are the record of truth; web push and email fallback follow delivery preferences, permission and
+failure rules. Notification tiers are quiet, scheduled, nudge and urgent, with quiet hours and a daily limit.
+
+Sources synchronize once into the shared store. Rolling summaries and content hashes support incremental
+processing; routines query the store instead of independently rereading providers. Context packs include
+bounded structured facts and source references. Usage is recorded per run and purpose, with reserved daily-
+brief capacity, per-run/per-loop caps and a global daily stop mechanism. When AI budget is constrained, fall back
+to clearly dated cached summaries or a deterministic digest and visibly pause lower-priority AI work.
+
+
+Success measures
+Prioritize commitment resolution, useful follow-up acceptance, timely reply handling, accurate and ready-before-
+open briefs, and reduced missed obligations. Also track time to first approved plan, goal outcome check-ins,
+session completion, proposal edit/rejection, notification dismissals and AI cost per purpose. Separate calendar
+reservations, recorded effort, task completion and measured outcomes. Set pilot targets after baseline usage;
+collect only consented telemetry.
+
+
+Boundaries
+Keep the interface minimal: calendar as the main workspace; contextual panels and drawers instead of a page
+for every routine. Use original Kairos copy and identity. Avoid invented progress, unexplained scores and
+automatic rescheduling. Broader connectors, native audio capture and AI handoff require separate capability and
+consent validation; they are not prerequisites for importing meeting notes into the first release.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         7
+02 / KAIROS BLUEPRINT
+
+
+
+Requirements & acceptance
+All F requirements below belong to the first full executive-assistant web release. Build increments are internal
+validation stages, not progressively weakened release promises. Later-platform requirements are labeled L.
+Proposed numerical caps are intentionally not invented; they must be configured before any AI pilot and tuned
+from measured usage.
+
+
+Product requirements
+ ID       Capability                    Acceptance criteria
+
+ F01      Goal and season planning      User selects day/1/2/4/6/12-week horizon; defines success, path, capacity,
+                                        constraints, follow-up and authority. Adaptive questions and manual fallback work;
+                                        draft can resume.
+
+ F02      Plans and trajectory          Proposed milestones, tasks and time allocations show assumptions and capacity
+                                        gaps. Measured outcomes, completed actions and effort remain distinct; insufficient
+                                        data never produces invented progress or velocity.
+
+ F03      Google Calendar foundation    Selected permitted calendars supply freshness-aware availability/details. Approved
+                                        publication and changes reconcile using source versions and stable operation IDs.
+                                        Expired sync cursors trigger controlled recovery.
+
+ F04      Calendar-first interaction    Today/Plan share goals/tasks left, weekly/day calendar center and collapsible coach
+                                        right. Drag/drop, resizing and equivalent keyboard/forms work; source, recurrence and
+                                        external effects are visible.
+
+ F05      Daily briefing and coaching   Server prepares morning brief before app opening. Interactive coach preserves
+                                        accepted blocks, asks about changed priorities/capacity and proposes only justified
+                                        differences. User may skip sync.
+
+ F06      Exact approvals               Inferred task creation, saving a draft to an external mailbox, message sending and
+                                        assistant calendar changes have versioned reviewable effects. Reports can render
+                                        automatically. Direct user commands are authorization only for their explicit scoped
+                                        effects.
+
+ F07      Stable schedule               Keep this time fixed prevents automatic placement/move/removal suggestions for that
+                                        block. Conflicts are still surfaced; user can explicitly unlock or request a scoped
+                                        change. No approval silently clears the lock.
+
+ F08      Commitment ledger             Email, supplied meeting notes and manual entry create sourced candidate
+                                        commitments. Accepted commitments link fulfillment tasks; duplicate/ambiguous
+                                        evidence is reviewed. Promise tracker, reply debt, waiting, meeting follow-through and
+                                        VIP watch are available.
+
+ F09      Resolution evidence           Task completion is explicit; an incoming reply is not automatically resolution. Waiting
+                                        items resolve only on clear evidence or confirmation. Goal completion uses its
+                                        success criterion; evidence and reopening history remain inspectable.
+
+ F10      Calendar guardian             Checks cover conflicts, missing links, overload, merged Focus rescue, freed time and
+                                        travel buffers. Outputs are findings/proposals. No physical travel estimate is invented
+                                        without sufficient location/transport data.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                        8
+ ID      Capability                   Acceptance criteria
+
+ F11     Meeting assistance           User-supplied notes/transcripts support decisions, candidate commitments and follow-
+                                      up proposals; dossiers use available history with provenance. Native recording is not
+                                      required for this release. Unknown owners/dates remain unknown.
+
+ F12     Email assistance             Gmail, the proposed launch mail baseline, supports bounded initial history,
+                                      incremental ingestion, triage, reply debt, waiting evidence and draft proposals.
+                                      Sending requires exact approval; permissions and provider acceptance are release
+                                      gates. Outlook mail is later.
+
+ F13     Fixed workflow setup         One short chat fills a supported template's typed parameters. Preview states
+                                      what/when/why/sources/authority/stop condition; confirmation activates. Unknown
+                                      requests offer nearest supported configuration and record a minimal redacted miss.
+
+ F14     Predictable workflow logic   Six template families expose registered typed check/output profiles. Parameters
+                                      cannot exceed template authority; free-text style preferences affect prose only.
+                                      Template version changes never silently expand actions or sources.
+
+ F15     Server operation             Runs occur with the browser closed. Every template defines catch-up, expiry and
+                                      deduplication. Late reports remain useful; obsolete urgent notices are suppressed.
+                                      Paused/stopped loops cannot emit new deliveries.
+
+ F16     Managed delivery             In-app feed is durable. Web push is permission-aware; email fallback is opt-in and
+                                      avoids duplicate sensitive content. Quiet/scheduled/nudge/urgent tiers obey quiet
+                                      hours and configured daily limits.
+
+ F17     Focus and audio              In-app movable/minimizable timer and focus workstation support pause/resume/end,
+                                      reload recovery, optional licensed lo-fi/ambient audio and Chrome website blocking.
+                                      No native-app or cross-device protection is claimed.
+
+ F18     Focus evidence               Recorded active time excludes pauses; sleep/restart handling follows a documented
+                                      policy. Completion records accomplishment, task status and optional outcome/self-
+                                      rating separately. Device-local expiry and escape work without server access.
+
+ F19     Weekly review and insights   Friday wrap/week-ahead share review evidence and differ by mode. Time-use and
+                                      inbox-noise statistics label coverage and distinguish scheduled, logged and inferred
+                                      time. Carry-forward is a decision, not silent rollover.
+
+ F20     Shared context and costs     Sources ingest centrally; recipes build bounded source-linked packs. Deterministic
+                                      checks precede AI. All runs record actual/estimated/unknown usage distinctly;
+                                      purpose budgets protect briefing capacity.
+
+ F21     Proposal hygiene             Related changes bundle with dependencies; obsolete alternatives are superseded.
+                                      Dismissals suppress equivalent proposals until relevant facts change. Partial batch
+                                      results and conflicts are explicit.
+
+
+
+
+Nonfunctional requirements
+ ID       Requirement                 Acceptance criteria
+
+ N01      Access and consent          Ownership checks cover every entity. Source-reading, AI-sharing, notifications,
+                                      publication and device-control permissions are explicit and revocable. Imported text
+                                      never grants authority.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                    9
+ ID        Requirement                  Acceptance criteria
+
+ N02       Reliable state               Retry-safe ingestion, jobs, approvals, notifications and provider effects have stable
+                                        keys. Unknown remote outcomes reconcile before retry. Record partial success; do
+                                        not promise atomic writes across providers.
+
+ N03       Time correctness             IANA timezone, all-day bounds, DST, travel timezone changes, quiet hours and catch-
+                                        up are defined/tested. Time passing invalidates time-sensitive cached results.
+
+ N04       Accessibility and layout     Keyboard alternatives, visible focus, labels, reduced motion and text zoom work.
+                                        Narrow screens use day/agenda plus drawers. Status is not conveyed by color alone.
+
+ N05       Honest degradation           Manual planning works without AI; cached content has as-of/coverage labels. Low
+                                        budgets fall back to fresh deterministic facts; new unsupported claims are not
+                                        generated from stale summaries.
+
+ N06       Privacy lifecycle            Each source defines retention, encryption, model-sharing boundary, export,
+                                        disconnect and deletion for raw data, derived summaries and audit records before
+                                        release.
+
+ N07       Performance and evaluation   Agree representative data/device budgets before UI acceptance. Evaluate extraction,
+                                        duplicate detection, commitment resolution and briefing grounding with labeled
+                                        scenarios.
+
+ N08       Budget enforcement           Configure conservative caps before a pilot; tune after measured use. Atomic
+                                        reservations prevent concurrent overspend. Global kill switch blocks AI, not local
+                                        unblock or manual access.
+
+
+
+
+Later platform scope
+ ID                                     Scope                                        Gate
+
+ L01                                    Desktop timer companions for macOS,          After web release; platform-specific
+                                        Windows and Linux                            signed packaging, permissions, recovery,
+                                                                                     updates and acceptance. No app-
+                                                                                     blocking implication.
+
+ L02                                    System-wide website blocking on one          Later opt-in hosts helper or reviewed
+                                        selected desktop OS                          equivalent; reversible, privilege-bounded,
+                                                                                     locally expiring; disclose coverage
+                                                                                     limitations. No native-app/cross-device
+                                                                                     blocking.
+
+ L03                                    Additional providers, native capture and     Separate validated connector/capture
+                                        AI handoff                                   contracts and user authority; not required
+                                                                                     for first web release.
+
+
+
+
+Approval interpretation
+A report/brief, deterministic finding or in-app preview is not an external mutation. Candidate extraction can persist
+suggestions in the ledger without accepting them as obligations. A generated reply can be displayed
+automatically as preview; approving creation of an external mailbox draft does not approve sending it. Direct
+explicit task creation needs no redundant generic approval. Every assistant schedule adjustment still needs
+review, with a single batch approval permitted only when all effects and destinations are listed.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                      10
+03 / KAIROS BLUEPRINT
+
+
+
+End-to-end workflows
+1. Connect and clarify
+  1. Choose plan a goal or organize existing work; select a day/1/2/4/6/12-week horizon.
+
+  2. Connect Google Calendar, then Gmail when ready, with separate source/AI/write consent. Enter availability
+  manually if not connected.
+
+  3. Define success, path, capacity, constraints, follow-up and authority. Follow-up questions adapt to missing
+  information; save/resume is available.
+
+  4. Show bounded import scope, progress, partial coverage and source freshness. Do not imply older history
+  was checked.
+
+  5. Propose milestones, tasks, blocks and workflows; expose assumptions/capacity gaps. Review exact effects
+  and destinations, accept/edit/reject.
+
+  6. Open the calendar-first workspace. Unapproved items remain suggestions; publication is approved
+  explicitly, possibly within the same enumerated review.
+
+
+2. Activate a fixed workflow
+Choose one of six template families, answer a short chat, inspect the typed form preview and confirm. Chat
+selects only registered check/output profiles and allowed parameter values; it cannot invent new checks, code,
+tools or permissions. Style instructions go only to writing. Unsupported requests offer the nearest template and
+record a redacted catalog miss. Preview shows next run, source coverage, authority ceiling and stop condition.
+Changes to behavior are reviewed as a new version.
+
+
+3. Morning brief and daily coach sync
+The server creates a Daily brief before the app is opened. Today shows it in the coach panel beside the calendar.
+The interactive daily coach sync uses that report; it is not a separate automation template. Coach asks about
+changed capacity, energy and core priorities. Preserve the accepted weekly plan and fixed blocks. Propose only
+justified additions/differences, with reasons. Review and approve individual changes or an exact batch, then start
+focus. Skip sync without losing the existing plan.
+
+
+4. Capture and resolve commitments
+Email, meeting notes or manual input supplies evidence. Extract candidate commitments and match
+people/threads with provenance. User accepts, edits, dismisses or merges candidates before inferred work
+enters the accepted ledger. A commitment records what is owed; tasks describe actions that fulfill it. One task
+can contribute to an obligation without proving that obligation resolved.
+
+Resolution rules:
+
+• Task: explicit user completion or a separately approved, verifiable completion action.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         11
+• Waiting on them: a response creates evidence; mark resolved only when deterministic evidence is conclusive
+  under the configured rule, otherwise request confirmation. Acknowledgments and partial answers do not close
+  it.
+
+• Promise/meeting action: completion evidence must satisfy the promised deliverable, with owner confirmation
+  when uncertain.
+
+• Goal: record the success measure; effort and task count are not substitutes.
+
+• Deferred work: capture reason, resume date or review trigger; pause follow-ups until that trigger. Reopen
+  when evidence invalidates an earlier resolution and show why.
+
+
+5. Guardian and approval review
+A source event or time-based check identifies conflict, freed capacity, missing link, travel need or threatened
+focus. Focus rescue merges preventive Focus guard and reactive Focus defense. Calendar sentinel remains a
+set of guardian checks, not a duplicate routine.
+
+Produce a bundled proposal with before/after, dependency ordering, source versions and exact destinations.
+Fixed blocks remain protected; surface a decision rather than moving them. Preserve the currently observed
+external calendar: approval governs Kairos's corrective action, not whether a third-party edit already happened.
+
+Revalidate on approval. Supersede old alternatives; changed facts require renewed review. Remember dismissal
+signatures (reason, affected items, meaningful constraints) until those facts change. Applying one change cannot
+silently apply a dependent unapproved change. Report partial results and reconcile unknown external writes
+before retrying.
+
+
+6. Focus
+Start a task/block, confirm objective/duration and configured Chrome website rules. Optional audio starts through
+user playback controls. Dedicated view and floating in-app timer show active time, pause/resume/end and actual
+browser protection status. Pause releases session blocking by default; resuming restores permitted rules.
+Emergency unblock and local expiry remain available without network.
+
+On finish, record accomplishment, explicit task status, remaining work and optional outcome/self-rating. Timer
+expiry never completes a task. Sleep, restart and abandoned sessions need a declared recovery policy before
+implementation; do not claim idle/sleep time as focused work. A continuation block is a new proposal. Later
+desktop timer companions do not imply native-app or cross-device blocking.
+
+
+7. Daily check-out and weekly review
+Daily check-out reconciles completed, unfinished, waiting and blocked items; `/done` opens this session.
+Updates explicitly entered by the user apply as entered; inferred new tasks, mailbox drafts and calendar changes
+remain proposals. Missing the check-out does not mark all unfinished work failed or rolled forward.
+
+Weekly review has Friday-wrap and week-ahead modes over one evidence snapshot/review record. Friday
+summarizes outcomes and open decisions; week-ahead proposes next week. Deduplicate overlapping reports;
+preserve differences when constraints change. Compare scheduled time, recorded active time and coverage, not
+invented actual activity. User decides carry-forward, defer, drop or revise.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         12
+8. Closed-app operation and catch-up
+Ingestion, checks, briefing and approved notifications run server-side while the browser is closed. The device
+independently ends website rules. Feed stores report and decision history; push/email provide permitted delivery,
+not guaranteed proof the user read it. On reconnect, show latest useful outputs and partial-source warnings
+rather than replaying every old notification. Detailed catch-up and delivery rules are in Automation.
+
+
+State contracts
+Plan: draft → proposed → active → completed/archived; prior accepted revision remains authoritative until
+changed.
+
+Commitment: candidate → accepted → active/waiting/deferred → fulfilled/cancelled. Candidate can be
+dismissed; deferred needs a resume trigger. Tasks have independent todo/in-progress/done/cancelled state and
+scheduling links. Goal outcome state is separate.
+
+Proposal: pending → applying → applied/partially-applied/failed; pending can be
+dismissed/superseded/expired/conflicted. Retries retain operation identity. Changed effects create a new review
+version.
+
+Loop: draft → active ↔ paused → stopped. Run: queued/running → success/partial/failed/skipped/cancelled.
+Check pause/version before delivery; cancelled work cannot emit newly generated actions.
+
+Focus: idle → running ↔ paused → ended; local end/escape is authoritative for device rule release. Reconciled
+timestamps must not duplicate duration or extend expired protection.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                       13
+04 / KAIROS BLUEPRINT
+
+
+
+Interface architecture
+Clean Tech visual system
+White and light-gray surfaces, deep charcoal typography, ample white space and subtle borders. One vibrant
+deep-purple accent (#6438E8) supports primary buttons, links, selection and focus. A pale tint of the same
+accent is permitted. Neutral labels/icons/outline patterns distinguish categories, sources and statuses; no multi-
+color pastel category palette. Original Kairos text and assets follow the supplied reference's hierarchy and
+simplicity.
+
+
+Six views, one calendar-first entry
+ View                                                      Role
+
+ Today                                                     Default entry: calendar-first shell anchored to today, with
+                                                           morning brief/daily coaching and urgent decisions. No metric-
+                                                           heavy replacement dashboard.
+
+ Plan                                                      Same shell for week-ahead work, full calendar, tasks,
+                                                           proposals and capacity. Preserve date/selection when
+                                                           switching context.
+
+ Commitments                                               Accepted/candidate obligations, replies owed, waiting,
+                                                           promises and linked tasks; inspect evidence and resolution.
+
+ Goals                                                     Seasons, goal setup, milestones, plans and trajectory; task
+                                                           scheduling returns to the same calendar.
+
+ Review                                                    Daily check-out, Friday wrap/week-ahead modes, outcome and
+                                                           coverage-aware effort insights.
+
+ Assistant                                                 Template setup through short chat, workflow settings/history,
+                                                           preferences, usage and connected sources.
+
+
+
+
+Workspace composition
+Coach closed: left goals/tasks/support panel approximately 26%, calendar approximately 74%, with practical
+min/max widths. Coach open: protect a minimum usable calendar and collapse the left panel or show the coach
+as an overlay at laptop widths. At an illustrative 1440 px viewport: 24 px outside margins each, 272 px sidebar,
+760 px calendar, 312 px coach and two 24 px gutters sum to 1440 px. This is a prototype example, not a
+universal breakpoint rule. An overlay is preferable when a seven-day grid becomes unreadable.
+
+Left panel has quick capture, expandable goals/tasks, support areas, filters and sources. Center has date
+navigation, day/week switch, all-day row, hourly grid, now marker, source freshness and proposal review strip.
+Right panel holds the brief, interactive daily coaching, follow-ups, approvals and chat. A compact primary
+navigation avoids adding another oversized sidebar.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                 14
+Interaction rules
+Drag tasks to schedule; offer equivalent keyboard/form controls. Inspect event details in a popover/drawer. Direct
+edits expose local/external effects. Assistant additions use dashed outlines, moves show before/after, and
+proposed removals remain marked until approved. Keep this time fixed is visible on blocks and respected by
+planning. Third-party changes display as observed facts; corrective changes require approval.
+
+Proposals bundle related changes, show dependencies and destinations, suppress equivalent dismissed
+suggestions and replace obsolete versions. A concise card expands for evidence and detailed effects. Approval
+is specific to a version; chat is not a general grant of authority.
+
+
+Focus
+Dedicated task-centered view with optional audio, in-app timer and Chrome website-rule status. No native-app or
+cross-device protection indicators. Device owns expiry and escape. Later desktop companions supply timer
+access on macOS/Windows/Linux; later system website blocking starts with one supported OS. All device
+capabilities are labeled accurately.
+
+
+Responsive and accessible
+Desktop prioritizes the calendar; medium screens use drawers; phone uses day/agenda and task/coach sheets.
+Preserve selected date and task. Provide keyboard alternatives, focus restoration, text zoom and reduced
+motion. Status uses words/icons as well as styling. Loading, empty, partial, stale, denied, offline, failed and
+budget-limited states are explicit. See screen specifications for components and step-by-step flows.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                        15
+05 / KAIROS BLUEPRINT
+
+
+
+Screen design & components
+Design version: 2.0 / 30 October 2026. Clean Tech is the single visual direction. This revision includes full
+assistant workflows, approval hygiene and web-first website-only focus controls. Dimensions below are proposed
+design targets to validate in a prototype.
+
+
+1. Visual system
+White #FFFFFF surfaces; light gray #F6F7F9 canvas; charcoal #17191F primary text; slate #596170 secondary
+text; subtle #E2E5EB borders. Deep purple #6438E8 is the sole vibrant accent for primary actions, selected
+controls, links and focus indicators. Pale purple #F0EBFF is a tint of that same accent. Use neutral labels and
+outlines for event categories, not additional hues. Success, warning and error states use explicit text and icons
+so meaning never depends on color.
+
+Use a clean sans-serif typeface, 32-40 px major headings, 20-24 px screen headings, 14-16 px body and 12-13
+px supporting metadata. Minimum sizes and contrast require device verification. Use an 8 px spacing rhythm
+with 4 px fine adjustments; 16-24 px panel padding, 8 px event corners and 12 px panel corners. Borders supply
+separation; shadows are reserved for floating surfaces. One primary action per decision context.
+
+
+2. Screen S01 / Welcome and context
+Purpose: establish the user's intent without forcing a long setup interview.
+
+Layout: slim brand header, centered content column, progress indicator and a visible Save and exit action.
+Present two starting choices: plan a goal, or organize existing work. Explain what the assistant will prepare.
+Google Calendar and Gmail connection follow with separate permissions; manual availability and supplied
+meeting notes remain available. Declining connections shows reduced assistant coverage honestly.
+
+Steps: choose intent; select planning horizon; describe the desired outcome; connect sources or continue
+manually. Next advances only after required information is supplied. Retain entries when navigating back.
+Connection denial explains what remains usable.
+
+Components: intent cards, horizon selector, text field, source connector, progress stepper, inline validation and
+primary Continue button.
+
+
+3. Screen S02 / Goal clarification
+Purpose: turn a broad ambition into an actionable brief.
+
+Layout: structured goal form with a compact conversational follow-up area. Show known answers as editable
+fields, not buried only in a transcript. Ask for success measure, current position, deadline, available time, priority,
+constraints and dependencies. Distinguish required answers from optional coaching context.
+
+Steps: capture goal; ask the most relevant unanswered question; summarize assumptions; let user correct;
+generate the proposed plan. Do not require every possible question for a simple one-day task. AI unavailable
+state offers a manual goal and task form.
+
+Components: outcome fields, date picker, capacity input, editable answer chips, question card, draft-save status
+and Generate plan action.
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                            16
+4. Screen S03 / Plan review and activation
+Purpose: make the assistant's proposal concrete and reviewable.
+
+Layout: outcome summary above milestone/task list; calendar preview alongside on wide screens; proposed
+loops below. Each item shows purpose, estimate, date or frequency, and assumptions. A capacity summary
+explains unused time or overcommitment.
+
+Steps: inspect the plan; expand supporting reasons; edit tasks or timing; choose proposed items; review listed
+effects; approve. External publication names the calendar destination and effects explicitly. Keep local
+acceptance and remote publication distinct unless a single approval explicitly includes both.
+
+No capacity: offer reduce scope, extend deadline or change availability. Rejected suggestions leave accepted
+work intact. Changed availability invalidates affected suggestions and asks for renewed review.
+
+Components: milestone list, task editor, capacity summary, calendar preview, loop settings card and approval
+summary.
+
+
+5. Screen S04 / Calendar home
+Purpose: manage priorities and real-world time in one workspace.
+
+Desktop: goals/tasks on the left, calendar in the center and collapsible coach on the right. With coach closed,
+use approximately 26% / 74%; constrain sidebar to a usable range. At 1440 px, an illustrative open layout is 272
+px sidebar, 760 px calendar, 312 px coach, two 24 px gutters and 24 px outer margins on each side, totaling
+1440 px. Collapse the sidebar or overlay the coach when the calendar becomes too narrow. This is a prototype
+target, not a fixed rule.
+
+Left: quick capture; expandable season goals with tasks; support areas; calendar/source filters. Center: date
+navigation, Day/Week, all-day row, hourly grid, current-time marker, source freshness and proposal strip. Right:
+today's sync, pending decisions, follow-ups and contextual chat.
+
+Steps: expand a goal; drag a task into time or use Schedule; inspect event; edit through popover; start focus.
+Dragging assistant-proposed changes does not bypass proposal review. Direct user edits identify any external
+save effects. Clicking a blank slot creates an explicit task/event/block choice.
+
+Five- or seven-day display is a user preference; default seven-day week follows the reference. Work-hour display
+can be expanded. Source labels distinguish Google events, local events and goal blocks without a category
+rainbow. Keep this time fixed is visible on blocks; routine proposals respect it. Show third-party calendar edits as
+observed facts immediately, then offer corrective proposals if needed.
+
+
+6. Screen S05 / Daily coach sync
+Purpose: agree on today's core work before focus.
+
+Panel structure: concise daily brief; today's constraints; proposed top priorities; proposed time blocks; pending
+decisions; chat input. Start with actual goals and available time. Ask about changed capacity and blockers.
+Explain priority tradeoffs briefly, with evidence links available on demand.
+
+Steps: review the precomputed server brief; correct priorities; tell coach today's capacity; preserve accepted
+blocks and fixed times; inspect only justified proposed differences; approve individual changes or the
+enumerated batch; start selected task. Skipping sync preserves the existing plan. The assistant does not
+interpret a conversational acknowledgment as blanket authorization for unspecified changes.
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                          17
+Components: brief card, priority list, capacity prompt, proposal cards, evidence disclosure and Start focus action.
+
+
+7. Screen S06 / Proposal review
+Purpose: approve every assistant-proposed schedule adjustment.
+
+Layout: compact summary strip in calendar; detailed drawer for review. Each change shows action type, previous
+state, proposed state, reason, affected task, source and destination. Additions use a dashed outline; moves
+show old/new positions with labels; removals remain visible until approved.
+
+Steps: select a proposal; inspect before/after; edit or dismiss; approve; revalidate current calendar; apply; report
+local and external outcomes separately. A stale proposal shows the conflict and offers a refreshed version.
+Failure must preserve accepted state or explain any partial effects.
+
+Components: change card, before/after comparison, dependencies, selection checkbox, destination summary,
+Apply selected, conflict banner and retry/reconcile action. Repeated approval is idempotent. Bundle related
+changes, supersede obsolete alternatives and remember equivalent dismissals until relevant facts change. Task
+adoption and external mailbox draft creation are reviewable effects; an internal generated preview is not an
+accepted task or sent message.
+
+
+8. Screen S07 / Focus workstation and floating timer
+Purpose: protect attention while keeping essential controls accessible.
+
+Workstation: task title and intended outcome, timer, pause/end controls, Chrome website-blocking status and
+optional audio. Do not show native-app or cross-device protection. Hide nonessential calendar and chat content
+during focus, while allowing intentional return to planning. Starting a session uses only configured supported
+blocking rules.
+
+Floating timer: compact neutral surface with purple active indicator, task label, elapsed/remaining time and
+pause/end. Drag handle, minimize and keyboard move controls; restore a safe position on viewport change. The
+first scope is in-app floating. Desktop companions with floating timers follow the web release on macOS,
+Windows and Linux; one-OS system website blocking is a separate later feature, not native-app blocking.
+
+Steps: select task; confirm duration/objective; start; verify supported Chrome/profile website-rule status;
+optionally play audio; pause/resume; finish. Proposed pause behavior releases blocking while paused. Show
+unavailable controls honestly. Emergency unblock works even when the server cannot be reached; timed rules
+expire independently.
+
+Audio controls: play/pause, volume, track/source and mute. No automatic sound before a user gesture. Audio
+failure leaves the timer usable. Licensing/source selection remains a delivery decision.
+
+
+9. Screen S08 / Session completion
+Purpose: record evidence and choose a useful next step.
+
+Layout: short completion sheet with actual recorded duration; accomplishment prompt; explicit task status;
+optional outcome measure and optional self-rating. Do not infer task completion from timer expiry. Do not show a
+precise focus score without defined observation inputs and validation.
+
+Steps: describe result; mark task complete or unfinished; record measurable progress if applicable; capture
+blocker; save. Offer a proposed continuation session or return to calendar. Saving session evidence does not
+approve a new calendar adjustment.
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         18
+Components: duration summary, status control, note field, measure input, optional rating and next-step proposal.
+
+
+10. Screen S09 / Follow-ups and loop settings
+Purpose: let the user understand and control ongoing assistant work.
+
+Follow-ups are coach-panel cards grouped by urgency and routine. Expand to inspect evidence, task owner, due
+date, draft and proposed action. Email sending and external changes require explicit authorization. Dismiss
+hides a finding; snooze changes reminder time; neither means the underlying commitment is complete.
+
+Assistant exposes six template families configured through one short chat and a typed confirmation preview.
+Loop detail contains pinned template/profile version, purpose, goal/area scope, schedule, timezone, permitted
+sources, deterministic criteria, authority ceiling, stop/catch-up condition, quiet hours, notification destination, next
+run and last result. Chat cannot exceed the registered schema; style preferences affect writing only. Pause stops
+future runs; stop terminates the loop. Keep run history readable and errors actionable. Partial results name
+unavailable sources without exposing credentials or raw internal errors.
+
+
+11. Screen S10 / Weekly review
+Purpose: learn from the week and prepare a realistic next one.
+
+Layout: outcome progress, completed work, scheduled versus recorded effort, repeatedly moved work,
+unresolved commitments and short reflection prompts. Focus time and goal outcomes remain separate. Place
+proposed next-week adjustments beside a calendar preview rather than burying them in prose.
+
+Steps: inspect evidence; correct missing progress; decide carry-forward/drop/defer; discuss constraints;
+generate next-week proposal; approve exact changes. Defer changes a commitment deliberately; it is not silent
+rollover.
+
+Components: outcome summary, effort comparison, carry-forward list, reflection form and next-week proposal
+review.
+
+
+12. Component contract inventory
+ Component                               Main behavior                           Required states
+
+ Goal tree                               Expand tasks; select scope; add goal    Empty, expanded, filtered, archived
+
+ Task row                                Complete, inspect, schedule, drag       Candidate, todo, in-progress, done,
+                                                                                 cancelled
+
+ Calendar block                          Inspect, move, resize, start focus      Local, external, proposed, stale, read-
+                                                                                 only
+
+ Proposal card                           Explain, edit, accept, dismiss          Pending, superseded, conflicted, partial,
+                                                                                 applied, failed
+
+ Coach message                           Clarify with source context             Streaming, cancelled, unavailable, retry
+
+ Floating timer                          Move, minimize, pause, end              Running, paused, reconnecting, ended
+
+ Browser rule status                     Report supported Chrome website rules   Active, paused, denied, offline, expired
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                   19
+ Component                             Main behavior                               Required states
+
+ Loop card                             Configure, pause, inspect results           Active, paused, failed, partial, stopped
+
+ Event popover                         Edit relevant details                       Read-only, editable, recurrence choice,
+                                                                                   conflict
+
+ Source connector                      Connect, scope, disconnect                  Unconfigured, syncing, current, stale,
+                                                                                   revoked
+
+
+
+
+13. Responsive and accessibility behavior
+Desktop keeps the calendar dominant. Tablet uses a coach drawer over the workspace. Phone defaults to
+day/agenda view with separate task and coach sheets; no squeezed seven-column grid. Preserve selected
+date/task when changing surfaces.
+
+Support keyboard scheduling and resizing alternatives, visible focus, descriptive labels, meaningful dialog focus
+restoration, screen-reader announcements for approval and timer changes, reduced motion, text zoom and
+comfortable touch targets. Use text and icons for all statuses. Do not announce timer ticks continuously to
+assistive technology. Validate accessibility and measured contrast in the prototype and implementation.
+
+
+14. Design validation walkthrough
+Walk a user through: define a six-week goal; answer clarification; revise a proposed plan; activate a loop; run
+daily coach sync; schedule a task without dragging; approve a move; start focus; navigate with the timer;
+pause/unblock; finish without completing the task; handle stale Google data; review the week. Confirm
+comprehension of proposed versus accepted changes and which devices are actually protected.
+
+This document specifies screen behavior, not a claim that the screens or all integrations are implemented. The
+web/desktop sequence and no-app/no-cross-device scope are fixed. Exact supported versions, first website-
+helper OS, audio licensing, session recovery and pilot targets remain open decisions.
+
+
+15. Supporting views S11-S14
+Today and Plan share S04: Today anchors the calendar and brief to the current day; Plan emphasizes week-
+ahead capacity and proposed changes. The shell remains calendar-first rather than introducing a competing
+home dashboard.
+
+ View                                  Content and main steps                      Components and critical states
+
+ Commitments / S11                     Filter candidates, mine, waiting, reply     Ledger row, owner/due/source labels,
+                                       debt and promises; inspect evidence;        evidence drawer, task links, merge
+                                       accept/merge; schedule fulfillment tasks;   review, partial-answer and reopened
+                                       confirm resolution or defer with resume     states
+                                       trigger
+
+ Goals / S12                           Define season/outcome; inspect plan,        Goal detail, outcome measure, capacity,
+                                       tasks and recorded progress; revise         milestone list, fixed-block links,
+                                       priorities; return to calendar for time     insufficient-evidence trajectory
+                                       decisions
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                    20
+ View                                   Content and main steps                     Components and critical states
+
+ Review / S13                           Daily check-out, Friday wrap/week-ahead    Shared review record, carry-forward
+                                        modes, scheduled-vs-logged time and        decisions, coverage labels, fresh
+                                        inbox-noise coverage                       deterministic fallback
+
+ Assistant / S14                        Pick template; short setup chat; confirm   Template picker, typed configuration,
+                                        preview; manage                            authority diff, unsupported-request
+                                        sources/preferences/usage; inspect         feedback, usage meter,
+                                        history; pause/stop                        degraded/paused states
+
+
+
+
+16. Background and budget UX
+Feed items show produced-at/as-of, source coverage, notification tier and action status. Push permission denial
+offers an in-app path and opt-in email fallback; no duplicate fallback merely because an alert was not read.
+Missed runs coalesce into the latest useful finding. Respect quiet hours and daily caps while keeping pending
+decisions visible.
+
+Usage meter shows scheduled loops, extraction, drafting and chat; identify reserved daily-brief capacity and one
+near-80-percent alert. Budget degradation is visible: full output, cached summaries with current deterministic
+checks, current deterministic digest, or paused low-priority AI. Never interpret unprocessed new mail as no reply
+debt.
+
+
+17. Full assistant acceptance walkthrough
+With the browser closed, a new permitted email and supplied meeting note are ingested. Candidate promises
+and waiting items are linked to evidence. The morning brief is generated before opening; permitted push/email
+follows delivery rules. Open Today, inspect the brief, accept an inferred task, reject a calendar move and verify it
+does not reappear unchanged tomorrow. Resolve a partial reply without prematurely closing the request; inspect
+a meeting dossier, approve a follow-up draft/send separately, run focus with Chrome website rules, check out
+and review the week. Repeat with revoked permissions, stale sources, expired cursor, low AI budget and a fixed
+block collision.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                 21
+06 / KAIROS BLUEPRINT
+
+
+
+Features & integrations
+Version 2.0 / 30 October 2026. Planned release scope; this catalog does not certify existing implementation.
+
+
+Release contract
+The first released web product is an executive assistant across the commitment ledger, calendar guardian,
+briefing composer, goal engine and insights. Calendar/goals/tasks, meetings, then email is implementation order.
+Internal increments do not redefine the public release as a planner-only MVP.
+
+
+Five-engine feature inventory
+Cadences below are proposed defaults from the requested workflow inventory, configurable within each
+template's allowed values and the user's timezone. All assistant actions remain reviewable proposals; detected
+facts and prepared reports may appear automatically within granted access.
+
+ Engine                      Fixed check or output       Default cadence/trigger        Result
+                             profile
+
+ Commitment ledger           Promise tracker             Daily and relevant source      Unresolved promises, owners,
+                                                         changes                        due dates and evidence
+
+ Commitment ledger           Waiting on them             Twice weekly                   Outstanding requests and
+                                                                                        nudge drafts
+
+ Commitment ledger           Reply debt                  Daily                          Ranked unanswered requests
+                                                                                        with reply drafts
+
+ Commitment ledger           Meeting follow-through      After supplied notes arrive;   Proposed commitments/tasks
+                                                         evening recap                  and follow-up drafts
+
+ Commitment ledger           VIP watch                   Configured threshold checks    User-selected VIP attention
+                                                                                        findings and draft replies
+
+ Calendar guardian           Calendar sentinel           Daily and relevant calendar    Double bookings, missing
+                                                         changes                        links and overloaded days
+
+ Calendar guardian           Focus rescue                Daily/weekly reservation       Unified focus
+                                                         check and relevant changes     protection/recovery proposals;
+                                                                                        replaces separate focus
+                                                                                        guard/defense routines
+
+ Calendar guardian           Freed time                  Meeting cancellation or        Suggested use of the newly
+                                                         shortened event                available slot
+
+ Calendar guardian           Travel buffer               Relevant in-person event       Proposed travel reservation,
+                                                         change                         with route/duration
+                                                                                        assumptions visible
+
+ Briefing composer           Daily brief                 Morning before configured      Priorities, obligations, meeting
+                                                         delivery time                  prep and pending decisions
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                             22
+ Engine                        Fixed check or output            Default cadence/trigger         Result
+                               profile
+
+ Briefing composer             Meeting dossier                  Before external meeting         Available relevant history,
+                                                                                                open threads and promises
+
+ Briefing composer             Friday wrap                      Weekly review: wrap mode        Accomplishments, unresolved
+                                                                                                work and carry-forward
+                                                                                                decisions
+
+ Briefing composer             Week-ahead prep                  Weekly review: preparation      Next week's decisions,
+                                                                mode                            constraints and proposed plan
+
+ Goal engine                   Goal check-in and slipping-      User-selected schedule or       Outcome check-in, stalled
+                               work checks                      supported threshold             work and specific proposed
+                                                                                                fixes
+
+ Goal engine                   Season/GPS-style planning        On explicit planning request    Clarified goals, milestones,
+                               and weekly plan                                                  tasks, capacity-aware blocks
+                                                                                                and loops
+
+ Goal engine                   Trajectory and velocity          After relevant recorded         Evidence-based trend with
+                                                                progress                        coverage and uncertainty
+
+ Insights                      Where your week went             Weekly                          Scheduled versus recorded
+                                                                                                effort, categories and trends
+
+ Insights                      Inbox noise                      Every two weeks                 Email volume patterns and
+                                                                                                proposed rules
+
+
+
+Travel buffers must work with user-entered travel time or an explicitly chosen routing source; the assistant must
+not invent travel duration. Meeting and email coverage limitations remain visible. Relationship-cooling analysis is
+later scope, outside the stated first-release Insights inventory.
+
+
+Six starter template families
+ Template family                          Scope                                       Purpose and supported modes
+
+ Daily brief                              Global                                      Prepare the morning brief from shared
+                                                                                      facts and pending decisions
+
+ Daily check-out                          Global                                      Evening reconciliation and `/done`;
+                                                                                      capture outcomes and unfinished work
+
+ Goal check-in                            Per goal; proposed ledger profiles also     Review progress and goal-specific next
+                                          allow global/area scope                     actions; proposed promise/waiting
+                                                                                      profiles use explicit scope exceptions
+
+ Overdue and slipping work                Global or per goal                          Detect overdue commitments/tasks and
+                                                                                      repeatedly postponed work
+
+ Focus rescue                             Global                                      Calendar-guardian checks and proposed
+                                                                                      protection/recovery
+
+ Weekly review                            Global                                      Friday wrap and week-ahead prep
+                                                                                      modes using shared review data
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                      23
+Daily coach sync is the interactive conversation that turns brief/context into an approved day. It preserves
+accepted blocks, respects fixed-time choices and does not run a new full-week rescheduler every morning.
+
+
+Catalog mapping decision
+
+The six starter families and the complete five-engine inventory have both been requested. Their exact mapping is
+not yet fully defined: meeting-dossier triggers, VIP thresholds, twice-weekly waiting checks and biweekly inbox-
+noise reports are not naturally described by the six names alone.
+
+Proposed catalog mapping, pending user confirmation: treat specialized routines as built-in checks and output
+profiles within the six user-facing template families, with explicitly versioned, typed definitions for the specialized
+behavior above. Each profile has its own allowed trigger, deterministic checks, output type, authority and context
+recipe; it is not an arbitrary user-composed workflow. If six exact templates rather than six families are required,
+add a reviewed fixed template for every uncovered routine before first release instead of silently omitting it or
+overloading chat. This is a catalog decision, not a feasibility blocker for the underlying engines.
+
+
+Template and loop contract
+Every template defines its ID/version, supported trigger kinds (schedule, source event, threshold), scope filters,
+deterministic check library, allowed output/action types (brief, notification, draft, proposal), authority ceiling, stop
+condition, catch-up policy, context recipe, model tier per AI step and token/step/tool-call caps. Each loop stores
+template ID/version and validated chosen values. Template upgrades cannot silently change user authority or
+behavior; changed behavior needs a reviewable migration/confirmation policy.
+
+Chat chooses a supported template/profile and fills typed fields. A confirmation preview names what runs, when,
+which sources it reads, what it may prepare and when it stops. Values can reduce the authority ceiling, never
+raise it. Unsupported requests show the nearest supported option and log the miss. Writing preferences such as
+brief length and tone affect prose only, not trigger/check/action logic.
+
+
+Approval and resolution
+Bundle related changes into one review with dependencies. Replace obsolete proposals and remember
+dismissals until relevant facts change. Explicit approval covers the exact listed task, draft or calendar effects;
+correspondence never sends without exact per-message approval. Activated notifications use standing delivery
+authorization within their configured limits. External calendar publication identifies its destination. Accepted
+weekly blocks remain the baseline; new constraints or user priorities justify proposed adjustments. A fixed-time
+block is not moved by the assistant.
+
+Commitments close using type-appropriate evidence. A personal task requires explicit completion; an incoming
+reply is evidence of a response, not proof that the request was resolved. Ambiguous meeting and email
+conclusions require confirmation. Goal completion follows its defined success measure. Reminders, elapsed time
+and sending a message do not automatically close the underlying obligation.
+
+
+Integration and platform boundary
+ Integration/capability                  First-release or later role              Verification boundary
+
+ Google Calendar                         First-release foundation: read           Preserve separate consent, source
+                                         availability/details as permitted,       capabilities, version conflicts and real-
+                                         synchronize, publish approved changes    provider acceptance
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                    24
+ Integration/capability                First-release or later role               Verification boundary
+
+ Gmail                                 First-release commitment extraction,      Proposed initial mail provider; least-
+                                       reply/waiting/VIP checks, drafts and      privilege access, retention and provider
+                                       noise statistics                          verification required; additional providers
+                                                                                 later
+
+ Supplied meeting notes/transcripts    First-release meeting context, dossiers   Select manual/import channel and retain
+                                       and follow-through                        attribution; do not imply automatic
+                                                                                 attendance/capture
+
+ Outlook calendar / Apple Calendar     Later calendar connectors                 Validate supported protocol, read/write
+                                                                                 scope and conflict behavior before
+                                                                                 promising parity
+
+ Slack, Fathom, Granola                Later context/meeting connectors          Validate accessible source capabilities,
+                                                                                 consent and retention
+
+ Zoom / Meet / Teams / Webex capture   Later native audio capture                Local permission, supported OS/capture
+                                                                                 mechanism and recording notices; not a
+                                                                                 web-only promise
+
+ Chrome extension                      First-release website blocking            Verify actual Chrome lifecycle and
+                                                                                 recovery behavior; no native-app
+                                                                                 blocking claim
+
+ Desktop companions                    After web: macOS, Windows and Linux       Validate each OS; system-floating
+                                       timer/session surface                     behavior is a device capability, not
+                                                                                 assumed browser parity
+
+ System-wide website helper            Later, one selected desktop OS first      User-approved bounded website rules,
+                                                                                 independent expiry and recovery; no
+                                                                                 application or cross-device blocking
+
+ External AI handoff                   Later reviewed task/context transfer      Destination, context limits and
+                                                                                 completion/status contract required
+
+
+
+The repository contains a legacy opt-in Linux helper that can suspend configured native executables. That
+existing code is outside the revised launch product scope; it is not evidence of promised macOS/Windows/Linux
+native-app blocking, and this documentation revision does not remove or alter it.
+
+
+Background delivery and notifications
+Loops run server-side while the UI is closed, with template-specific catch-up and deduplication. Store the result
+in the in-app feed first. Deliver through permitted web push, then email fallback according to configured
+preferences and delivery outcomes; do not send duplicate fallback messages merely because a user has not
+opened the app. Quiet, scheduled, nudge and urgent tiers obey quiet hours and daily limits, with any urgent
+exception explicitly configured.
+
+Show next run, last run, partial-source warnings, missed-run handling and paused budget status. Delivery
+fallback rules are defined in Automation; exact catch-up windows and urgent-tier exceptions must be configured
+before activation. The device, not a server job, owns focus session expiry and unblock recovery.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                     25
+Shared context and budget behavior
+Adapters sync each source once into owned people, threads, meetings, commitments, goals and summary
+records. Routines query this store, not providers directly. Hashes and rolling summaries limit AI work to changed
+material; a bounded initial backfill limits first-connection processing. Unchanged facts can reuse summaries, but
+deadline/time-threshold checks still run as time advances.
+
+Use code for overdue/waiting calculations, conflict detection, ranking and capacity math. Use a lower-cost
+validated AI step for extraction/classification and a stronger model only for approved writing/coaching paths.
+Context packs have source references and token ceilings; sub-steps share structured results rather than raw
+transcripts.
+
+Record tokens and cost per run, loop and purpose. Reserve daily-brief capacity separately from chat; cap each
+run/loop and support a global daily stop mechanism. Provide a usage meter and one near-80-percent alert.
+Numeric quotas follow pilot observation; hard safety caps must still exist during the pilot. Degrade from full output
+to dated cached summaries, deterministic digest and explicitly paused low-priority AI loops. Never represent a
+cached output as newly analyzed evidence.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         26
+07 / KAIROS BLUEPRINT
+
+
+
+Templates & background operation
+Fixed declarative templates
+A template is a versioned typed specification, not generated code. It declares supported
+schedule/event/threshold triggers, scope filters, deterministic checks, output profiles, authority ceiling, stop
+conditions, context recipe, model tier per step, token cap and catch-up policy. A user's loop stores template
+ID/version and validated parameters. User values may reduce authority, never increase it. Unknown
+fields/actions fail validation.
+
+Six user-facing template families: Daily brief, Daily check-out, Goal check-in, Overdue and slipping work, Focus
+rescue, Weekly review. The mapping of specialized assistant checks to fixed profiles within these six families is a
+proposed catalog arrangement pending user confirmation. All listed executive-assistant capabilities remain
+required in the first web release regardless of final catalog labels.
+
+Chat fills the typed form, explains the preview and waits for activation confirmation. Unsupported requests
+identify the limitation, offer the closest supported configuration and record a redacted miss for product discovery.
+Free-text preferences such as short briefs or lead with money matters affect prose only; typed priorities
+determine checks/ranking. They cannot modify logic, sources, cadence, tools or action authority.
+
+
+Registered profile mapping — proposed catalog arrangement
+ Family                                  Fixed checks/output profiles              Trigger and context
+
+ Daily brief                             Morning overview; VIP watch; meeting      Morning schedule; VIP wait threshold;
+                                         dossier                                   before-meeting event. Reads accepted
+                                                                                   priorities, open commitments, calendar
+                                                                                   and source-linked relationship/thread
+                                                                                   summaries.
+
+ Daily check-out                         Evening reconcile; meeting follow-        Evening or meeting-note-ready event.
+                                         through; `/done`                          Reads new meeting evidence, decisions,
+                                                                                   candidate commitments and today's
+                                                                                   tasks.
+
+ Goal check-in                           Progress, trajectory, promise tracker,    Scheduled/threshold checks scoped to a
+                                         waiting-on-them                           goal or selected commitment/area; global
+                                                                                   ledger profile has no mandatory goal.
+                                                                                   Reads outcome measures, tasks and
+                                                                                   relevant unresolved commitments.
+
+ Overdue and slipping work               Overdue tasks, repeated postponements,    Scheduled or threshold; global or goal
+                                         reply debt                                scope. Reads due/wait dates, meaningful
+                                                                                   move history, urgency/VIP settings and
+                                                                                   unresolved replies.
+
+ Focus rescue                            Focus guard + defense; sentinel checks;   Calendar change or periodic check.
+                                         freed time; travel buffer                 Reads current availability, fixed blocks,
+                                                                                   capacity, travel fields and selected goals.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                   27
+ Family                                 Fixed checks/output profiles                 Trigger and context
+
+ Weekly review                          Friday wrap; week-ahead prep; time-use;      Weekly modes; inbox-noise profile can
+                                        inbox noise                                  use biweekly cadence. Reads shared
+                                                                                     review record and aggregate statistics.
+
+
+
+Family names do not force one daily/weekly cadence on every registered profile. Profiles have their own
+schema-approved trigger choices. Users can enable multiple instances; deduplication prevents the same finding
+being reissued across profiles. This grouping is an explicit draft choice, not a claim the user has approved
+specialized mapping.
+
+
+Authority and review
+Automatic under granted permissions: ingestion, structured candidate extraction, deterministic checks, in-app
+draft previews, reports and permitted notifications. AI cannot create accepted obligations or execute external side
+effects on its own.
+
+Proposed effects: accepted task creation from inference; external mailbox draft creation/update; calendar
+addition/move/removal; follow-up message sending. Review lists exact items/destinations and dependencies.
+Approving a draft is distinct from approving sending. Direct user commands authorize only the clearly requested
+scope. Every assistant schedule adjustment requires approval, including its own blocks.
+
+Related effects share a batch review with itemized choices. A dependent effect cannot apply unless its
+prerequisites are approved/applied. Before applying, check owner, permissions, source/version/freshness,
+availability and locks. Superseded/expired or meaningfully changed effects require renewed review. Partial
+external success is reported; unknown outcomes reconcile before retry.
+
+A dismissal records a meaningful finding signature, not just its generated wording. Suppress equivalent
+proposals until relevant source facts/constraints change. Time-based thresholds can constitute a declared
+change only when the template explains it; daily reruns alone are not a reason to revive dismissed suggestions.
+
+
+Server runs and catch-up
+Server scheduler and source-event processing run independently of the browser. Store a logical trigger key, input
+snapshot, template version, planned time, actual time, freshness, budget reservation and outcome. Lease/lock
+execution to prevent duplicate processing. Recheck pause/stop and template version before emitting outputs.
+Retry transient failures with bounded backoff; surface persistent failure and recoverable partial results.
+
+ Profile type                           Missed-run rule                              Obsolescence rule
+
+ Morning brief                          Coalesce to latest relevant local-day run;   Label late; no old morning push after the
+                                        regenerate fresh deterministic facts         configured usefulness window
+
+ Evening check-out                      Offer one most recent reconciliation         Do not auto-complete or replay every
+                                                                                     missed evening
+
+ Goal/overdue checks                    Evaluate current conditions once on          Suppress conditions no longer true;
+                                        recovery                                     preserve meaningful unresolved findings
+
+ Meeting dossier                        Run only before meeting within               After start, skip prep delivery; use follow-
+                                        configured lead/usefulness window            through when notes are available
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                          28
+ Profile type                           Missed-run rule                          Obsolescence rule
+
+ Meeting follow-through                 Process each unprocessed eligible note   Revisions update candidates/deduplicate
+                                        revision within configured retention     rather than duplicate accepted work
+
+ Calendar rescue                        Check current availability and pending   Expired slots/conflicts are not actionable;
+                                        proposals                                replace affected proposals
+
+ Weekly modes                           Coalesce per review period and mode      Do not send a stack of historical
+                                                                                 summaries; history remains inspectable
+
+
+
+Exact brief times, lead windows, catch-up maximums, DST policy and retention are configuration gates before
+launch. A reasonable proposed DST default is once per intended local run, shifting nonexistent local times
+forward and not duplicating ambiguous-time runs; validate and approve the policy before implementation.
+
+
+Notification contract
+In-app feed is the durable record. Web push is the first out-of-app channel when permitted/available. Email is an
+opt-in fallback for eligible items when push is unavailable or delivery fails; lack of read acknowledgment alone
+does not trigger duplicate email. A push-service acceptance is not proof of human receipt. Delivery channels
+share a stable notification identity.
+
+Tiers: quiet (feed only), scheduled (digest window), nudge (actionable time-sensitive finding), urgent (user-
+enabled urgent condition). Quiet hours and daily interruption limits apply; urgent does not bypass them unless
+the user explicitly configures that exception. Coalesce related findings and preserve pending decisions after
+notification suppression. Email defaults to a minimal summary/link rather than sensitive source content.
+
+Manual app access, feed reading, approval and emergency device unblock never depend on AI budget.
+Notification transport failure is separate from run success and remains visible.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                 29
+08 / KAIROS BLUEPRINT
+
+
+
+Shared context & AI budgets
+One ingestion layer
+Source adapters sync Calendar changes, Gmail history and supplied meeting notes into an owner-scoped store
+of people, threads, meetings, commitments, goals, summaries and evidence references. Routines query this
+store, not providers directly. Calendar cursors and Gmail history IDs are opaque provider state with explicit
+recovery on expiry. A connector may require fetching changed records; incremental does not mean zero network
+traffic.
+
+First connections use declared bounded backfill (proposed mail starting point: ten days, configurable before
+consent). Show coverage dates and unknown older promises; do not present bounded history as a complete
+account. Resync after cursor expiry has its own bounded recovery policy and must preserve accepted local
+commitments and provenance.
+
+
+Incremental summaries and freshness
+Hash content with owner/source identity and normalization; re-extract only changed material. Version rolling
+thread/person/goal summaries with source IDs, source versions, model/prompt version and as-of time. Source
+edits, deletion, permission changes and retention invalidate relevant summaries/context packs. A language-
+model summary is derived evidence, not ground truth; retrieve specific source evidence for uncertain or
+consequential claims.
+
+Time passing is an input. Due dates, waiting ages, current local day, meeting lead time, resolved status and
+capacity are re-evaluated deterministically even when source content hashes are unchanged. Never reuse
+yesterday's brief as today's factual analysis. If nothing relevant changed, create a short fresh digest with
+refreshed time-sensitive fields; reuse only still-valid prose fragments, clearly dated.
+
+
+Deterministic first, language second
+ Work                                      Implementation                             Guardrail
+
+ Overdue, days waiting, double bookings,   Plain code over typed facts and declared   No LLM-computed authority or
+ ranking, capacity, velocity math          preferences                                ungrounded social importance
+
+ Commitment extraction and text            Configured economical model tier           Schema validation, evidence spans,
+ classification                                                                       uncertainty, candidate-only output
+
+ Drafts, briefing prose and coaching       Configured stronger model tier on          Grounded context pack; cannot invent
+                                           allowed template paths                     facts or choose tools outside schema
+
+
+
+No model brand, model identifier or guaranteed price is assumed. Model selection and quality evaluation are
+deployment configuration. Classification/extraction may be probabilistic even though subsequent checks are
+deterministic; evaluate errors and keep corrections/audit history.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                   30
+Context packs and bounded orchestration
+Each template profile defines a context recipe, permitted fields, evidence IDs, freshness/coverage requirements,
+model tier, maximum tokens and maximum steps/tool calls. The orchestrator builds one compact structured pack
+per logical step/snapshot; sub-steps share its facts and pass typed results, not repeated transcript dumps. Do
+not reuse packs across users or beyond consent boundaries. Multi-agent orchestration is optional
+implementation machinery, not a requirement to run several agents for every routine.
+
+Separate trusted template instructions from untrusted source text and free-text preferences. Output style
+preferences cannot change criteria or authority. Stable profile/preferences prefixes may use provider caching
+where supported; measure actual cache use rather than assuming savings. Raw credentials, unnecessary
+source content and secret-bearing fields are excluded.
+
+
+Budgets and run ledger
+Per-user monthly allocation splits scheduled loops, extraction, drafting and chat, with a reserved daily-brief share
+inaccessible to chat. Add per-loop/run token/step/tool caps, concurrency limits, and a global daily AI kill switch.
+Conservative numeric limits must be configured before the first pilot; tune after one week of measured use rather
+than leaving execution uncapped while collecting data.
+
+Reserve maximum allowed usage transactionally before work; reconcile actual known usage after completion.
+Unknown/cancelled provider usage retains a bounded reservation until reconciliation/expiry policy resolves it.
+Track model ID, tier, prompt version, input/output/cached tokens, measured/estimated/unknown usage,
+currency/pricing version, cost estimate, purpose, loop/run IDs and time. Distinguish application allowance from
+provider invoice cost. Price snapshots and unavailable pricing are explicit.
+
+Usage meter shows purpose breakdown and one proposed 80% threshold alert per budget period (exact
+threshold configurable). Reserved briefing capacity is finite: if exhausted, deliver a current deterministic digest
+rather than claiming AI briefing remains guaranteed.
+
+
+Degradation ladder
+  1. Full permitted output within reservation.
+
+  2. Use still-valid cached summaries; no new AI analysis; refresh deterministic facts and show coverage/as-of
+  limitations.
+
+  3. Fresh deterministic digest, without generated prose, retaining pending decisions and source status.
+
+  4. Pause lower-priority AI steps/loops and disclose what is paused. Continue essential deterministic checks
+  where possible.
+
+No budget mode bypasses approvals, stale-source protections or device-local release. New items that lack
+extraction remain visibly unprocessed; existing accepted commitments are still tracked. Failures never get
+silently summarized as no urgent work.
+
+
+Privacy lifecycle
+Before first release define source-specific retention, user deletion/export, disconnect behavior, encryption,
+model-sharing consent and audit minimization. Removal/permission revocation propagates to raw content,
+summaries, pack caches and embeddings if used. Retain only minimal non-content audit data permitted by the
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                            31
+agreed retention policy. Existing coach restrictions on raw calendar content are not silently lifted: new context
+access requires explicitly designed and consented sharing.
+
+
+Verified technical references
+• Google Calendar incremental synchronization: complete pagination before committing the next sync token;
+  invalidated tokens require provider-cache rebuild.
+
+• Gmail synchronization: expired/out-of-range history requires resync; preserve bounded coverage and
+  accepted local work.
+
+• Gmail push: Pub/Sub notifications and watch renewal are connector responsibilities, not execution of user
+  loops.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                          32
+09 / KAIROS BLUEPRINT
+
+
+
+Implementation & release gates
+Status: proposed plan, not authorization to implement or deploy. The first public web release is the complete five-
+engine executive assistant. Internal build increments are not standalone planner releases.
+
+
+Existing foundation and scope distinction
+Repository documentation describes React/Vite/TypeScript, FullCalendar, FastAPI/Pydantic, PostgreSQL,
+Celery/Redis, goals/tasks, recurrence, Google integration, proposal review, focus logging, coaching and a
+Chrome extension. Reuse after targeted assessment, not a rewrite. Existing documented tests do not establish
+new feature/provider readiness.
+
+A legacy Linux helper in this repository suspends configured executables; it is outside the newly agreed product
+scope. The new roadmap excludes native-app blocking. Do not claim a hosts-file helper already exists or silently
+ship legacy app suspension as the new feature. This documentation pass does not remove or alter existing code.
+
+
+Logical modules
+Five domain engines share ingestion/context, proposal/approval, background scheduling and delivery
+infrastructure. Engines are ownership boundaries in the design, not five required microservices. Keep one
+maintainable modular application unless scaling evidence justifies separation.
+
+Shared ingestion updates owner-scoped source records and rolling summaries. Commitment reconciliation
+produces candidates and evidence links. Guardian validates scheduling deterministically. Briefing composes
+engine outputs. Goal engine tracks outcomes/plans. Insights aggregates coverage-aware statistics. AI sees
+minimal authorized context packs and cannot execute effects. Template registry constrains trigger/check/output
+combinations and authority.
+
+
+Proposed durable records
+ Record                                                   Required contract
+
+ Source record/cursor                                     Owner, provider identity, source version/hash, sync cursor,
+                                                          coverage/freshness, permissions, tombstone
+
+ Summary/context                                          Subject/source versions, evidence IDs, prompt/model version,
+                                                          as-of, expiry and permission boundary
+
+ Commitment/task                                          Separate obligation and fulfillment task, accepted/candidate
+                                                          state, owner/beneficiary, due/review time, evidence and
+                                                          resolution
+
+ Plan/block                                               Goal/season link, version, accepted status, fixed-time flag,
+                                                          capacity/availability snapshot
+
+ Template/loop                                            Registered schema/version, profile, validated parameters,
+                                                          authority ceiling, context recipe, model tiers/caps, catch-up/stop
+                                                          rules
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                 33
+ Record                                                     Required contract
+
+ Loop run                                                   Logical trigger key, source/time snapshot, state, budget
+                                                            reservation, output/evidence, sanitized errors
+
+ Proposal/approval                                          Typed effects, before/after, dependencies,
+                                                            versions/destinations, exact authorization, dismissal signature,
+                                                            partial results
+
+ Provider action                                            Stable operation ID, remote version/reference,
+                                                            pending/success/failed/unknown, reconciliation result
+
+ Delivery                                                   Stable identity, tier, channels/attempts, consent/quiet-hour/cap
+                                                            decision, feed record
+
+ Usage ledger                                               Purpose/run/model, tokens/cache/estimated cost,
+                                                            reservation/actual/unknown flags, pricing version
+
+
+
+Use migrations and owner-scoped indexes/constraints. Decide normalization for high-volume source/run data
+rather than extending planning JSON indiscriminately. Preserve accepted data and evidence during
+recovery/migration.
+
+
+Internal build order
+ Stage                               Work                                         Exit evidence
+
+ 0                                   Finalize templates, UX,                      Walkthrough of full assistant journey;
+                                     retention/consent, limits and scope          catalog mapping and unresolved
+                                                                                  operational defaults approved
+
+ 1                                   Calendar, goals and tasks; calendar-first    Google read/sync/publication
+                                     shell; guardian/proposal foundation          acceptance; fixed blocks, stale source,
+                                                                                  retry, conflicting/partial write checks
+
+ 2                                   Shared context, registry, server loops,      Closed-app brief, catch-up, dedup, costs,
+                                     budgets and delivery; focus web flow         quiet hours, Chrome website expiry,
+                                                                                  timer/audio recovery
+
+ 3                                   Meetings from supplied notes;                Extraction/merge/resolution quality;
+                                     commitment ledger and dossiers               provenance; task/draft approval;
+                                                                                  imported history coverage
+
+ 4                                   Gmail; email commitments,                    Provider consent/verification, bounded
+                                     reply/waiting/VIP, noise insights            ingestion, expired history recovery,
+                                                                                  approved draft/send, privacy lifecycle
+
+ 5                                   Full engine integration and pilot            All F01-F21/N01-N08 evidence; real-use
+                                                                                  pilot and tuning before release decision
+
+ Later                               Desktop timers for                           Separate platform gates; native-
+                                     macOS/Windows/Linux; one-OS system           app/cross-device blocking remains
+                                     website helper; other                        excluded
+                                     providers/capture/handoff
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                     34
+Stage 1/2 prototypes may be reviewed locally, but must not be presented as the requested full release. Meeting
+notes import satisfies the first release; bot-free recording is not a hidden dependency. Google Calendar is
+foundational and Gmail is the proposed initial mail provider; additional providers require later decisions.
+
+
+Consistency and execution
+Calendar source events are observations, not proposals: display already-made external changes promptly, then
+propose Kairos corrections. Protect fixed blocks. Recheck owner, consent, proposal version, source freshness,
+current availability and dependencies before apply. Persist local intent and use a durable outbox or equivalent for
+external effects; no distributed transaction is implied. Stable keys and reconciliation prevent duplicate/unknown
+writes from being blindly retried.
+
+Use server scheduler/worker jobs with leases and dedup, bounded retries and pause/version checks before
+delivery. Device owns session expiry and emergency unblock. Browser shutdown does not stop server loops and
+server failure does not prolong website rules. AI-off mode and budget kill switch preserve manual functionality
+and current deterministic findings.
+
+
+Acceptance and pilot
+Trace every requirement to implementation issue and evidence. Test permission/ownership, unsupported
+template values, authority escalation, source injection, stale approvals, fixed blocks, dismissal suppression,
+dependent batch changes, cursor expiry, missed runs, DST/time progression, duplicate delivery, cost reservation
+races and device recovery. Use labeled examples to measure extraction, unresolved-vs-answered distinctions
+and grounding, not just schema validity.
+
+Before pilot configure retention and numerical budgets, performance dataset/budgets, notification limits and
+supported Chrome/OS versions. Measure real usage for at least the proposed first week before tuning caps.
+Production release additionally needs applicable provider verification, operational monitoring, backup/restore,
+migration rollback, consent/privacy review and a separate deployment authorization. No tests, deployment or live
+provider changes are claimed by this documentation update.
+
+
+Verified platform dependencies
+Google Calendar sync uses paginated changes and invalidated-token recovery. Calendar push requires a public
+HTTPS receiver; notifications signal the need to synchronize rather than carrying the complete changed event.
+See Calendar push. Polling can support local validation; closed-app production automation requires hosted
+workers/scheduler and monitoring, subject to later deployment authorization.
+
+Gmail sync requires history-expiry recovery. Gmail push requires Pub/Sub and renewable watches; configure
+renewal and polling/recovery fallback. Gmail scope documentation identifies restricted scopes and applicable
+verification/security-assessment dependencies for server-handled restricted data; validate audience, scopes and
+exceptions before setting a public launch date.
+
+Chrome declarative request rules apply within supported browser/profile capability, not native-app control. Web
+push overview explains subscription/service-worker delivery; server jobs remain authoritative. Document Picture-
+in-Picture may be an optional browser enhancement but does not replace the later cross-platform desktop
+companion contract.
+
+Technical references checked 30 October 2026. These constraints inform implementation planning, not a claim
+that new connectors or desktop packages already exist.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                          35
+10 / KAIROS BLUEPRINT
+
+
+
+Decisions & references
+Version 2.0 / 30 October 2026. Latest explicit user decisions override older assumptions. Product scope is
+separate from current repository capability.
+
+
+Confirmed decisions
+ ID                                                      Decision
+
+ D01                                                     Full AI executive-assistant first web release: commitment
+                                                         ledger, calendar guardian, briefing composer, goal engine and
+                                                         insights. Not a planner-only MVP.
+
+ D02                                                     Google Calendar reading, synchronization and approved
+                                                         publication are foundation; other calendar providers later.
+
+ D03                                                     Fixed declarative templates, configured in one short chat with
+                                                         preview/confirmation. Parameters cannot raise authority; style
+                                                         text changes writing only; unsupported requests are logged and
+                                                         nearest supported option offered.
+
+ D04                                                     Six core families: Daily brief, Daily check-out, Goal check-in,
+                                                         Overdue and slipping work, Focus rescue, Weekly review.
+                                                         Friday wrap and week-ahead are shared-data modes.
+
+ D05                                                     Daily coaching preserves accepted blocks; propose only
+                                                         justified changes. Keep this time fixed protects selected blocks.
+
+ D06                                                     Commitment resolution uses evidence; reminders, replies,
+                                                         sessions and task counts alone are not proof of fulfilled
+                                                         outcomes.
+
+ D07                                                     In-app timer first; desktop timer companions follow for macOS,
+                                                         Windows and Linux.
+
+ D08                                                     Chrome website blocking in v1. Later system-wide website
+                                                         blocking on one selected OS. No native-app or cross-device
+                                                         blocking promises.
+
+ D09                                                     Related changes bundle with dependencies; obsolete
+                                                         proposals are replaced; equivalent dismissed proposals remain
+                                                         suppressed until meaningful facts change.
+
+ D10                                                     Server-side loops, catch-up policies and
+                                                         quiet/scheduled/nudge/urgent notification tiers; quiet hours and
+                                                         daily limit. In-app feed, then web push, then opt-in email
+                                                         fallback.
+
+ D11                                                     Shared incremental source/context store; rolling summaries,
+                                                         bounded backfill, deterministic checks, bounded source-linked
+                                                         packs, economical extraction tier and stronger writing tier.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                 36
+ ID                                                             Decision
+
+ D12                                                            Purpose-specific budgets with brief reservation, per-run/loop
+                                                                limits, kill switch, usage/cost ledger and graceful degradation;
+                                                                values tuned from usage.
+
+ D13                                                            Web first, desktop later. Internal build order
+                                                                calendar/goals/tasks, meetings, email; full assistant release
+                                                                gate includes all five engines.
+
+ D14                                                            Today, Plan, Commitments, Goals, Review, Assistant;
+                                                                Today/Plan retain the calendar-first workspace and collapsible
+                                                                coach panel.
+
+ D15                                                            Single purple accent with white/light gray, charcoal text and
+                                                                subtle borders. Earlier pastel palette is superseded
+                                                                everywhere.
+
+ D16                                                            Detailed documentation and updated PDF now; no app-code
+                                                                implementation or deployment in this task.
+
+
+
+
+Assessment and proposed resolutions
+The user's two workflow lists are reconciled provisionally as five engines implementing domain capabilities and
+six template families exposing fixed typed profiles. Specialized routines are not removed. Exact catalog mapping
+is the remaining product question asked during this revision; Automation explicitly labels the draft mapping
+pending confirmation.
+
+Gmail is the proposed initial mail provider, consistent with Calendar's Google foundation and the requested build
+order. Meetings initially use supplied notes/transcripts rather than native capture. Native capture, other
+calendar/mail providers, relationship-cooling/Going cold and AI handoff are later additions unless separately
+prioritized.
+
+The legacy Linux implementation actually suspends apps; it is not a hosts helper. New product scope excludes
+that capability. Existing code is neither silently removed nor reclassified as shipped website blocking.
+
+Today's coaching is interactive use of Daily brief, not a seventh automation template. A generated report or
+preview can appear automatically; accepting an inferred task or applying an external draft/calendar/send effect
+needs scoped authority. Calendar external edits are observed facts, not retroactively gated by approval.
+
+
+Open decisions and release gates
+ Item                                   Proposed handling / decision needed            Gate
+
+ Specialized workflow catalog           Built-in registered profiles inside the six    Catalog finalization
+                                        families, pending user confirmation;
+                                        alternative is additional selectable fixed
+                                        templates
+
+ First desktop blocking OS              Choose macOS, Windows or Linux; timer          Later desktop helper
+                                        support for all three does not imply
+                                        website-helper parity
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                         37
+ Item                                  Proposed handling / decision needed          Gate
+
+ GPS framework                         Confirm exact method/wording before          Goal coaching content
+                                       claiming faithful named-method support
+
+ Audio                                 Select licensed source/tracks and            Focus acceptance
+                                       offline/playback policy
+
+ Session recovery                      Define                                       Timer/device implementation
+                                       sleep/restart/abandonment/overrun rules
+                                       and fixed expiry behavior
+
+ Loop defaults                         Set brief times, lead/catch-up windows,      Activation defaults
+                                       quiet hours, daily caps and DST policy
+
+ Source/privacy                        Approve source-specific retention, model     First ingestion pilot
+                                       sharing, disconnect/delete/export and
+                                       bounded backfill
+
+ Budgets/quality                       Conservative numeric caps before pilot;      Pilot
+                                       tune from real usage; define labeled
+                                       evaluation and UX performance targets
+
+ Gmail launch readiness                Provider verification/security obligations   Public release
+                                       and live acceptance depend on selected
+                                       permissions and audience
+
+
+
+
+References and provenance
+User messages establish decisions. Screenshots/reference notes inform hierarchy and interactions, not
+independent instructions to execute. Shared ChatGPT link was unavailable and is not reviewed evidence.
+Sources referenced for product inspiration: Superfocus, Kai, Kai workflows, Kai integrations. Organization
+references: Notion product specs and Jama PRD guide.
+
+Technical references are collected in Context and Implementation as verified during this revision. Marketing
+illustrations do not prove connector or platform capabilities. PDF chapters are generated from the Markdown
+without hidden product wording substitutions.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                        38
+FOCUS CONCEPT / S07-S08
+
+
+
+One task. Clear controls.
+
+        FOCUS SESSION
+
+
+        Prepare customer interviews
+        Objective: finalize the five core questions
+
+
+
+
+        24:18
+                                                                   Browser blocking: active
+
+                                                                   Native app blocking: not included
+
+
+                                                                   Lo-fi audio / Play / Volume
+            Pause                 Finish
+
+
+
+
+                                                           Interviews        24:18               Pause   Finish
+
+
+
+
+Conceptual workstation and floating in-app timer. Report actual device coverage; sound is optional. Desktop
+timer companions for macOS, Windows and Linux follow the web release. System website blocking starts later
+on one selected OS.
+
+
+Completion is a separate decision
+Finish the session, record the accomplishment, explicitly update task status and optionally check in on an
+outcome. Unfinished work can produce a new proposal; it never silently reschedules itself.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                        39
+

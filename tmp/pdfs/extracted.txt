@@ -1,0 +1,1291 @@
+K A I R O S / P R O D U C T D O C U M E N TAT I O N
+
+
+
+
+Clear priorities.
+Protected focus.
+Follow-through.
+A calendar-first AI executive assistant built
+around your goals, approved plans and
+daily coaching.
+
+
+
+
+Product blueprint & UI/UX specification
+Version 1.1 / 30 October 2026
+
+Clean Tech edition / Design-stage specification
+Includes requirements, workflows, screen designs, components and implementation gates.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                               1
+DOCUMENT GUIDE
+
+
+
+From intent to execution
+This document consolidates the product documentation suite and expands the screen-by-screen design.
+Confirmed decisions are separated from proposed defaults and unresolved platform choices.
+
+
+
+     Core loop
+     Clarify → Plan → Approve → Schedule → Daily coach sync → Focus → Follow through → Review →
+     Propose adjustments → Approve.
+
+
+
+
+01      Product description
+
+
+02      Requirements & acceptance
+
+
+03      End-to-end workflows
+
+
+04      Interface architecture
+
+
+05      Screen design & components
+
+
+06      Features & integrations
+
+
+07      Implementation blueprint
+
+
+08      Decisions & references
+
+
+Status: design specification. This is not evidence that every feature is implemented and does not authorize
+deployment. Existing implementation and live-provider acceptance remain separate.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                    2
+W O R K S PA C E C O N C E P T / S 0 4
+
+
+
+A calm calendar at the center
+  KAIROS                       Today / Week                                                                    Daily coach sync
+
+
+
+   GOALS & TASKS                November 2 - 8                                                < Today >   Your priorities
+
+                                       MON        TUE       WED     THU      FRI        SAT         SUN   1. Validate the offer
+   Launch paid beta
+                               8:00                                                                       2. Prepare customer calls
+    Define the offer
+                                       Research             Build
+
+
+    Interview customers                                                                                     Proposed adjustment
+                               9:00
+
+                                                  Meeting                    Outreach
+    Prepare landing page                                                                                    Move research to 12:00
+
+                               10:00                                                                        Reason: meeting conflict
+
+
+    SUPPORT AREAS                                                                                              Review
+                               11:00
+
+    Inbox                                                           Review
+
+
+
+    Life Admin                 12:00                                                                        Ready to focus?
+                                       Proposed                                                             Start your core task
+    Relationships
+                               13:00
+
+
+
+
+                               14:00
+
+
+
+
+                               15:00
+
+                                                                                                            Ask your coach...
+
+
+
+
+Conceptual desktop layout with the coach open. The wireframe illustrates information hierarchy, not final pixel dimensions.
+
+
+
+One workspace, three roles
+Left: goals, tasks, support areas and quick capture. Center: the real week, linked work and proposed
+adjustments. Right: daily coaching, chat, follow-ups and explicit approvals.
+
+
+
+   When the coach closes, the calendar expands. On smaller screens, drawers and day/agenda views
+   preserve usable space.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                             3
+01 / KAIROS BLUEPRINT
+
+
+
+Product description
+  Visual revision 1.1: use white/light gray, deep charcoal and one vibrant deep-purple accent. Earlier multi-
+  color pastel guidance is superseded.
+
+
+
+
+Purpose
+Help founders, solopreneurs, freelancers, and team leads turn priorities into realistic scheduled work while
+keeping administrative commitments moving. Initial design serves one person's workspace; shared team
+planning is deferred.
+
+Users currently carry goals, tasks, meetings, replies, and promises across disconnected tools. Kairos joins those
+contexts so the user can decide what matters, protect time, and follow through without managing a complex
+dashboard.
+
+
+Product promise
+Set the direction. Approve a realistic plan. Focus on the work. Kairos keeps track and brings useful follow-ups
+and proposed adjustments back for review.
+
+
+Four pillars
+• Goal and season planning: define outcomes, milestones, next actions, constraints, and follow-up loops.
+
+• Calendar and capacity: propose time blocks around real commitments and expose tradeoffs when work does
+  not fit.
+
+• Focus and flow: a dedicated work view, distraction controls, optional lo-fi audio, and a floating session timer.
+
+• Coaching and accountability: daily priority alignment, evidence-based follow-ups, weekly reflection, and
+  specific proposed fixes.
+
+
+Product model
+A season is an optional longer planning container. A goal has an outcome and success measure. A plan links
+milestones, tasks, time allocations, and follow-up loops to that outcome. A support area holds ongoing
+responsibilities without requiring an artificial goal. A calendar block reserves time; a focus session records effort.
+Completion and outcome progress require their own evidence.
+
+Planning horizons: one day, one week, two weeks, four weeks, six weeks, and twelve weeks. Longer plans are
+reviewed over time; the assistant must not fill every future hour by default.
+
+A loop is a recurring or event-triggered instruction with a purpose, scope, schedule, evidence sources, allowed
+actions, output, and stopping condition. Goal loops advance outcomes; standing loops cover daily administration.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                               4
+Scope boundaries
+The product vision includes email follow-through, meeting context, broader calendar integrations, and AI handoff.
+These are staged capabilities, not claims of current availability. Native meeting capture and cross-device
+blocking require separately supported device software. Initial work retains the existing stack and personal-
+account model.
+
+Avoid a new page for each routine, mandatory chat for simple actions, unexplained scores, fabricated progress,
+and automatic rescheduling. Use original Kairos text and identity while following the reference's layout and
+interaction simplicity.
+
+
+Outcome measures — proposed, targets pending baseline
+Track onboarding-to-first-approved-plan completion, time to first useful daily plan, weekly coach-sync use,
+commitment closure, goal outcome check-ins, focus session completion, proposal acceptance/edit/rejection, and
+notification dismissals. Distinguish scheduled minutes, recorded effort, completed tasks, and measured
+outcomes. Collect only consented telemetry; measure against a baseline before setting improvement targets.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                       5
+02 / KAIROS BLUEPRINT
+
+
+
+Requirements & acceptance
+Priority: P0 = first complete calendar/coach/focus loop; P1 = connected executive assistance; P2 = broader
+capabilities. Priorities are proposed delivery sequencing, not removal from the product vision.
+
+ ID       Priority   Requirement                       Acceptance criteria
+
+
+ R01      P0         Guided goal definition            User selects any supported horizon, defines outcome, success measure,
+                                                       deadline, capacity and constraints; can save and resume. Questions adapt to
+                                                       missing information.
+
+ R02      P0         Reviewable plan                   AI proposes milestones, tasks, time allocations and loops with reasons. User
+                                                       can edit, reject or approve individual items; rejection does not change the
+                                                       accepted plan.
+
+
+ R03      P0         Calendar-first home               Desktop opens the weekly calendar with expandable goals/tasks and support
+                                                       areas on the left; right coach panel can collapse.
+
+
+ R04      P0         Direct calendar interaction       User can create, move and resize blocks with drag/drop and equivalent
+                                                       keyboard/form controls; details show source, goal, time and notes. Recurrence
+                                                       distinguishes an occurrence from a series.
+
+
+ R05      P0         Daily coach sync                  Coach reviews priorities, due commitments, available time and blockers; user
+                                                       approves today's concrete plan before adopting proposed changes.
+
+
+ R06      P0         Proposal-only adjustments         Assistant additions, moves and removals show before/after and reasons. No
+                                                       adjustment applies without approval; stale proposals are revalidated and
+                                                       conflicts require review.
+
+
+ R07      P0         Focus mode                        A task/block opens a session with start, pause, resume and end, optional
+                                                       audio, and selected distraction controls. Session remains accessible after
+                                                       navigation.
+
+ R08      P0         Floating timer                    Movable/minimizable in-app timer exposes task, time and session controls;
+                                                       reload restores actual state. Cross-application always-on-top is a separately
+                                                       gated capability.
+
+
+ R09      P0         Honest focus feedback             Completion separates recorded time, task completion, outcome progress and
+                                                       optional self-rating; no invented focus quality percentage.
+
+
+ R10      P0         Follow-up loops                   User can review, enable, pause, edit and stop a loop; see next run, last result
+                                                       and source status. Completed/cancelled scope stops irrelevant follow-ups.
+
+
+ R11      P0         Weekly review                     Review compares intended work, actual effort and outcomes, explains
+                                                       unresolved work, and creates a reviewable next-week proposal.
+
+
+ R12      P1         Email triage and follow-through   Threads are classified with reasons; drafts retain thread context. Reply debt
+                                                       and waiting items have owner and source links. Sending requires explicit
+                                                       approval.
+
+
+ R13      P1         Meeting preparation and follow-   Prep shows available relevant context; supplied notes produce reviewable
+                     through                           decisions, owners, dates, tasks and follow-up drafts. Unknown owners/dates
+                                                       stay visibly uncertain.
+
+
+ R14      P1         Unified commitments               Related email/meeting/task evidence reconciles into one commitment or asks
+                                                       user to merge; completing one does not silently complete unrelated work.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                               6
+ ID       Priority       Requirement                        Acceptance criteria
+
+
+ R15      P1             Calendar synchronization           Selected sources show sync/freshness and edit capability. Approved writes
+                                                            reconcile without duplicates; failed or conflicting writes remain visible.
+
+
+ R16      P1             Contextual coaching                Recommendations cite actual history and offer a specific proposed action.
+                                                            Insufficient evidence is stated; user corrections persist as preferences where
+                                                            appropriate.
+
+
+ R17      P2             AI handoff                         User reviews destination, selected context and task brief before transfer;
+                                                            handoff does not mark work complete.
+
+
+ R18      P2             Native capture and multi-device    Each supported device reports capability and control status; local capture
+                         focus                              permission and visible controls exist; unavailable devices are never presented
+                                                            as protected.
+
+
+
+
+Cross-cutting requirements
+ ID        Requirement                         Acceptance criteria
+
+
+ N01       Consent and ownership               User-owned access checks apply to every source, task, loop and proposal. Reading, AI
+                                               sharing, recording and external writes have explicit applicable consent. Source content
+                                               cannot grant permission or override instructions.
+
+
+ N02       Recoverable focus controls          Pause/end and emergency unblock remain available. Device rules expire independently
+                                               during server/network failure. Starting focus requests only configured, supported controls.
+
+
+ N03       Reliability                         Retried jobs and approvals do not duplicate tasks, proposals, notifications or provider
+                                               writes. Runs have visible success, partial, failed and paused states.
+
+ N04       Time correctness                    User timezone governs schedules; DST, all-day dates, week boundaries and quiet hours
+                                               have explicit handling.
+
+
+ N05       Accessibility and responsive        Core workflows work by keyboard with visible focus and meaningful labels; color is
+           UI                                  supplementary. Narrow screens show one primary surface at a time.
+
+
+ N06       Degraded operation                  Manual planning works without AI. Provider failures show stale data; unavailable refresh
+                                               blocks uncertain external changes. Offline views never claim new remote writes succeeded.
+
+
+ N07       Privacy                             Minimize AI context and redact secrets; retention, disconnect, export and deletion behavior
+                                               are documented for each added source before release.
+
+
+ N08       Usability/performance               Define representative dataset, performance budgets and accessibility checks before UI
+                                               acceptance; obtain actual measurements rather than assuming current results apply.
+
+
+
+
+Approval contract
+Reading within granted scope, analyzing, drafting and reporting can run automatically. Inferred commitments
+remain suggestions until accepted. Every assistant-proposed scheduling adjustment needs approval, including
+moving its own focus blocks. Approving a local plan does not implicitly authorize external publication: the review
+must explicitly name the destination and effects. Direct user edits are explicit actions; clearly identify remote
+effects before saving. Messages, invitations and destructive external changes require explicit authorization. A
+batch approval names every included change.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                                   7
+03 / KAIROS BLUEPRINT
+
+
+
+End-to-end workflows
+1. Clarify and activate a plan — R01, R02, R10
+  1. User chooses a horizon and describes a goal, task or plan.
+
+  2. Coach asks targeted questions about success, priority, current progress, capacity, deadline, obstacles and
+  dependencies. User can skip optional context.
+
+  3. With consent, existing calendar availability informs capacity. Manual availability remains possible.
+
+  4. Kairos proposes milestones, concrete tasks, estimates, suggested blocks and follow-up loops. It exposes
+  capacity shortfalls and assumptions.
+
+  5. User edits, accepts or rejects items. Approved items become the active plan; external publication is explicitly
+  selected and approved.
+
+  6. Home opens the calendar with the approved work and visible remaining decisions.
+
+An incomplete conversation saves a draft. No available slots produces options to reduce scope, change dates or
+change capacity, rather than an invented schedule.
+
+
+2. Daily coach sync — R05, R06
+  1. User opens home; right panel offers today's sync and a concise brief.
+
+  2. Coach brings priorities, upcoming meetings, urgent commitments, unfinished work, and relevant changes
+  with source freshness.
+
+  3. User confirms today's energy, available time and core focus; can correct priorities.
+
+  4. Coach proposes a feasible day with focus blocks, admin time and buffers, explaining tradeoffs.
+
+  5. User accepts individual changes or the listed batch. Unapproved changes remain previews.
+
+  6. Next focus task has a clear Start focus action.
+
+Skipping sync preserves the existing plan. New urgent information generates another proposal, never an
+automatic adjustment.
+
+
+3. Focus — R07–R09, N02
+  1. Start from a task or calendar block; confirm intended duration and session objective.
+
+  2. Apply configured supported distraction rules and optionally start lo-fi/ambient audio with playback and
+  volume controls.
+
+  3. Dedicated focus view shows the task and only essential controls. Floating timer stays accessible when
+  navigating elsewhere in Kairos.
+
+  4. Pause/resume/end updates session state and device controls consistently. Timer derives from persisted
+  timestamps, not browser animation ticks.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         8
+  5. On end, release blocking and ask what was accomplished, what remains, and whether the task is complete.
+  Optional self-rating is labeled as such.
+
+  6. A blocker or unfinished work can generate a proposed next action or replacement block.
+
+Audio failure does not block work. Permission/device failure shows which controls are unavailable. Sleep, reload,
+disconnection and duplicate endings must not duplicate time or strand blocking. P0 pause default: suspend
+session blocking; explain this in controls.
+
+
+4. Follow-up and schedule rescue — R06, R10, R14
+A scheduled or event-triggered loop reads permitted evidence, reconciles known commitments, checks its
+conditions and produces a report, draft or proposal. For example: a meeting overlaps accepted focus time;
+Kairos proposes a replacement slot with the original and replacement visible. Until approved, the original
+remains unchanged. If the replacement becomes unavailable before approval, require a refreshed proposal.
+
+User may accept, edit, dismiss, snooze or pause the loop. Snoozing changes notification timing, not a task's due
+date. Delivery of a reminder never closes a commitment.
+
+
+5. Meeting lifecycle — R13, R14
+Before: assemble available history, open threads, promises and meeting objective. During: use supplied notes
+initially; native audio capture is staged separately. After: extract decisions and candidate commitments, identify
+owners/dates and prepare a follow-up. User reviews uncertain facts and accepts tasks/drafts. Link to original
+evidence; merge duplicates with existing work. Waiting items remain open until answered, cancelled or
+deliberately closed.
+
+
+6. Weekly review — R11, R16
+Show intended versus actual effort, completed tasks, outcome check-ins, waiting items and repeatedly moved
+work. Ask what changed and what to carry forward. Coach proposes specific scope or calendar changes for the
+next week. User approves changes. Friday wrap and week-ahead prep use the same review history to avoid
+conflicting summaries.
+
+
+State rules
+• Plan: draft → proposed → active → completed/archived; revisions preserve the prior accepted version until
+  approved.
+
+• Commitment: suggested → accepted → ready/in progress/waiting → completed; dismissal and cancellation
+  are separate terminal outcomes. Scheduling is an independent attribute.
+
+• Proposal: pending → applied/dismissed/expired/conflicted; editing creates a new reviewable version.
+  Repeated acceptance cannot apply twice.
+
+• Focus: idle → running ↔ paused → ended; exact time accounting survives reload and retry.
+
+• Loop: draft → active ↔ paused → stopped. Individual runs retain success/partial/failed/skipped evidence.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                           9
+04 / KAIROS BLUEPRINT
+
+
+
+Interface architecture
+  Visual revision 1.1: use white/light gray, deep charcoal and one vibrant deep-purple accent. Earlier multi-
+  color pastel guidance is superseded.
+
+
+
+
+Home workspace — R03
+Calendar-first and minimal, following the supplied Superfocus screenshots. White background, light grey
+dividers, neutral event fills, a single purple accent, rounded corners and restrained icons. Use original Kairos
+wording and assets. This is the target design; current warm/lavender styling is implementation history.
+
+Desktop with coach closed: left goals/tasks panel approximately 26%, calendar approximately 74%. Use
+practical min/max widths rather than a rigid ratio on every viewport. Coach open: a resizable or fixed-width right
+panel uses part of the remaining workspace; preserve a usable calendar and offer collapse. On medium screens
+use an overlay drawer; on phones use a day/agenda surface with task and coach sheets. Breakpoints and final
+dimensions require prototype validation.
+
+
+Left panel
+Small Tasks heading, quick add and filter controls. Expandable season/goal rows reveal milestones and tasks in
+place. Separate support areas include Inbox, Life Admin, Relationships and Family, with user-defined areas
+supported. Selecting a goal filters/highlights its calendar work; offer a visible clear-filter action. Drag a task onto a
+slot to create a linked time reservation; provide Schedule as a non-drag equivalent. A task can have multiple
+sessions without becoming duplicate tasks.
+
+
+Calendar canvas
+Compact previous/next, Today/This week, date range, Day/Week switch, calendar filters and sync status. Include
+an all-day row, hourly grid, current-time marker and clearly visible working hours. Events show title and time as
+space permits; source/status appear through labels/icons and details.
+
+Click an empty slot to create; drag to move; resize duration. Event popover contains title, date/time, duration,
+goal/task link, recurrence, notes, source and available actions. Expand details only when needed. Do not expose
+provider IDs or internal job mechanics in normal flows.
+
+Use consistent neutral goal/area treatments and purple emphasis, supplemented by source/status indicators.
+Proposed additions use dashed outlines; moves show source/destination; removals show a clear proposed-
+removal treatment. A compact review strip summarizes added/moved/removed counts and opens the detailed
+review. Accepted and proposed items must remain distinguishable without color.
+
+
+Coach panel
+One contextual panel for daily sync, chat, recommendations, follow-ups and approvals. Default content
+emphasizes today's core priorities and next decision, not a feed of metrics. Each actionable card includes
+reason, evidence/source, concrete change and accept/edit/dismiss controls. Full chat can clarify a proposal;
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                             10
+conversation alone does not approve a vague future change. Users can revisit pending approvals.
+
+Email and meeting administration appears as concise actionable cards here; supporting details open on
+demand. Routine reports should be bundled; urgent notifications follow user preferences.
+
+
+Focus mode
+Dedicated workstation emphasizes task, session objective, time and pause/end. Optional audio has user-
+controlled playback/volume. Configured blocking shows per-device actual status. Floating in-app timer is
+draggable, minimizable, keyboard accessible and cannot hide essential controls offscreen. Cross-app system
+floating behavior needs platform capability validation; do not promise it from a normal browser tab.
+
+At session end use a short completion sheet: accomplishment, task state, optional outcome check-in/self-rating
+and next step. Recorded time and user-reported progress have separate labels.
+
+
+Component and state inventory
+Goal tree, task row, quick capture, calendar event/popover, proposal card/review strip, coach conversation, loop
+settings, focus workstation/timer, session completion sheet and weekly review. Each requires loading, empty,
+error and relevant stale/offline/permission-denied states. Empty state guides creation without seeded fictional
+commitments. Keyboard focus returns to the initiating control after dialogs; respect reduced motion and text
+zoom. Final fonts, tokens and minimum text sizes are validated in prototype review, not copied blindly from tiny
+screenshot text.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         11
+05 / KAIROS BLUEPRINT
+
+
+
+Screen design & components
+Design revision: 1.1 / 30 October 2026. The requested Clean Tech direction supersedes the earlier pastel
+category palette. Product behavior and approval requirements remain unchanged. Dimensions below are
+proposed design targets to validate in a prototype.
+
+
+1. Visual system
+White #FFFFFF surfaces; light gray #F6F7F9 canvas; charcoal #17191F primary text; slate #596170 secondary
+text; subtle #E2E5EB borders. Deep purple #6438E8 is the sole vibrant accent for primary actions, selected
+controls, links and focus indicators. Pale purple #F0EBFF is a tint of that same accent. Use neutral labels and
+outlines for event categories, not additional hues. Success, warning and error states use explicit text and icons
+so meaning never depends on color.
+
+Use a clean sans-serif typeface, 32-40 px major headings, 20-24 px screen headings, 14-16 px body and 12-13
+px supporting metadata. Minimum sizes and contrast require device verification. Use an 8 px spacing rhythm
+with 4 px fine adjustments; 16-24 px panel padding, 8 px event corners and 12 px panel corners. Borders supply
+separation; shadows are reserved for floating surfaces. One primary action per decision context.
+
+
+2. Screen S01 / Welcome and context
+Purpose: establish the user's intent without forcing a long setup interview.
+
+Layout: slim brand header, centered content column, progress indicator and a visible Save and exit action.
+Present two starting choices: plan a goal, or organize existing work. Explain what the assistant will prepare.
+Optional account connection follows; manual availability is available.
+
+Steps: choose intent; select planning horizon; describe the desired outcome; connect sources or continue
+manually. Next advances only after required information is supplied. Retain entries when navigating back.
+Connection denial explains what remains usable.
+
+Components: intent cards, horizon selector, text field, source connector, progress stepper, inline validation and
+primary Continue button.
+
+
+3. Screen S02 / Goal clarification
+Purpose: turn a broad ambition into an actionable brief.
+
+Layout: structured goal form with a compact conversational follow-up area. Show known answers as editable
+fields, not buried only in a transcript. Ask for success measure, current position, deadline, available time, priority,
+constraints and dependencies. Distinguish required answers from optional coaching context.
+
+Steps: capture goal; ask the most relevant unanswered question; summarize assumptions; let user correct;
+generate the proposed plan. Do not require every possible question for a simple one-day task. AI unavailable
+state offers a manual goal and task form.
+
+Components: outcome fields, date picker, capacity input, editable answer chips, question card, draft-save status
+and Generate plan action.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                            12
+4. Screen S03 / Plan review and activation
+Purpose: make the assistant's proposal concrete and reviewable.
+
+Layout: outcome summary above milestone/task list; calendar preview alongside on wide screens; proposed
+loops below. Each item shows purpose, estimate, date or frequency, and assumptions. A capacity summary
+explains unused time or overcommitment.
+
+Steps: inspect the plan; expand supporting reasons; edit tasks or timing; choose proposed items; review listed
+effects; approve. External publication names the calendar destination and effects explicitly. Keep local
+acceptance and remote publication distinct unless a single approval explicitly includes both.
+
+No capacity: offer reduce scope, extend deadline or change availability. Rejected suggestions leave accepted
+work intact. Changed availability invalidates affected suggestions and asks for renewed review.
+
+Components: milestone list, task editor, capacity summary, calendar preview, loop settings card and approval
+summary.
+
+
+5. Screen S04 / Calendar home
+Purpose: manage priorities and real-world time in one workspace.
+
+Desktop: goals/tasks on the left, calendar in the center and collapsible coach on the right. With coach closed,
+use approximately 26% / 74%; constrain sidebar to a usable range. At 1440 px, an illustrative open layout is 280
+px sidebar, 800 px calendar and 320 px coach, with the remainder used by dividers/padding. This is a prototype
+target, not a fixed rule.
+
+Left: quick capture; expandable season goals with tasks; support areas; calendar/source filters. Center: date
+navigation, Day/Week, all-day row, hourly grid, current-time marker, source freshness and proposal strip. Right:
+today's sync, pending decisions, follow-ups and contextual chat.
+
+Steps: expand a goal; drag a task into time or use Schedule; inspect event; edit through popover; start focus.
+Dragging assistant-proposed changes does not bypass proposal review. Direct user edits identify any external
+save effects. Clicking a blank slot creates an explicit task/event/block choice.
+
+Five- or seven-day display is a user preference; default seven-day week follows the reference. Work-hour display
+can be expanded. Source labels distinguish Google events, local events and goal blocks without a category
+rainbow.
+
+
+6. Screen S05 / Daily coach sync
+Purpose: agree on today's core work before focus.
+
+Panel structure: concise daily brief; today's constraints; proposed top priorities; proposed time blocks; pending
+decisions; chat input. Start with actual goals and available time. Ask about changed capacity and blockers.
+Explain priority tradeoffs briefly, with evidence links available on demand.
+
+Steps: review brief; correct priorities; tell coach today's capacity; inspect proposed day; approve individual
+changes or the enumerated batch; start selected task. Skipping sync preserves the existing plan. The assistant
+does not interpret a conversational acknowledgment as blanket authorization for unspecified changes.
+
+Components: brief card, priority list, capacity prompt, proposal cards, evidence disclosure and Start focus action.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                          13
+7. Screen S06 / Proposal review
+Purpose: approve every assistant-proposed schedule adjustment.
+
+Layout: compact summary strip in calendar; detailed drawer for review. Each change shows action type, previous
+state, proposed state, reason, affected task, source and destination. Additions use a dashed outline; moves
+show old/new positions with labels; removals remain visible until approved.
+
+Steps: select a proposal; inspect before/after; edit or dismiss; approve; revalidate current calendar; apply; report
+local and external outcomes separately. A stale proposal shows the conflict and offers a refreshed version.
+Failure must preserve accepted state or explain any partial effects.
+
+Components: change card, before/after comparison, selection checkbox, destination summary, Apply selected,
+conflict banner and retry/reconcile action. Repeated approval is idempotent.
+
+
+8. Screen S07 / Focus workstation and floating timer
+Purpose: protect attention while keeping essential controls accessible.
+
+Workstation: task title and intended outcome, timer, pause/end controls, device protection status and optional
+audio. Hide nonessential calendar and chat content during focus, while allowing intentional return to planning.
+Starting a session uses only configured supported blocking rules.
+
+Floating timer: compact neutral surface with purple active indicator, task label, elapsed/remaining time and
+pause/end. Drag handle, minimize and keyboard move controls; restore a safe position on viewport change. The
+first scope is in-app floating. A timer above other applications is a separate platform decision.
+
+Steps: select task; confirm duration/objective; start; verify per-device blocking status; optionally play audio;
+pause/resume; finish. Proposed pause behavior releases blocking while paused. Show unavailable controls
+honestly. Emergency unblock works even when the server cannot be reached; timed rules expire independently.
+
+Audio controls: play/pause, volume, track/source and mute. No automatic sound before a user gesture. Audio
+failure leaves the timer usable. Licensing/source selection remains a delivery decision.
+
+
+9. Screen S08 / Session completion
+Purpose: record evidence and choose a useful next step.
+
+Layout: short completion sheet with actual recorded duration; accomplishment prompt; explicit task status;
+optional outcome measure and optional self-rating. Do not infer task completion from timer expiry. Do not show a
+precise focus score without defined observation inputs and validation.
+
+Steps: describe result; mark task complete or unfinished; record measurable progress if applicable; capture
+blocker; save. Offer a proposed continuation session or return to calendar. Saving session evidence does not
+approve a new calendar adjustment.
+
+Components: duration summary, status control, note field, measure input, optional rating and next-step proposal.
+
+
+10. Screen S09 / Follow-ups and loop settings
+Purpose: let the user understand and control ongoing assistant work.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                         14
+Follow-ups are coach-panel cards grouped by urgency and routine. Expand to inspect evidence, task owner, due
+date, draft and proposed action. Email sending and external changes require explicit authorization. Dismiss
+hides a finding; snooze changes reminder time; neither means the underlying commitment is complete.
+
+Loop detail contains purpose, goal/area scope, schedule, timezone, permitted sources, criteria, quiet hours,
+notification destination, next run and last result. Pause stops future runs; stop terminates the loop. Keep run
+history readable and errors actionable. Partial results name unavailable sources without exposing credentials or
+raw internal errors.
+
+
+11. Screen S10 / Weekly review
+Purpose: learn from the week and prepare a realistic next one.
+
+Layout: outcome progress, completed work, scheduled versus recorded effort, repeatedly moved work,
+unresolved commitments and short reflection prompts. Focus time and goal outcomes remain separate. Place
+proposed next-week adjustments beside a calendar preview rather than burying them in prose.
+
+Steps: inspect evidence; correct missing progress; decide carry-forward/drop/defer; discuss constraints;
+generate next-week proposal; approve exact changes. Defer changes a commitment deliberately; it is not silent
+rollover.
+
+Components: outcome summary, effort comparison, carry-forward list, reflection form and next-week proposal
+review.
+
+
+12. Component contract inventory
+ Component                              Main behavior                          Required states
+
+
+ Goal tree                              Expand tasks; select scope; add goal   Empty, expanded, filtered, archived
+
+
+ Task row                               Complete, inspect, schedule, drag      Suggested, accepted, waiting, complete
+
+
+ Calendar block                         Inspect, move, resize, start focus     Local, external, proposed, stale, read-only
+
+
+ Proposal card                          Explain, edit, accept, dismiss         Pending, conflicted, applying, applied, failed
+
+
+ Coach message                          Clarify with source context            Streaming, cancelled, unavailable, retry
+
+
+ Floating timer                         Move, minimize, pause, end             Running, paused, reconnecting, ended
+
+
+ Device status                          Report actual protection               Supported, active, denied, offline, expired
+
+
+ Loop card                              Configure, pause, inspect results      Active, paused, failed, partial, stopped
+
+
+ Event popover                          Edit relevant details                  Read-only, editable, recurrence choice,
+                                                                               conflict
+
+
+ Source connector                       Connect, scope, disconnect             Unconfigured, syncing, current, stale,
+                                                                               revoked
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                   15
+13. Responsive and accessibility behavior
+Desktop keeps the calendar dominant. Tablet uses a coach drawer over the workspace. Phone defaults to
+day/agenda view with separate task and coach sheets; no squeezed seven-column grid. Preserve selected
+date/task when changing surfaces.
+
+Support keyboard scheduling and resizing alternatives, visible focus, descriptive labels, meaningful dialog focus
+restoration, screen-reader announcements for approval and timer changes, reduced motion, text zoom and
+comfortable touch targets. Use text and icons for all statuses. Do not announce timer ticks continuously to
+assistive technology. Validate accessibility and measured contrast in the prototype and implementation.
+
+
+14. Design validation walkthrough
+Walk a user through: define a six-week goal; answer clarification; revise a proposed plan; activate a loop; run
+daily coach sync; schedule a task without dragging; approve a move; start focus; navigate with the timer;
+pause/unblock; finish without completing the task; handle stale Google data; review the week. Confirm
+comprehension of proposed versus accepted changes and which devices are actually protected.
+
+This document specifies screen behavior, not a claim that the screens or all integrations are implemented. Final
+device support, system-floating behavior, audio licensing and pilot targets remain open decisions.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                        16
+06 / KAIROS BLUEPRINT
+
+
+
+Features & integrations
+Follow-up library
+Cadences below come from the user's requested workflow inventory; all are configurable in the user's timezone.
+Phase A is the core loop, B connected assistance, C broader capabilities. Outputs are proposals/drafts where
+action is involved.
+
+ Routine                  Default cadence        Evidence needed             Output                       Phase
+
+
+ Daily brief              Morning                Plan, tasks, calendar;      Priorities, urgency, prep,   A; email enrichment B
+                                                 email when connected        pending decisions
+
+
+ Week-ahead prep          Weekly                 Goals, capacity,            Next-week priorities and     A
+                                                 commitments                 proposed blocks
+
+
+ Reply debt               Daily                  Email threads, VIP          Ranked replies and           B
+                                                 preferences                 drafts
+
+
+ Waiting on them          Twice weekly           Sent requests, replies,     Waiting list and nudge       B
+                                                 owners                      drafts
+
+
+ Meeting follow-through   Evening                Notes/transcripts,          Candidate commitments        B
+                                                 existing tasks              and follow-up drafts
+
+
+ Meeting prep dossiers    Daily/before meeting   Attendees, relevant         Contextual prep sheet        B
+                                                 history and open items
+
+
+ Promise tracker          Daily                  Email/meeting               Unresolved promises          B
+                                                 commitments                 with next actions
+
+
+ VIP watch                Several checks daily   VIP list, unanswered        Targeted alert and reply     B
+                                                 email                       draft
+
+
+ Focus guard              Daily/weekly           Goal capacity and           Proposed protected           A
+                                                 calendar                    blocks
+
+
+ Calendar sentinel        Daily                  Calendar, meeting           Conflicts, overload and      B
+                                                 metadata                    missing-link findings
+
+
+ Where your week went     Weekly                 Calendar and session        Scheduled versus actual      A
+                                                 logs                        effort trends
+
+
+ Going cold               Weekly                 Selected contacts and       Relationship review          C
+                                                 communication history       suggestions
+
+
+ Inbox noise report       Every two weeks        Email classifications and   Noise patterns and           C
+                                                 volume                      proposed rules
+
+
+ Friday wrap              Friday                 Completed work and          Accomplishments and          A
+                                                 outcome check-ins           carry-forward review
+
+
+ Focus defense            Several checks daily   Focus reservations and      Proposed rescue plan         A after sync readiness
+                                                 calendar changes
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                         17
+Other feature groups
+Goal/season planning, horizon selection, adaptive questions, support areas, linked tasks, drag/drop, recurrence
+and visual proposal review are core. Daily coach sync, floating focus timer, optional lo-fi/ambient audio and
+configured distraction controls complete the work loop. Coaching adds trajectory and recurring-reschedule
+insights as evidence accumulates. Personal tone drafting, meeting capture and AI handoff are staged additions.
+
+
+Integration boundaries
+ Integration                            Intended role                              Current evidence / release boundary
+
+
+ Google Calendar                        Availability, selected event display and   Repository documents existing
+                                        approved writes                            implementation; live provider acceptance
+                                                                                   remains separate. Preserve separate
+                                                                                   consent and conflict controls.
+
+
+ Gmail / Outlook mail                   Triage, drafts, reply/waiting evidence     New product scope; permissions, retention
+                                                                                   and provider verification required.
+
+
+ Outlook calendar / Apple Calendar      Additional constraints and approved        Proposed connectors; select supported
+                                        scheduling                                 protocol and verify read/write behavior
+                                                                                   before promising parity.
+
+
+ Slack                                  Context and explicit task capture          Proposed; define accessible scope and
+                                                                                   posting authority.
+
+
+ Fathom / Granola                       Meeting note/transcript import             Proposed; validate supported access and
+                                                                                   source attribution.
+
+
+ Zoom / Meet / Teams / Webex            Meeting context and later native capture   Imported notes first. Bot-free capture is a
+                                                                                   platform-specific capability requiring local
+                                                                                   software/permissions and appropriate
+                                                                                   recording notices, not an ordinary web
+                                                                                   integration.
+
+
+ Browser extension / native companion   Selected distraction controls              Existing Chrome extension and opt-in Linux
+                                                                                   helper are a starting point, not proof of
+                                                                                   cross-device coverage.
+
+
+ Claude / ChatGPT / other AI tools      Reviewed task handoff                      Define destination, context limits and
+                                                                                   return/status contract before build.
+
+
+
+
+Loop settings and notifications
+Each loop stores purpose, goal/area scope, permitted sources, schedule/event trigger, timezone, criteria, output
+destination, quiet hours, snooze, deduplication policy and stop condition. Show last result, next run and partial-
+source warnings. Proposed default: reports are bundled in the coach panel; interruption is reserved for user-
+selected urgent conditions. Reply urgency thresholds, VIP ordering and relationship-cooling rules must be
+explicit and editable; the assistant must not invent social importance as fact.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                        18
+07 / KAIROS BLUEPRINT
+
+
+
+Implementation blueprint
+Status: proposed technical plan. This document authorizes no code execution, integration connection or
+deployment.
+
+
+Existing foundation and gap
+The repository documents React/Vite/TypeScript, FullCalendar, FastAPI/Pydantic, PostgreSQL, Celery/Redis,
+goals, tasks, local recurrence, planning proposals, Google Calendar consent, focus logs, coaching, a Chrome
+extension and a Linux companion. These are documented implementation claims, not a fresh code audit.
+Existing live-provider and device acceptance gaps remain open. See architecture, roadmap and verification.
+
+Retain the stack and evaluate reuse before replacing working code. The principal new work is calendar-first
+composition, adaptive planning and daily sync, durable loops, unified commitments, connected source ingestion
+and a consistent proposal/approval contract.
+
+
+Proposed logical services
+• Source adapters ingest permitted provider changes and maintain cursors, freshness, source references and
+  capabilities.
+
+• Commitment reconciliation proposes extraction/merges with evidence and uncertainty; accepted tasks remain
+  authoritative.
+
+• Planning services validate capacity/time constraints deterministically; AI helps clarify and explain.
+
+• Proposal service stores versioned effects, reasons, source snapshots, approval and application results.
+
+• Loop runner evaluates scheduled/event triggers with bounded context and creates reports or proposals.
+
+• Focus coordinator manages sessions and configured device controls; device-local expiry supplies recovery.
+
+• Context builder selects minimal permitted information for coaching; disconnected or excluded sources are
+  removed.
+
+
+Proposed data contracts
+ Entity                                                    Essential fields
+
+
+ Plan/revision                                             Owner, goal/horizon, milestones, version, status, accepted revision
+
+
+ Commitment                                                Owner, responsible person, beneficiary, status, optional due date,
+                                                           goal/area links, evidence references
+
+
+ Loop                                                      Owner, purpose, scope, schedule/trigger, timezone, permitted
+                                                           actions, status, next run
+
+
+ Loop run                                                  Loop/version, logical trigger key, source freshness, result,
+                                                           timestamps, sanitized error
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                       19
+ Entity                                                         Essential fields
+
+
+ Proposal                                                       Owner, typed changes, before/after, reason/evidence, source
+                                                                versions, review version, status, expiry
+
+
+ Approval                                                       Actor, exact proposal/version/effects, timestamp, destination
+
+
+ Provider action                                                Stable operation key, proposal link, remote reference/version,
+                                                                pending/succeeded/failed/unknown outcome
+
+
+ Device capability                                              Device, supported controls, permission state, last report, active rule
+                                                                expiry
+
+
+
+Use migrations for new durable relations/indexes. Revisit the current planning JSON aggregate tradeoff before
+adding high-volume source/run data; do not silently rewrite historical records. Keep task state, scheduling state
+and focus effort independent.
+
+
+Execution and consistency
+A loop run reads a permission-scoped snapshot, derives findings, reconciles known items, creates deduplicated
+output and records delivery. A unique logical trigger key prevents retries from duplicating results. Failed/partial
+runs retain source freshness and support bounded retry. Use timezone-aware schedules and a documented DST
+policy.
+
+Approvals recheck ownership, proposal version, current availability, source versions and destination capability.
+Stale input yields a refreshed proposal/conflict. Apply local changes transactionally. Queue external effects
+through a durable outbox or equivalent retry-safe design; remote calls cannot be part of the local database
+transaction. Unknown provider outcomes require reconciliation before retry. Report partial batch application
+honestly; provide recoverable next steps rather than claiming atomic cross-provider writes.
+
+Imported content is untrusted evidence. Structured AI output is validated and cannot execute tools or grant
+approval. Preserve current calendar sharing restrictions until a separate reviewed consent change exists.
+
+
+Delivery sequence and exit criteria
+ Phase                                  Work                                            Exit evidence
+
+
+ 0 — Design validation                  Finalize flows, low-fidelity desktop/mobile     Walk through onboarding, daily sync,
+                                        prototypes and unresolved platform choices      approval, focus and recovery with user;
+                                                                                        approve build scope
+
+
+ A1 — Calendar home                     Goal/task sidebar, calendar canvas, coach       R03/R04/R06; keyboard scheduling and
+                                        drawer, unified proposal review                 stale proposal checks
+
+
+ A2 — Planning and coach sync           Horizon onboarding, plans/revisions,            R01/R02/R05; insufficient-capacity and AI-
+                                        today's priorities                              off flows
+
+
+ A3 — Focus loop                        Workstation, floating in-app timer, optional    R07–R09/N02; reload, pause, expiry,
+                                        audio, supported blocking and completion        outage recovery on supported devices
+
+
+ A4 — Durable follow-through            Loop controls/runs, daily/weekly reviews        R10/R11; retries, quiet hours, DST and
+                                        and focus rescue                                approval-only schedule changes
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                           20
+ Phase                                  Work                                           Exit evidence
+
+
+ B — Connected assistant                Email adapters, imported meeting notes,        R12–R16; permissions, duplicate
+                                        commitments, dossiers and richer coaching      reconciliation, source freshness and real
+                                                                                       provider acceptance
+
+
+ C — Broader platforms                  Native capture, additional                     R17/R18 plus connector-specific capability
+                                        calendars/devices, relationships, AI handoff   and consent checks
+
+
+
+
+Verification and rollout
+Use requirement IDs to trace implementation issues and acceptance evidence. Exercise the complete user
+journey with representative data, not only isolated components. Add meaningful tests for approval bypass,
+stale/conflicting versions, ownership, retry duplication, timezone boundaries, provider failures, timer recovery and
+device expiry. Measure UI accessibility/performance against agreed budgets. Real providers and device controls
+require controlled live acceptance in addition to fakes.
+
+Preserve existing data with migration/rollback planning. New connectors and device effects are opt-in. Feature
+gates can stage incomplete capabilities without advertising them as active. Documentation work is complete
+independently of delivery gates; deployment remains paused and requires its own later authorization.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                          21
+08 / KAIROS BLUEPRINT
+
+
+
+Decisions & references
+Confirmed with the user
+ ID                                                        Decision
+
+
+ D01                                                       Kairos is an AI executive assistant built around user-created goals,
+                                                           plans and follow-up loops.
+
+
+ D02                                                       Superfocus is the primary UI/UX reference: minimal, calendar-first,
+                                                           white/light surfaces and subtle borders. The later Clean Tech
+                                                           direction replaces pastel categories with one purple accent.
+
+
+ D03                                                       Left side holds goals/tasks/support areas; weekly calendar is the
+                                                           main canvas with drag/drop.
+
+
+ D04                                                       Right panel supports daily coach sync, chat, follow-ups and
+                                                           approvals; collapsible panel was accepted.
+
+
+ D05                                                       Daily sync establishes today's core priorities and plan before focus
+                                                           mode.
+
+
+ D06                                                       Focus includes distracting app/tool blocking, optional lo-fi
+                                                           background audio and a floating session timer.
+
+
+ D07                                                       Kairos proposes every schedule adjustment for approval, including
+                                                           its own focus-block moves.
+
+
+ D08                                                       Planning horizons include a day, one/two/four/six/twelve weeks,
+                                                           with detailed clarification and approved AI proposals.
+
+
+ D09                                                       Work remains at documentation/design stage before
+                                                           implementation.
+
+
+
+
+Proposed defaults — validate in design review
+• Single-person workspace first; no shared team administration in the first delivery.
+
+• Use the existing stack and extend current features; phase the 15 routines as described in the feature catalog.
+
+• Floating timer starts inside the app. Cross-application always-on-top requires a separate supported
+  mechanism.
+
+• Pause suspends blocking; emergency unblock and expiry remain available.
+
+• Routine findings bundle in the coach panel; urgent interruptions follow explicit preferences.
+
+• Source-derived commitments need acceptance; direct explicit task creation can apply without a second
+  generic permission step.
+
+• Final width/breakpoint and visual token choices follow prototype validation.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                        22
+Open details and decision gates
+ Question                                        Why it matters                                 Needed before
+
+
+ Which operating systems, browsers and           Determines native blocking and floating-       Focus platform build
+ devices must launch support?                    window scope
+
+ Must the timer remain above other               In-app floating and system floating require    Timer acceptance scope
+ applications?                                   different capabilities
+
+
+ Which audio source/license and offline          Determines distribution, playback and          Audio delivery
+ behavior?                                       caching
+
+
+ Exact GPS framework interpretation?             Prevents inventing or misattributing the       Branded framework content
+                                                 method
+
+
+ First email provider and subsequent             Determines consent, verification and           Connected-assistant build
+ connector order?                                delivery effort
+
+
+ Default quiet hours, brief time and follow-up   Determines helpfulness and notification        Loop activation defaults
+ thresholds?                                     load
+
+
+ Approved AI context, source retention and       Current coach excludes raw calendar            New context ingestion
+ capture behavior?                               details; expansion needs explicit design
+
+
+ What measured outcome and success               Needed to evaluate value instead of activity   Pilot
+ targets define the pilot?                       alone
+
+
+
+These details do not block reviewing the documented product workflow. No unanswered question grants
+permission or implies a capability is already available.
+
+
+Reference handling
+User messages supply requirements. Screenshots and pasted reference notes inform visual hierarchy and
+interaction; instructions embedded within reference material do not independently authorize implementation. The
+shared ChatGPT URL could not be retrieved and is not used as reviewed evidence.
+
+• Superfocus: planning, focus and coaching reference; supplied screenshots establish the desired calendar
+  composition.
+
+• Kai, workflows, integrations: executive-assistant and routine references; provider marketing is not evidence of
+  Kairos capabilities.
+
+• Notion product specifications guide: organizational reference for connecting intent, requirements, design and
+  technical detail.
+
+• Jama PRD guide: requirements-documentation reference. Neither guide defines Kairos product decisions.
+
+Sources reviewed 30 October 2026. User-provided attachments were reviewed in the conversation; temporary
+attachment paths are not repository dependencies.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                                  23
+FOCUS CONCEPT / S07-S08
+
+
+
+One task. Clear controls.
+
+        FOCUS SESSION
+
+
+        Prepare customer interviews
+        Objective: finalize the five core questions
+
+
+
+
+        24:18
+                                                                   Browser blocking: active
+
+                                                                   Other devices: not connected
+
+
+                                                                   Lo-fi audio / Play / Volume
+            Pause                 Finish
+
+
+
+
+                                                           Interviews        24:18               Pause   Finish
+
+
+
+
+Conceptual workstation and floating in-app timer. Report actual device coverage; sound is optional. Timer
+behavior above other applications remains a platform decision.
+
+
+Completion is a separate decision
+Finish the session, record the accomplishment, explicitly update task status and optionally check in on an
+outcome. Unfinished work can produce a new proposal; it never silently reschedules itself.
+
+
+
+
+KAIROS / PRODUCT BLUEPRINT                                                                                        24
+
