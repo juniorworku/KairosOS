@@ -1,6 +1,6 @@
 # Kairos interactive design prototype
 
-A standalone, local UI/UX prototype based on the v2.0 product blueprint. This is separate from the production app. It uses fictional sample data and a fixed demo week (November 2-8, 2026).
+A standalone, local UI/UX prototype based on the v2.1 product blueprint. This is separate from the production app. It uses fictional sample data and a fixed demo week (November 2-8, 2026).
 
 ## Open for review
 
@@ -14,7 +14,7 @@ Open `output/prototype/Kairos-Interactive-Prototype.html` in a browser. CSS and 
 4. Commitments: filter promises/replies/waiting/candidates, inspect evidence, edit a draft, review the simulated send, accept a candidate, or resolve with a completion note. Sending does not close an obligation.
 5. Meeting prep: open Acme's dossier, add supplied notes, review extracted candidates and accept/link evidence.
 6. Goals: create a goal through the three-step clarification/plan review. Save a draft locally or approve a prepared plan/check-in. No calendar publication is included.
-7. Assistant: configure one of six workflow templates, inspect cadence, source, authority and stop-condition preview, then confirm. Unsupported example requests are rejected rather than expanding authority. Specialized profile grouping remains undecided in the blueprint.
+7. Assistant: configure one of six workflow templates, inspect cadence, source, authority and stop-condition preview, then confirm. Unsupported example requests are rejected rather than expanding authority. Specialized assistant workflows are built-in checks within the six templates.
 8. Focus: start from a task/block, pause/resume, navigate to Today to use the floating timer, drag/minimize it or move its handle with arrow keys. Finish and record an outcome without assuming task completion.
 9. Review: inspect example outcome/time-use evidence and save a daily reflection. The sample chart is illustrative, not inferred activity.
 10. Click the profile initials or lower-left prototype guide to reset sample data.

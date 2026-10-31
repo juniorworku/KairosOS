@@ -1,6 +1,6 @@
 # Product description and scope
 
-Version 2.0 / 30 October 2026. Target product specification; capabilities below are planned unless separately verified in the implementation record.
+Version 2.1 / 31 October 2026. Target product specification; capabilities below are planned unless separately verified in the implementation record.
 
 ## Purpose
 
@@ -36,7 +36,7 @@ Planning horizons are one day, one week, two weeks, four weeks, six weeks and tw
 
 A loop is an instance of a fixed, versioned, typed template with selected declarative parameters. Its specification defines trigger types, scope filters, deterministic checks, permitted action types, an authority ceiling, context recipe, model tiers, run/token caps and a stopping condition. Chat fills in that specification and presents what runs, when and why for confirmation. Parameters can lower authority but cannot exceed the template ceiling. Unsupported requests receive an explanation and the nearest supported option; the miss is recorded for product review.
 
-The six starter template families are Daily brief, Daily check-out, Goal check-in, Overdue and slipping work, Focus rescue, and Weekly review. Friday wrap and week-ahead prep are modes of Weekly review. Daily coach sync is the interactive planning conversation that uses the brief; it is not a seventh ambiguous background template. Specialized assistant engine checks and output profiles must be mapped to the fixed catalog before release; see the feature catalog for the proposed mapping and unresolved boundary.
+The six starter template families are Daily brief, Daily check-out, Goal check-in, Overdue and slipping work, Focus rescue, and Weekly review. Friday wrap and week-ahead prep are modes of Weekly review. Daily coach sync is the interactive planning conversation that uses the brief; it is not a seventh ambiguous background template. Specialized assistant capabilities, including reply debt, waiting-on-them, VIP watch, meeting follow-through and meeting dossiers, run as built-in checks/output profiles inside these six templates. They are not additional top-level templates; see Automation for their registered mapping.
 
 Free-text preferences may personalize output wording, length and order. They cannot alter checks, triggers, permissions or executable actions. Tasks, drafts and calendar actions inferred by the assistant are presented for approval; reading, deterministic analysis and briefing generation within granted access can run in the background. Correspondence and follow-up messages require exact per-message approval. Activating a notification loop authorizes its scheduled push/email delivery within configured limits. Every assistant-proposed schedule adjustment requires approval.
 

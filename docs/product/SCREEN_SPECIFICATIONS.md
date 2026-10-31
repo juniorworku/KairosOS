@@ -1,6 +1,6 @@
 # UI/UX screen specifications
 
-Design version: 2.0 / 30 October 2026. Clean Tech is the single visual direction. This revision includes full assistant workflows, approval hygiene and web-first website-only focus controls. Dimensions below are proposed design targets to validate in a prototype.
+Design version: 2.1 / 31 October 2026. Clean Tech is the single visual direction. This revision includes full assistant workflows, approval hygiene and web-first website-only focus controls. Dimensions below are proposed design targets to validate in a prototype.
 
 ## 1. Visual system
 

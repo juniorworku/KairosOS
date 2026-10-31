@@ -1,6 +1,6 @@
 # Features and integration catalog
 
-Version 2.0 / 30 October 2026. Planned release scope; this catalog does not certify existing implementation.
+Version 2.1 / 31 October 2026. Planned release scope; this catalog does not certify existing implementation.
 
 ## Release contract
 
@@ -39,18 +39,18 @@ Travel buffers must work with user-entered travel time or an explicitly chosen r
 | --- | --- | --- |
 | Daily brief | Global | Prepare the morning brief from shared facts and pending decisions |
 | Daily check-out | Global | Evening reconciliation and `/done`; capture outcomes and unfinished work |
-| Goal check-in | Per goal; proposed ledger profiles also allow global/area scope | Review progress and goal-specific next actions; proposed promise/waiting profiles use explicit scope exceptions |
+| Goal check-in | Per goal; ledger checks also allow global/area scope | Review progress and goal-specific next actions; promise/waiting checks use explicit scope exceptions |
 | Overdue and slipping work | Global or per goal | Detect overdue commitments/tasks and repeatedly postponed work |
 | Focus rescue | Global | Calendar-guardian checks and proposed protection/recovery |
 | Weekly review | Global | Friday wrap and week-ahead prep modes using shared review data |
 
 Daily coach sync is the interactive conversation that turns brief/context into an approved day. It preserves accepted blocks, respects fixed-time choices and does not run a new full-week rescheduler every morning.
 
-### Catalog mapping decision
+### Confirmed workflow catalog
 
-The six starter families and the complete five-engine inventory have both been requested. Their exact mapping is not yet fully defined: meeting-dossier triggers, VIP thresholds, twice-weekly waiting checks and biweekly inbox-noise reports are not naturally described by the six names alone.
+Confirmed 31 October 2026: reply debt, waiting-on-them, VIP watch, meeting follow-through and meeting dossiers run as built-in checks/output profiles inside the six templates. They are not additional top-level selectable templates. The five engines retain the full capability inventory above.
 
-Proposed catalog mapping, pending user confirmation: treat specialized routines as built-in checks and output profiles within the six user-facing template families, with explicitly versioned, typed definitions for the specialized behavior above. Each profile has its own allowed trigger, deterministic checks, output type, authority and context recipe; it is not an arbitrary user-composed workflow. If six exact templates rather than six families are required, add a reviewed fixed template for every uncovered routine before first release instead of silently omitting it or overloading chat. This is a catalog decision, not a feasibility blocker for the underlying engines.
+Each built-in check has registered trigger options, scope, deterministic criteria, outputs, context recipe and authority ceiling. Users tune and enable supported checks in the template setup rather than composing arbitrary automation. The [registered check mapping](AUTOMATION.md) supplies the design configuration; implementation must validate each schema and trigger. Family names do not restrict every check to the cadence implied by the family name.
 
 ## Template and loop contract
 

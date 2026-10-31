@@ -35,7 +35,7 @@ Use migrations and owner-scoped indexes/constraints. Decide normalization for hi
 
 | Stage | Work | Exit evidence |
 | --- | --- | --- |
-| 0 | Finalize templates, UX, retention/consent, limits and scope | Walkthrough of full assistant journey; catalog mapping and unresolved operational defaults approved |
+| 0 | Finalize templates, UX, retention/consent, limits and scope | Walkthrough of full assistant journey; built-in check schemas validated and unresolved operational defaults approved |
 | 1 | Calendar, goals and tasks; calendar-first shell; guardian/proposal foundation | Google read/sync/publication acceptance; fixed blocks, stale source, retry, conflicting/partial write checks |
 | 2 | Shared context, registry, server loops, budgets and delivery; focus web flow | Closed-app brief, catch-up, dedup, costs, quiet hours, Chrome website expiry, timer/audio recovery |
 | 3 | Meetings from supplied notes; commitment ledger and dossiers | Extraction/merge/resolution quality; provenance; task/draft approval; imported history coverage |

@@ -1,6 +1,6 @@
 # Decisions and unresolved details
 
-Version 2.0 / 30 October 2026. Latest explicit user decisions override older assumptions. Product scope is separate from current repository capability.
+Version 2.1 / 31 October 2026. Latest explicit user decisions override older assumptions. Product scope is separate from current repository capability.
 
 ## Confirmed decisions
 
@@ -22,10 +22,11 @@ Version 2.0 / 30 October 2026. Latest explicit user decisions override older ass
 | D14 | Today, Plan, Commitments, Goals, Review, Assistant; Today/Plan retain the calendar-first workspace and collapsible coach panel. |
 | D15 | Single purple accent with white/light gray, charcoal text and subtle borders. Earlier pastel palette is superseded everywhere. |
 | D16 | Detailed documentation and updated PDF now; no app-code implementation or deployment in this task. |
+| D17 | Confirmed 31 October 2026: specialized assistant workflows are built-in checks/output profiles inside the six templates, not additional selectable templates. |
 
 ## Assessment and proposed resolutions
 
-The user's two workflow lists are reconciled provisionally as five engines implementing domain capabilities and six template families exposing fixed typed profiles. Specialized routines are not removed. Exact catalog mapping is the remaining product question asked during this revision; [Automation](AUTOMATION.md) explicitly labels the draft mapping pending confirmation.
+The five domain engines supply capabilities; the six templates expose those capabilities through registered built-in checks/output profiles. The user confirmed this architecture on 31 October 2026. The specialized routines remain fully in scope without adding top-level workflow templates. [Automation](AUTOMATION.md) defines the mapping for schema and workflow validation.
 
 Gmail is the proposed initial mail provider, consistent with Calendar's Google foundation and the requested build order. Meetings initially use supplied notes/transcripts rather than native capture. Native capture, other calendar/mail providers, relationship-cooling/Going cold and AI handoff are later additions unless separately prioritized.
 
@@ -37,7 +38,6 @@ Today's coaching is interactive use of Daily brief, not a seventh automation tem
 
 | Item | Proposed handling / decision needed | Gate |
 | --- | --- | --- |
-| Specialized workflow catalog | Built-in registered profiles inside the six families, pending user confirmation; alternative is additional selectable fixed templates | Catalog finalization |
 | First desktop blocking OS | Choose macOS, Windows or Linux; timer support for all three does not imply website-helper parity | Later desktop helper |
 | GPS framework | Confirm exact method/wording before claiming faithful named-method support | Goal coaching content |
 | Audio | Select licensed source/tracks and offline/playback policy | Focus acceptance |

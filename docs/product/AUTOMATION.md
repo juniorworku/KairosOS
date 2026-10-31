@@ -4,11 +4,11 @@
 
 A template is a versioned typed specification, not generated code. It declares supported schedule/event/threshold triggers, scope filters, deterministic checks, output profiles, authority ceiling, stop conditions, context recipe, model tier per step, token cap and catch-up policy. A user's loop stores template ID/version and validated parameters. User values may reduce authority, never increase it. Unknown fields/actions fail validation.
 
-Six user-facing template families: Daily brief, Daily check-out, Goal check-in, Overdue and slipping work, Focus rescue, Weekly review. The mapping of specialized assistant checks to fixed profiles within these six families is a proposed catalog arrangement pending user confirmation. All listed executive-assistant capabilities remain required in the first web release regardless of final catalog labels.
+Six user-facing template families: Daily brief, Daily check-out, Goal check-in, Overdue and slipping work, Focus rescue, Weekly review. Confirmed 31 October 2026: specialized assistant capabilities are built-in checks/output profiles inside these six templates, not additional top-level templates. All listed executive-assistant capabilities remain required in the first web release.
 
 Chat fills the typed form, explains the preview and waits for activation confirmation. Unsupported requests identify the limitation, offer the closest supported configuration and record a redacted miss for product discovery. Free-text preferences such as short briefs or lead with money matters affect prose only; typed priorities determine checks/ranking. They cannot modify logic, sources, cadence, tools or action authority.
 
-## Registered profile mapping — proposed catalog arrangement
+## Registered built-in check mapping
 
 | Family | Fixed checks/output profiles | Trigger and context |
 | --- | --- | --- |
@@ -19,7 +19,7 @@ Chat fills the typed form, explains the preview and waits for activation confirm
 | Focus rescue | Focus guard + defense; sentinel checks; freed time; travel buffer | Calendar change or periodic check. Reads current availability, fixed blocks, capacity, travel fields and selected goals. |
 | Weekly review | Friday wrap; week-ahead prep; time-use; inbox noise | Weekly modes; inbox-noise profile can use biweekly cadence. Reads shared review record and aggregate statistics. |
 
-Family names do not force one daily/weekly cadence on every registered profile. Profiles have their own schema-approved trigger choices. Users can enable multiple instances; deduplication prevents the same finding being reissued across profiles. This grouping is an explicit draft choice, not a claim the user has approved specialized mapping.
+Family names do not force one daily/weekly cadence on every registered profile. Profiles have their own schema-approved trigger choices. Users can enable multiple instances; deduplication prevents the same finding being reissued across profiles. The built-in-check architecture is confirmed. The mapping above is the design specification to validate through schema and workflow tests; adding a check does not create a seventh selectable template.
 
 ## Authority and review
 
